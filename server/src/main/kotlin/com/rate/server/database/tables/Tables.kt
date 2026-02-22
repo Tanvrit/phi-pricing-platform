@@ -1,0 +1,100 @@
+package com.rate.server.database.tables
+
+import org.jetbrains.exposed.sql.Table
+import org.jetbrains.exposed.sql.kotlin.datetime.timestamp
+
+object PlansTable : Table("plans") {
+    val id                   = varchar("id", 100)
+    val name                 = varchar("name", 200)
+    val planType             = varchar("plan_type", 50)
+    val underwritingCategory = varchar("underwriting_category", 20).default("STANDARD")
+    val geographyScope       = varchar("geography_scope", 50).default("DOMESTIC")
+    val coPaymentTable       = varchar("copayment_table", 20).default("OMNIBUS")
+    val description          = text("description").default("")
+    val availableSumInsureds = text("available_sum_insureds")
+    val availableZones       = text("available_zones")
+    val availableFamilyTypes = text("available_family_types")
+    val maxDiscountCap       = decimal("max_discount_cap", 5, 4).default(java.math.BigDecimal("0.30"))
+    val rateTableId          = varchar("rate_table_id", 100).default("")
+    val minAge               = integer("min_age").default(5)
+    val maxAge               = integer("max_age").default(99)
+    val isActive             = bool("is_active").default(true)
+    override val primaryKey  = PrimaryKey(id)
+}
+
+object BaseRatesTable : Table("base_rates") {
+    val id            = long("id").autoIncrement()
+    val planId        = varchar("plan_id", 100)
+    val familyType    = varchar("family_type", 20)
+    val zone          = varchar("zone", 30)
+    val ageBandMin    = integer("age_band_min")
+    val sumInsured    = long("sum_insured")
+    val annualPremium = decimal("annual_premium", 14, 2)
+    override val primaryKey = PrimaryKey(id)
+    init { index(false, planId, familyType, zone, ageBandMin, sumInsured) }
+}
+
+object CoverRateLookupTable : Table("cover_rate_lookup") {
+    val id        = long("id").autoIncrement()
+    val coverId   = varchar("cover_id", 100)
+    val param1Key = varchar("param1_key", 200).nullable()
+    val param2Key = varchar("param2_key", 200).nullable()
+    val ageBandMin = integer("age_band_min").nullable()
+    val sumInsured = long("sum_insured").nullable()
+    val planId    = varchar("plan_id", 100).nullable()
+    val rate      = decimal("rate", 16, 8)
+    override val primaryKey = PrimaryKey(id)
+    init { index(false, coverId, param1Key, param2Key, ageBandMin, sumInsured, planId) }
+}
+
+object MemberLevelRatesTable : Table("member_level_rates") {
+    val id        = long("id").autoIncrement()
+    val coverId   = varchar("cover_id", 100)
+    val ageBandMin = integer("age_band_min").nullable()
+    val param1Key = varchar("param1_key", 200).nullable()
+    val rate      = decimal("rate", 16, 8)
+    override val primaryKey = PrimaryKey(id)
+    init { index(false, coverId, ageBandMin, param1Key) }
+}
+
+object InstalmentConfigTable : Table("instalment_config") {
+    val id             = long("id").autoIncrement()
+    val policyTenure   = varchar("policy_tenure", 20)
+    val paymentTenure  = varchar("payment_tenure", 20)
+    val paymentMode    = varchar("payment_mode", 30)
+    val instalmentCount = integer("instalment_count")
+    override val primaryKey = PrimaryKey(id)
+    init { uniqueIndex(policyTenure, paymentTenure, paymentMode) }
+}
+
+object DiscountRatesTable : Table("discount_rates") {
+    val id       = varchar("id", 100)
+    val name     = varchar("name", 200)
+    val paramKey = varchar("param_key", 100).nullable()
+    val rate     = decimal("rate", 10, 6)
+    override val primaryKey = PrimaryKey(id)
+}
+
+object CoverAvailabilityTable : Table("cover_availability") {
+    val planId  = varchar("plan_id", 100)
+    val coverId = varchar("cover_id", 100)
+    override val primaryKey = PrimaryKey(planId, coverId)
+}
+
+object QuotesTable : Table("quotes") {
+    val id               = varchar("id", 50)
+    val createdAt        = timestamp("created_at")
+    val planId           = varchar("plan_id", 100)
+    val primaryAge       = integer("primary_age")
+    val sumInsured       = long("sum_insured")
+    val familyType       = varchar("family_type", 20)
+    val zone             = varchar("zone", 30)
+    val tenure           = varchar("tenure", 20)
+    val paymentMode      = varchar("payment_mode", 30)
+    val requestJson      = text("request_json")
+    val resultJson       = text("result_json")
+    val basePremium      = decimal("base_premium", 14, 2)
+    val finalPremium     = decimal("final_premium", 14, 2)
+    val instalmentPremium = decimal("instalment_premium", 14, 2)
+    override val primaryKey = PrimaryKey(id)
+}
