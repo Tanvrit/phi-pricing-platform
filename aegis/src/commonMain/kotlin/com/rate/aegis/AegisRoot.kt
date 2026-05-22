@@ -22,6 +22,7 @@ import com.rate.aegis.components.CalloutKind
 import com.rate.aegis.customer.buyonline.BuyOnlineApp
 import com.rate.aegis.surfaces.calculator.CalculatorSurface
 import com.rate.aegis.surfaces.home.HomeSurface
+import com.rate.aegis.surfaces.plans.PlanConfiguratorSurface
 import com.rate.aegis.surfaces.quotes.QuoteExplorerSurface
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
@@ -62,9 +63,10 @@ private fun BusinessRoot() {
         user = operatorUser
     ) {
         when (active) {
-            AegisSurface.HOME       -> HomeSurface()
-            AegisSurface.CALCULATOR -> CalculatorSurface()
-            AegisSurface.QUOTES     -> QuoteExplorerSurface()
+            AegisSurface.HOME              -> HomeSurface()
+            AegisSurface.CALCULATOR        -> CalculatorSurface()
+            AegisSurface.QUOTES            -> QuoteExplorerSurface()
+            AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
             else -> SurfaceTodo(active)
         }
     }

@@ -41,7 +41,7 @@ fun HomeSurface() {
         verticalArrangement = Arrangement.spacedBy(AegisSpacing.s5)
     ) {
         Text("Home", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
-        DashboardSourceBanner(dashboard.source, dashboard.fallbackReason)
+        DashboardSourceBanner(dashboard.source, dashboard.fallbackReason, dashboard.refreshedAt)
 
         // KPI tiles ─────────────────────────────────────────────────────────
         Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s4)) {
@@ -166,7 +166,11 @@ fun HomeSurface() {
 }
 
 @Composable
-private fun DashboardSourceBanner(source: DashboardSource, reason: String) {
+private fun DashboardSourceBanner(source: DashboardSource, reason: String, refreshedAt: String) {
+    // The refreshedAt timestamp is the only feedback the operator gets that the
+    // 30s auto-refresh is alive — slice to seconds so it's compact in the banner.
+    val refreshLabel = refreshedAt.take(19).replace('T', ' ')
+        .let { if (it.isNotBlank()) " · refreshed $it UTC" else "" }
     when (source) {
         DashboardSource.LOADING -> AegisCallout(
             kind = CalloutKind.INFO,
@@ -176,12 +180,14 @@ private fun DashboardSourceBanner(source: DashboardSource, reason: String) {
         DashboardSource.LIVE -> AegisCallout(
             kind = CalloutKind.SUCCESS,
             title = "Live data",
-            body = "Tiles and tables below are computed from the server's quote table."
+            body = "Tiles and tables below are computed from the server's quote table. " +
+                    "Auto-refreshes every 30s${refreshLabel}."
         )
         DashboardSource.DEMO -> AegisCallout(
             kind = CalloutKind.WARN,
             title = "Demo data",
-            body = reason.ifBlank { "Server unreachable — showing a deterministic synthetic dataset." }
+            body = (reason.ifBlank { "Server unreachable — showing a deterministic synthetic dataset." }) +
+                    refreshLabel
         )
     }
 }

@@ -66,6 +66,22 @@ private val FILTER_GLOBAL_PLUS = "Global Plus"
 
 @Composable
 fun ConfiguratorScreen(client: ApiClient, onNavigate: (Screen) -> Unit) {
+    Scaffold(
+        bottomBar = { AppNavBar(current = Screen.Configurator, onNavigate = onNavigate) }
+    ) { padding ->
+        Box(Modifier.fillMaxSize().padding(padding)) {
+            ConfiguratorBody(client)
+        }
+    }
+}
+
+/**
+ * Configurator body — same plan-CRUD logic as [ConfiguratorScreen] but with no
+ * Scaffold / bottom-nav chrome, so the Aegis BUSINESS shell can embed it
+ * inside its own layout without nested navigation bars.
+ */
+@Composable
+fun ConfiguratorBody(client: ApiClient) {
     val scope        = rememberCoroutineScope()
     var plans        by remember { mutableStateOf<List<Plan>>(emptyList()) }
     var loading      by remember { mutableStateOf(false) }
@@ -98,16 +114,12 @@ fun ConfiguratorScreen(client: ApiClient, onNavigate: (Screen) -> Unit) {
     val domestic = plans.count { it.planType.name.startsWith("DOMESTIC") }
     val global   = plans.count { it.planType == PlanType.GLOBAL || it.planType == PlanType.GLOBAL_PLUS }
 
-    Scaffold(
-        bottomBar = { AppNavBar(current = Screen.Configurator, onNavigate = onNavigate) }
-    ) { padding ->
-        Column(
-            Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
 
             // ── Header ──────────────────────────────────────────────────────
             Row(
@@ -218,7 +230,6 @@ fun ConfiguratorScreen(client: ApiClient, onNavigate: (Screen) -> Unit) {
                 onDismiss = { showDialog = false }
             )
         }
-    }
 }
 
 // ── Stats Row ─────────────────────────────────────────────────────────────
