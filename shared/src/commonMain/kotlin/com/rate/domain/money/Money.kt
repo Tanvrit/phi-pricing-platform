@@ -17,12 +17,13 @@ import kotlin.math.roundToLong
  * - `toRupees(): Double` is only for display.
  * - Arithmetic operators preserve precision. Division rounds half-up to nearest paisa.
  */
-// `value class` is multiplatform-portable; the JVM `@JvmInline` annotation that previously
-// adorned this class is unavailable on wasmJs/iOS commonMain. We drop it — on JVM the
-// compiler still inlines where it can, and the marginal boxing cost at our call sites
-// is negligible vs the cost of forking the type into expect/actual.
+// `data class` instead of `value class`: JVM requires @JvmInline on every value class,
+// but @JvmInline is unavailable on wasmJs/iOS commonMain — and Kotlin doesn't (yet) accept
+// a value class without @JvmInline on JVM. expect/actual would solve it but is invasive
+// for callers. Money is a thin wrapper; the per-allocation cost is negligible vs the
+// portability win across all four KMP targets.
 @Serializable
-value class Money(val paise: Long) : Comparable<Money> {
+data class Money(val paise: Long) : Comparable<Money> {
 
     operator fun plus(other: Money): Money = Money(paise + other.paise)
     operator fun minus(other: Money): Money = Money(paise - other.paise)
