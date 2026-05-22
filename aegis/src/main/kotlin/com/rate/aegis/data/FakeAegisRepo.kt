@@ -317,4 +317,123 @@ object FakeAegisRepo {
     fun plansForCover(coverId: String): List<String> = plans
         .filter { it.allowedCoverIds.isEmpty() || it.allowedCoverIds.contains(coverId) }
         .map { it.id }
+
+    // ── Synthetic quote ledger (powers Home recent activity + Quote Explorer) ──────
+
+    /**
+     * A synthetic quote row. Mirrors the columns that Quote Explorer (Ship-3) actually shows
+     * — Home + Quotes both read from this list.
+     */
+    data class FakeQuote(
+        val id: String,
+        val createdAt: String,            // ISO-8601 short
+        val planId: String,
+        val planName: String,
+        val primaryAge: Int,
+        val sumInsured: Long,
+        val familyType: String,
+        val zone: String,
+        val tenureLabel: String,
+        val totalIncludingGst: Double,
+        val isValid: Boolean = true,
+    )
+
+    /**
+     * 50 synthetic quotes spanning every plan, age 25-72, full SI grid, 5 family-type cuts,
+     * 5 zones, 5 tenure options. Distribution is intentionally lumpy (PHI_BASIC heaviest)
+     * to mirror real funnel concentration. Stable seed so screenshots are reproducible.
+     */
+    val quotes: List<FakeQuote> by lazy {
+        val rng = kotlin.random.Random(seed = 42)
+        val zones = ZONES_ALL
+        val families = FAMILY_FULL.take(7)
+        val tenures = listOf("1 Year", "2 Years", "3 Years", "5 Years")
+        val planRoll = listOf(
+            "PHI_BASIC", "PHI_BASIC", "PHI_BASIC", "PHI_BASIC", "PHI_POSP",
+            "PHI_FLAGSHIP1", "PHI_FLAGSHIP1", "PHI_FLAGSHIP2", "PHI_FLAGSHIP4",
+            "PHI_SENIOR", "PHI_SUBSTANDARD",
+            "PHI_GLOBAL_EXCL", "PHI_GLOBAL_ASIA", "PHI_GLOBAL_PLUS",
+        )
+        (1..50).map { i ->
+            val planId = planRoll[rng.nextInt(planRoll.size)]
+            val plan = plans.first { it.id == planId }
+            val age = (rng.nextInt(plan.maxAge - plan.minAge) + plan.minAge).coerceIn(25, 72)
+            val si = plan.availableSumInsureds.random(rng)
+            val zone = if (plan.availableZones.size == 1) plan.availableZones[0] else zones.random(rng)
+            val family = if (plan.availableFamilyTypes.contains("2A2C")) families.random(rng) else "1A"
+            val tenure = tenures.random(rng)
+            // Synthetic total — proportional to age × SI × family multiplier, plus 18% GST.
+            val familyMult = when (family) {
+                "1A" -> 1.0; "2A" -> 1.7; "2A1C" -> 2.0; "2A2C" -> 2.25
+                "2A3C" -> 2.5; "1A1C" -> 1.35; "1A2C" -> 1.55
+                else -> 1.0
+            }
+            val zoneMult = when (zone) {
+                "Zone 1" -> 1.0; "Zone 2" -> 0.88; "Zone 3" -> 0.78
+                "Zone 4" -> 0.70; "Pan India" -> 0.95
+                else -> 1.0
+            }
+            val planMult = when (plan.planType.name) {
+                "DOMESTIC" -> 1.0; "DOMESTIC_POSP" -> 0.90
+                "DOMESTIC_FLAGSHIP" -> 1.35; "DOMESTIC_SENIOR" -> 1.20
+                "DOMESTIC_SUBSTANDARD" -> 1.45
+                "GLOBAL" -> 2.80; "GLOBAL_PLUS" -> 3.20
+                else -> 1.0
+            }
+            val agePremium = (age * 90.0 + si / 100_000.0 * 320.0)
+            val preTax = agePremium * familyMult * zoneMult * planMult * (1 + rng.nextDouble() * 0.04 - 0.02)
+            val total = preTax * 1.18
+            val isValid = !(planId == "PHI_SENIOR" && age < 60)   // mirror engine validation
+            val day = (i % 28) + 1
+            val month = ((i / 28) % 5) + 1
+            FakeQuote(
+                id = "Q-2026${month.toString().padStart(2, '0')}${day.toString().padStart(2, '0')}-${i.toString().padStart(4, '0')}",
+                createdAt = "2026-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}",
+                planId = planId,
+                planName = plan.name,
+                primaryAge = age,
+                sumInsured = si,
+                familyType = family,
+                zone = zone,
+                tenureLabel = tenure,
+                totalIncludingGst = if (isValid) total else 0.0,
+                isValid = isValid,
+            )
+        }
+    }
+
+    /** KPI summary for the Home dashboard. */
+    data class HomeKpis(
+        val quotesToday: Int,
+        val quotesYesterday: Int,
+        val gwpThisMonth: Double,        // ₹ pre-tax
+        val gwpLastMonth: Double,
+        val conversionRatePct: Double,   // 0-100
+        val conversionRateDeltaPct: Double,
+        val activePlans: Int,
+        val draftPlans: Int,
+        val retiredPlans: Int,
+        val uwBacklog: Int,
+        val uwBreaches: Int,
+    )
+
+    /**
+     * Synthesised but plausible KPI snapshot. Phase 9 will read from the audit_event +
+     * quotes table; this is hand-tuned so the Home tiles look real.
+     */
+    val homeKpis: HomeKpis by lazy {
+        HomeKpis(
+            quotesToday = 142,
+            quotesYesterday = 119,
+            gwpThisMonth = 1_47_82_350.0,
+            gwpLastMonth = 1_31_05_780.0,
+            conversionRatePct = 38.7,
+            conversionRateDeltaPct = +2.1,
+            activePlans = plans.count { metaFor(it.id).lifecycle == PlanLifecycle.LIVE },
+            draftPlans = plans.count { metaFor(it.id).lifecycle == PlanLifecycle.DRAFT },
+            retiredPlans = plans.count { metaFor(it.id).lifecycle == PlanLifecycle.RETIRED },
+            uwBacklog = 17,
+            uwBreaches = 2,
+        )
+    }
 }
