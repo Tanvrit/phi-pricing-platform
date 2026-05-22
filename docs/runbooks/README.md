@@ -20,6 +20,7 @@ structure so a sleepy responder at 3 a.m. can scan it without reading prose.
 | RB-08 | High request latency p99 > 1s | `latency-burn.md` | SEV-2 |
 | RB-09 | Disk near capacity on Postgres host | `db-disk-pressure.md` | SEV-2 |
 | RB-10 | PII detected in logs | `pii-in-logs.md` | SEV-1 |
+| RB-13 | SMS gateway degraded | `sms-gateway-degraded.md` | SEV-2 |
 
 ## Runbook template
 
