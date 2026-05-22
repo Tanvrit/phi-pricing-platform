@@ -174,10 +174,15 @@ class LiveDashboardRepo(private val client: ApiClient) {
         )
     }
 
-    /** Count how many server-returned plans have a given lifecycle in PlanMeta. */
+    /**
+     * Count how many plans have a given lifecycle. Reads `plan.lifecycle` directly
+     * off the domain model (server-persisted as of V4). Falls back to FakeAegisRepo's
+     * synthetic plans (which carry their own `lifecycle` via the typealiased enum)
+     * when the server returned nothing, so demos still render.
+     */
     private fun lifecycleCount(plans: List<Plan>, lifecycle: PlanLifecycle): Int {
-        val source = if (plans.isNotEmpty()) plans.map { it.id } else FakeAegisRepo.plans.map { it.id }
-        return source.count { FakeAegisRepo.metaFor(it).lifecycle == lifecycle }
+        val source = if (plans.isNotEmpty()) plans else FakeAegisRepo.plans
+        return source.count { it.lifecycle == lifecycle }
     }
 
     /** "2026-05" → "2026-04". Handles year boundary. */

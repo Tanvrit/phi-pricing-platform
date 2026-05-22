@@ -20,7 +20,9 @@ import com.rate.aegis.components.AegisSurface
 import com.rate.aegis.components.AegisUser
 import com.rate.aegis.components.CalloutKind
 import com.rate.aegis.customer.buyonline.BuyOnlineApp
+import com.rate.aegis.surfaces.audit.AuditEventsSurface
 import com.rate.aegis.surfaces.calculator.CalculatorSurface
+import com.rate.aegis.surfaces.covers.CoverCatalogSurface
 import com.rate.aegis.surfaces.home.HomeSurface
 import com.rate.aegis.surfaces.plans.PlanConfiguratorSurface
 import com.rate.aegis.surfaces.quotes.QuoteExplorerSurface
@@ -67,6 +69,8 @@ private fun BusinessRoot() {
             AegisSurface.CALCULATOR        -> CalculatorSurface()
             AegisSurface.QUOTES            -> QuoteExplorerSurface()
             AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
+            AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
+            AegisSurface.AUDIT             -> AuditEventsSurface()
             else -> SurfaceTodo(active)
         }
     }
@@ -80,7 +84,15 @@ private fun AdminRoot() {
         onSurfaceChange = { active = it },
         user = operatorUser.copy(role = "Admin")
     ) {
-        SurfaceTodo(active)
+        when (active) {
+            AegisSurface.AUDIT             -> AuditEventsSurface()
+            AegisSurface.HOME              -> HomeSurface()
+            AegisSurface.QUOTES            -> QuoteExplorerSurface()
+            AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
+            AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
+            AegisSurface.CALCULATOR        -> CalculatorSurface()
+            else -> SurfaceTodo(active)
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package com.rate.server.audit
 import com.rate.server.database.tables.AuditEventTable
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -13,6 +14,27 @@ import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
+
+/**
+ * Wire-format row for `GET /api/audit/events`. Mirrors the columns in
+ * [AuditEventTable]; the `prevHash` is intentionally elided here because the
+ * UI primarily wants `this_hash` for cross-reference (the verify endpoint
+ * handles full-chain inspection).
+ */
+@Serializable
+data class AuditEventRow(
+    val id: Long,
+    val eventAt: String,
+    val action: String,
+    val resourceType: String,
+    val resourceId: String?,
+    val actorSubject: String?,
+    val actorRole: String?,
+    val requestId: String?,
+    val payloadJson: String?,
+    val prevHash: String?,
+    val thisHash: String
+)
 
 /**
  * Identifies who is performing an action. Phase 2 of the audit roadmap will wire real
@@ -100,6 +122,34 @@ class AuditEventService {
         log.warn("audit.record failed for action={} resource={}: {}", action, resourceType, t.message)
         null
     }
+
+    /**
+     * Lists the most recent audit events for display in operator surfaces.
+     * Newest-first, capped at [limit] (caller is responsible for upper-bound clamping).
+     * No tampering checks are performed here — that's what `verifyChain` is for.
+     */
+    suspend fun listEvents(limit: Int = 100): List<AuditEventRow> =
+        newSuspendedTransaction {
+            AuditEventTable
+                .selectAll()
+                .orderBy(AuditEventTable.id, SortOrder.DESC)
+                .limit(limit)
+                .map { row ->
+                    AuditEventRow(
+                        id            = row[AuditEventTable.id],
+                        eventAt       = row[AuditEventTable.eventAt].toString(),
+                        action        = row[AuditEventTable.action],
+                        resourceType  = row[AuditEventTable.resourceType],
+                        resourceId    = row[AuditEventTable.resourceId],
+                        actorSubject  = row[AuditEventTable.actorSubject],
+                        actorRole     = row[AuditEventTable.actorRole],
+                        requestId     = row[AuditEventTable.requestId],
+                        payloadJson   = row[AuditEventTable.payloadJson],
+                        prevHash      = row[AuditEventTable.prevHash],
+                        thisHash      = row[AuditEventTable.thisHash]
+                    )
+                }
+        }
 
     /**
      * Walks the chain in id-order from `fromId` (inclusive) to `toId` (inclusive),

@@ -86,6 +86,15 @@ fun Application.configureRouting(
             call.respond(AuditVerifyResponse(r.ok, r.rowsChecked, r.breakAtId, r.reason))
         }
 
+        // ── Audit log listing (newest-first; for Aegis AUDIT surface) ────────
+        // Cap at 500 rows to avoid pulling unbounded payloads; default 100 keeps
+        // the wire small for the common dashboard refresh case.
+        get("/api/audit/events") {
+            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 100)
+                .coerceIn(1, 500)
+            call.respond(auditService.listEvents(limit))
+        }
+
         quoteRoutes(rateDataProvider, quoteRepo, auditService, idempotencyService)
         planRoutes(planRepo, auditService)
         coverRoutes()

@@ -1,6 +1,7 @@
 package com.rate.server.database.repositories
 
 import com.rate.domain.model.Plan
+import com.rate.domain.model.PlanLifecycle
 import com.rate.domain.model.PlanType
 import com.rate.domain.repository.PlanRepository
 import com.rate.server.database.tables.PlansTable
@@ -45,6 +46,7 @@ class PlanRepositoryImpl : PlanRepository {
         stmt[PlansTable.minAge]               = minAge
         stmt[PlansTable.maxAge]               = maxAge
         stmt[PlansTable.isActive]             = isActive
+        stmt[PlansTable.lifecycle]            = lifecycle.name
     }
 
     private fun ResultRow.toPlan() = Plan(
@@ -57,7 +59,9 @@ class PlanRepositoryImpl : PlanRepository {
         availableFamilyTypes = this[PlansTable.availableFamilyTypes].toJsonStringList(),
         minAge               = this[PlansTable.minAge],
         maxAge               = this[PlansTable.maxAge],
-        isActive             = this[PlansTable.isActive]
+        isActive             = this[PlansTable.isActive],
+        lifecycle            = runCatching { PlanLifecycle.valueOf(this[PlansTable.lifecycle]) }
+            .getOrDefault(PlanLifecycle.LIVE)
     )
 
     private fun String.toJsonLongList()   = trim('[',']').split(",").mapNotNull { it.trim().toLongOrNull() }

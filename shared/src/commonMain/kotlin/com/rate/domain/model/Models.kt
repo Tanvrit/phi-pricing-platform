@@ -122,6 +122,9 @@ fun getAgeBand(age: Int): AgeBand {
 // Core domain models
 // ────────────────────────────────────────────────────────────────────────────
 
+/** Lifecycle state of a Plan. Persisted server-side; surfaced on the Aegis dashboard. */
+enum class PlanLifecycle { LIVE, DRAFT, RETIRED }
+
 @Serializable
 data class Plan(
     val id: String,
@@ -141,6 +144,7 @@ data class Plan(
     val minAge: Int = 5,
     val maxAge: Int = 99,
     val isActive: Boolean = true,
+    val lifecycle: PlanLifecycle = PlanLifecycle.LIVE,
     /**
      * Goods & Services Tax rate applied to the final premium. India = 18% (HSN 9971)
      * for health insurance. Configurable per-product because exempt / standard / future

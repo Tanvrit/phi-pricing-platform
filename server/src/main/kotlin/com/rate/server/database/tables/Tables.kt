@@ -19,6 +19,7 @@ object PlansTable : Table("plans") {
     val minAge               = integer("min_age").default(5)
     val maxAge               = integer("max_age").default(99)
     val isActive             = bool("is_active").default(true)
+    val lifecycle            = varchar("lifecycle", 20).default("LIVE")
     override val primaryKey  = PrimaryKey(id)
 }
 

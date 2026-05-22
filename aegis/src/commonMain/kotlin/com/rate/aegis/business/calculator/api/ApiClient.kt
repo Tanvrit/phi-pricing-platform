@@ -79,6 +79,16 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
     suspend fun listQuotes(limit: Int = 50): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/quotes?limit=$limit").body()
 
+    // ── Audit ─────────────────────────────────────────────────────────────
+
+    /**
+     * Returns the newest [limit] audit events as raw JSON maps so the Aegis
+     * surface can parse fields itself (matches the pattern of [listQuotes]).
+     * Server caps the limit at 500 regardless of what we send.
+     */
+    suspend fun getAuditEvents(limit: Int = 100): List<Map<String, JsonElement>> =
+        http.get("$baseUrl/api/audit/events?limit=$limit").body()
+
     // ── Import (seed only — file upload is JVM-side, see jvmMain extension) ──
 
     suspend fun seedBuiltinData(): Map<String, JsonElement> =

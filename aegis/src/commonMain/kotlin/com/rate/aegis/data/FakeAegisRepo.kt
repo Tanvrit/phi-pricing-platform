@@ -7,16 +7,17 @@ import com.rate.domain.model.PlanType
 import com.rate.domain.model.UnderwritingCategory
 
 /**
- * Plan lifecycle status — Aegis-side concept (not yet on the domain `Plan`).
- *
- * The audit notes a `Plan.status` field is missing; until Ship-6 lands the field
- * onto the domain, the dashboard maintains the mapping locally here so the
- * Plan Configurator's read mode can show LIVE / DRAFT / RETIRED pills today.
+ * Plan lifecycle status — now lives on the domain `Plan` (server-persisted via V4
+ * migration). This typealias keeps existing Aegis-side callers compiling while the
+ * source of truth shifts to [com.rate.domain.model.PlanLifecycle].
  */
-enum class PlanLifecycle(val label: String) {
-    LIVE("Live"),
-    DRAFT("Draft"),
-    RETIRED("Retired"),
+typealias PlanLifecycle = com.rate.domain.model.PlanLifecycle
+
+/** Human-readable label for a [PlanLifecycle] — used on pills / chips in the UI. */
+val PlanLifecycle.label: String get() = when (this) {
+    PlanLifecycle.LIVE -> "Live"
+    PlanLifecycle.DRAFT -> "Draft"
+    PlanLifecycle.RETIRED -> "Retired"
 }
 
 /** Synthetic Aegis-side metadata that doesn't yet live on the domain `Plan`. */
@@ -140,6 +141,7 @@ object FakeAegisRepo {
             maxDiscountCap = 0.30,
             rateTableId = "PHI_FLAGSHIP3",
             minAge = 5, maxAge = 75, isActive = false,
+            lifecycle = PlanLifecycle.RETIRED,
         ),
         Plan(
             id = "PHI_FLAGSHIP4",
@@ -272,6 +274,7 @@ object FakeAegisRepo {
             maxDiscountCap = 0.30,
             rateTableId = "PHI_GLOBAL_PLUS_ASIA",
             minAge = 18, maxAge = 75, isActive = false,
+            lifecycle = PlanLifecycle.DRAFT,
         ),
     )
 
