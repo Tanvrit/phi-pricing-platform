@@ -1,5 +1,6 @@
-package com.rate.aegis.business.calculator.desktop.ui.configurator
+package com.rate.aegis.business.calculator.ui.configurator
 
+import com.rate.domain.money.formatRupees
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -18,9 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.business.calculator.desktop.api.ApiClient
-import com.rate.aegis.business.calculator.desktop.navigation.Screen
-import com.rate.aegis.business.calculator.desktop.ui.components.*
+import com.rate.aegis.business.calculator.api.ApiClient
+import com.rate.aegis.business.calculator.navigation.Screen
+import com.rate.aegis.business.calculator.ui.components.*
 import com.rate.domain.model.*
 import kotlinx.coroutines.launch
 
@@ -32,7 +33,7 @@ private fun Long.toSILabel(): String {
     return when {
         this >= 10_000_000L -> "₹${if (cr % 1 == 0.0) cr.toInt() else cr}Cr"
         this >= 100_000L    -> "₹${if (l  % 1 == 0.0) l.toInt()  else l }L"
-        else                -> "₹%,d".format(this)
+        else                -> formatRupees(this.toDouble())
     }
 }
 

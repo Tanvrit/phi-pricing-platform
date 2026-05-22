@@ -1,4 +1,4 @@
-package com.rate.aegis.business.calculator.desktop.ui.theme
+package com.rate.aegis.business.calculator.ui.theme
 
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable

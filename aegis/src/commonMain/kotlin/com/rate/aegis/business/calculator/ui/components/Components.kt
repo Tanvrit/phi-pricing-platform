@@ -1,5 +1,6 @@
-package com.rate.aegis.business.calculator.desktop.ui.components
+package com.rate.aegis.business.calculator.ui.components
 
+import com.rate.domain.money.formatRupees
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,8 +16,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.business.calculator.desktop.navigation.Screen
-import com.rate.aegis.business.calculator.desktop.ui.theme.AppColorScheme
+import com.rate.aegis.business.calculator.navigation.Screen
+import com.rate.aegis.business.calculator.ui.theme.AppColorScheme
 
 // ── Top navigation bar ────────────────────────────────────────────────────
 
@@ -186,7 +187,7 @@ fun PremiumRow(label: String, amount: Double, color: Color = Color.Unspecified) 
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         Text(
-            "₹ %,.0f".format(amount),
+            formatRupees(amount),
             style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium),
             color = color
         )

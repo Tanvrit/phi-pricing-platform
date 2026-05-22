@@ -1,28 +1,31 @@
-package com.rate.aegis.business.calculator.desktop.api
+package com.rate.aegis.business.calculator.api
 
 import com.rate.domain.model.*
 import io.ktor.client.*
 import io.ktor.client.call.*
-import io.ktor.client.engine.cio.*
 import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
-import io.ktor.client.request.forms.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
-import java.io.File
 
-class ApiClient(private val baseUrl: String = "http://localhost:9090") {
+/**
+ * Operator-side HTTP client for the BUSINESS calculator. Multiplatform-friendly —
+ * no explicit engine declared so Ktor auto-discovers (CIO on JVM, JS on WASM).
+ *
+ * The Excel upload endpoint that used to live here required `java.io.File` and so
+ * was JVM-only; it has been split out into `ApiClient.uploadExcel()` as a JVM-only
+ * extension in `:aegis/jvmMain` so the rest of the client can run in the browser.
+ */
+class ApiClient(val baseUrl: String = "http://localhost:9090") {
 
-    private val http = HttpClient(CIO) {
+    val http: HttpClient = HttpClient {
         install(ContentNegotiation) {
             json(Json {
                 ignoreUnknownKeys = true
                 isLenient         = true
             })
         }
-        install(Logging) { level = LogLevel.NONE }
     }
 
     // ── Covers ────────────────────────────────────────────────────────────
@@ -76,20 +79,10 @@ class ApiClient(private val baseUrl: String = "http://localhost:9090") {
     suspend fun listQuotes(limit: Int = 50): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/quotes?limit=$limit").body()
 
-    // ── Import ────────────────────────────────────────────────────────────
+    // ── Import (seed only — file upload is JVM-side, see jvmMain extension) ──
 
     suspend fun seedBuiltinData(): Map<String, JsonElement> =
         http.post("$baseUrl/api/import/seed").body()
-
-    suspend fun uploadExcel(file: File): Map<String, JsonElement> =
-        http.post("$baseUrl/api/import/upload") {
-            setBody(MultiPartFormDataContent(formData {
-                append("file", file.readBytes(), Headers.build {
-                    append(HttpHeaders.ContentDisposition, "filename=\"${file.name}\"")
-                    append(HttpHeaders.ContentType, "application/vnd.ms-excel")
-                })
-            }))
-        }.body()
 
     fun close() = http.close()
 }

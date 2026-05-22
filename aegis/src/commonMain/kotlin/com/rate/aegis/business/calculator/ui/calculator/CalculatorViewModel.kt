@@ -1,7 +1,7 @@
-package com.rate.aegis.business.calculator.desktop.ui.calculator
+package com.rate.aegis.business.calculator.ui.calculator
 
 import androidx.compose.runtime.*
-import com.rate.aegis.business.calculator.desktop.api.ApiClient
+import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.domain.data.CoverCatalog
 import com.rate.domain.data.CoverMeta
 import com.rate.domain.data.PincodeZoneMap

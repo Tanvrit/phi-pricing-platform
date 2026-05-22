@@ -1,7 +1,7 @@
 package com.rate.aegis.surfaces.calculator
 
 import androidx.compose.runtime.Composable
-import com.rate.aegis.business.calculator.desktop.App
+import com.rate.aegis.business.calculator.App
 
 /**
  * JVM CalculatorSurface — delegates to the original desktop App() composable that

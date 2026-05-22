@@ -1,4 +1,4 @@
-package com.rate.aegis.business.calculator.desktop.ui.importscreen
+package com.rate.aegis.business.calculator.ui.importscreen
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -6,16 +6,17 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.rate.aegis.business.calculator.desktop.api.ApiClient
-import com.rate.aegis.business.calculator.desktop.navigation.Screen
-import com.rate.aegis.business.calculator.desktop.ui.components.*
+import com.rate.aegis.business.calculator.api.ApiClient
+import com.rate.aegis.business.calculator.api.uploadExcel
+import com.rate.aegis.business.calculator.navigation.Screen
+import com.rate.aegis.business.calculator.ui.components.*
 import kotlinx.coroutines.launch
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.File
 
 @Composable
-fun ImportScreen(client: ApiClient, onNavigate: (Screen) -> Unit) {
+actual fun ImportScreen(client: ApiClient, onNavigate: (Screen) -> Unit) {
     val scope        = rememberCoroutineScope()
     var status       by remember { mutableStateOf<String?>(null) }
     var error        by remember { mutableStateOf<String?>(null) }

@@ -1,4 +1,4 @@
-package com.rate.aegis.business.calculator.desktop.ui.calculator
+package com.rate.aegis.business.calculator.ui.calculator
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -12,13 +12,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.rate.aegis.business.calculator.desktop.api.ApiClient
-import com.rate.aegis.business.calculator.desktop.navigation.Screen
-import com.rate.aegis.business.calculator.desktop.ui.components.*
-import com.rate.aegis.business.calculator.desktop.ui.theme.DiscountColor
-import com.rate.aegis.business.calculator.desktop.ui.theme.LoadingColor
+import com.rate.aegis.business.calculator.api.ApiClient
+import com.rate.aegis.business.calculator.navigation.Screen
+import com.rate.aegis.business.calculator.ui.components.*
+import com.rate.aegis.business.calculator.ui.theme.DiscountColor
+import com.rate.aegis.business.calculator.ui.theme.LoadingColor
 import com.rate.domain.data.CoverMeta
 import com.rate.domain.model.*
+import com.rate.domain.money.formatRupees
 
 // ── Cover grouping ─────────────────────────────────────────────────────────
 // Each group: display name → set of cover IDs that belong to it
@@ -57,7 +58,7 @@ private fun Long.toSILabel(): String {
     return when {
         this >= 10_000_000L -> "₹ ${if (cr % 1 == 0.0) cr.toInt() else cr} Cr"
         this >= 100_000L    -> "₹ ${if (l  % 1 == 0.0) l.toInt()  else l } L"
-        else                -> "₹ %,d".format(this)
+        else                -> formatRupees(this.toDouble())
     }
 }
 
@@ -528,7 +529,7 @@ private fun PremiumResultPanel(res: QuoteResult) {
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        "₹ %,.0f".format(yr.subtotal),
+                        formatRupees(yr.subtotal),
                         style    = MaterialTheme.typography.bodySmall,
                         fontWeight = FontWeight.Medium,
                         textAlign = TextAlign.End
@@ -536,7 +537,7 @@ private fun PremiumResultPanel(res: QuoteResult) {
                 }
                 if (yr.basePremium > 0) {
                     Text(
-                        "  Base ₹%,.0f".format(yr.basePremium),
+                        "  Base ${formatRupees(yr.basePremium)}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -611,7 +612,7 @@ private fun TenureComparisonTable(results: Map<Tenure, QuoteResult>) {
             tenures.forEach { t ->
                 val disc = results[t]?.totalDiscountAmount ?: 0.0
                 TableCell(
-                    "₹%,.0f".format(disc), weight = 1f,
+                    formatRupees(disc), weight = 1f,
                     textColor = if (disc != 0.0) DiscountColor else Color.Unspecified
                 )
             }
@@ -624,7 +625,7 @@ private fun TenureComparisonTable(results: Map<Tenure, QuoteResult>) {
             TableCell("Annual (pre-tax)", weight = 1.6f)
             tenures.forEach { t ->
                 TableCell(
-                    "₹%,.0f".format(results[t]?.totalAfterDiscount ?: 0.0),
+                    formatRupees(results[t]?.totalAfterDiscount ?: 0.0),
                     weight = 1f
                 )
             }
@@ -635,7 +636,7 @@ private fun TenureComparisonTable(results: Map<Tenure, QuoteResult>) {
             TableCell("GST (18%)", weight = 1.6f)
             tenures.forEach { t ->
                 TableCell(
-                    "₹%,.0f".format(results[t]?.gstAmount ?: 0.0),
+                    formatRupees(results[t]?.gstAmount ?: 0.0),
                     weight = 1f
                 )
             }
@@ -650,7 +651,7 @@ private fun TenureComparisonTable(results: Map<Tenure, QuoteResult>) {
                 textColor = MaterialTheme.colorScheme.primary)
             tenures.forEach { t ->
                 TableCell(
-                    "₹%,.0f".format(results[t]?.totalIncludingGst ?: 0.0),
+                    formatRupees(results[t]?.totalIncludingGst ?: 0.0),
                     weight    = 1f,
                     textColor = MaterialTheme.colorScheme.primary,
                     header    = true
@@ -664,7 +665,7 @@ private fun TenureComparisonTable(results: Map<Tenure, QuoteResult>) {
             tenures.forEach { t ->
                 val r   = results[t]
                 val emi = if ((r?.instalmentCount ?: 0) > 1) r?.instalmentPremium ?: 0.0 else 0.0
-                TableCell(if (emi > 0) "₹%,.0f".format(emi) else "—", weight = 1f)
+                TableCell(if (emi > 0) formatRupees(emi) else "—", weight = 1f)
             }
         }
 
@@ -674,7 +675,7 @@ private fun TenureComparisonTable(results: Map<Tenure, QuoteResult>) {
                 textColor = MaterialTheme.colorScheme.outline)
             tenures.forEach { t ->
                 val eff = (results[t]?.totalAfterDiscount ?: 0.0) / t.years
-                TableCell("₹%,.0f".format(eff), weight = 1f,
+                TableCell(formatRupees(eff), weight = 1f,
                     textColor = MaterialTheme.colorScheme.outline)
             }
         }
@@ -690,7 +691,7 @@ private fun TableRow(
 ) {
     Row(Modifier.fillMaxWidth()) {
         TableCell(label, weight = 1.6f)
-        tenures.forEach { t -> TableCell("₹%,.0f".format(results[t]?.let(value) ?: 0.0), weight = 1f) }
+        tenures.forEach { t -> TableCell(formatRupees(results[t]?.let(value) ?: 0.0), weight = 1f) }
     }
 }
 

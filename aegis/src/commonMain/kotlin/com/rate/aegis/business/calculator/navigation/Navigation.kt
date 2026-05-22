@@ -1,4 +1,4 @@
-package com.rate.aegis.business.calculator.desktop.navigation
+package com.rate.aegis.business.calculator.navigation
 
 sealed class Screen {
     object Calculator   : Screen()
