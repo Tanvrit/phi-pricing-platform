@@ -496,10 +496,19 @@ private fun PremiumResultPanel(res: QuoteResult) {
 
         HorizontalDivider(Modifier.padding(vertical = 6.dp))
 
-        PremiumRow("Annual Premium", res.totalAfterDiscount, MaterialTheme.colorScheme.primary)
+        PremiumRow("Sub-total (pre-tax)", res.totalAfterDiscount)
 
         if (res.instalmentLoadingAmount > 0)
             PremiumRow("Instalment Loading (+)", res.instalmentLoadingAmount, LoadingColor)
+
+        // GST line — pre-Foundation-Pack this was missing entirely.
+        if (res.gstAmount > 0.0)
+            PremiumRow("GST (${(res.gstRate * 100).toInt()}%)", res.gstAmount)
+
+        HorizontalDivider(Modifier.padding(vertical = 6.dp))
+
+        PremiumRow("Total Payable (incl. GST)", res.totalIncludingGst, MaterialTheme.colorScheme.primary)
+
         if (res.instalmentCount > 1)
             PremiumRow("Per Instalment (×${res.instalmentCount})", res.instalmentPremium)
     }
@@ -610,16 +619,38 @@ private fun TenureComparisonTable(results: Map<Tenure, QuoteResult>) {
 
         HorizontalDivider()
 
-        // Annual (highlighted)
+        // Annual (pre-tax)
+        Row(Modifier.fillMaxWidth()) {
+            TableCell("Annual (pre-tax)", weight = 1.6f)
+            tenures.forEach { t ->
+                TableCell(
+                    "₹%,.0f".format(results[t]?.totalAfterDiscount ?: 0.0),
+                    weight = 1f
+                )
+            }
+        }
+
+        // GST line
+        Row(Modifier.fillMaxWidth()) {
+            TableCell("GST (18%)", weight = 1.6f)
+            tenures.forEach { t ->
+                TableCell(
+                    "₹%,.0f".format(results[t]?.gstAmount ?: 0.0),
+                    weight = 1f
+                )
+            }
+        }
+
+        // Total incl. GST (highlighted)
         Row(
             Modifier.fillMaxWidth()
                 .background(MaterialTheme.colorScheme.primaryContainer)
         ) {
-            TableCell("Annual Premium", weight = 1.6f, header = true,
+            TableCell("Total Payable", weight = 1.6f, header = true,
                 textColor = MaterialTheme.colorScheme.primary)
             tenures.forEach { t ->
                 TableCell(
-                    "₹%,.0f".format(results[t]?.totalAfterDiscount ?: 0.0),
+                    "₹%,.0f".format(results[t]?.totalIncludingGst ?: 0.0),
                     weight    = 1f,
                     textColor = MaterialTheme.colorScheme.primary,
                     header    = true

@@ -86,6 +86,11 @@ class RateDataProviderImpl : RateDataProvider {
             .toSet()
     }
 
+    override suspend fun rateTableVersion(): String =
+        // When the V2 migration (rate_meta table) lands, swap this to read the latest
+        // imported version from the DB. For now, a static tag identifies the impl.
+        "db-excel-v7.0"
+
     private fun ResultRow.toPlan() = Plan(
         id                   = this[PlansTable.id],
         name                 = this[PlansTable.name],
@@ -102,6 +107,7 @@ class RateDataProviderImpl : RateDataProvider {
         minAge               = this[PlansTable.minAge],
         maxAge               = this[PlansTable.maxAge],
         isActive             = this[PlansTable.isActive]
+        // gstRate defaults to 0.18 — when DB schema gains a gst_rate column, read it here.
     )
 
     private fun String.toJsonLongList()   = trim('[',']').split(",").mapNotNull { it.trim().toLongOrNull() }

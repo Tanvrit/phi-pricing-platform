@@ -98,3 +98,38 @@ object QuotesTable : Table("quotes") {
     val instalmentPremium = decimal("instalment_premium", 14, 2)
     override val primaryKey = PrimaryKey(id)
 }
+
+/**
+ * Append-only audit ledger. Every state-changing route writes here, and a hash-chain
+ * links each row to its predecessor so tampering with any historical row breaks the
+ * chain at that point. Verified via `AuditEventService.verifyChain()`.
+ */
+object AuditEventTable : Table("audit_event") {
+    val id            = long("id").autoIncrement()
+    val eventAt       = timestamp("event_at")
+    val actorSubject  = varchar("actor_subject", 200).nullable()
+    val actorRole     = varchar("actor_role", 50).nullable()
+    val action        = varchar("action", 100)
+    val resourceType  = varchar("resource_type", 100)
+    val resourceId    = varchar("resource_id", 200).nullable()
+    val payloadJson   = text("payload_json").nullable()
+    val requestId     = varchar("request_id", 100).nullable()
+    val prevHash      = varchar("prev_hash", 64).nullable()
+    val thisHash      = varchar("this_hash", 64)
+    override val primaryKey = PrimaryKey(id)
+}
+
+/**
+ * 24h replay cache for POST routes. Client sends `Idempotency-Key`; if the same key
+ * arrives again, the cached response is returned verbatim. `request_hash` lets us
+ * detect a key being reused for a *different* request body and reject it.
+ */
+object IdempotencyKeyTable : Table("idempotency_key") {
+    val key            = varchar("key", 100)
+    val route          = varchar("route", 200)
+    val requestHash    = varchar("request_hash", 64)
+    val responseStatus = integer("response_status")
+    val responseBody   = text("response_body").nullable()
+    val createdAt      = timestamp("created_at")
+    override val primaryKey = PrimaryKey(key)
+}

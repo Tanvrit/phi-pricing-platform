@@ -1,0 +1,43 @@
+# Local dev stack: Postgres + server.
+# Customer-facing services (KYC / payment / SMS gateways) are not modelled here —
+# they belong in Phase 2's docker-compose.prod.yml.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-rate_calculator}
+      POSTGRES_USER: ${POSTGRES_USER:-rate_admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_for_local_dev}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-rate_admin} -d ${POSTGRES_DB:-rate_calculator}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: 9090
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-rate_calculator}
+      DB_USER: ${POSTGRES_USER:-rate_admin}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-change_me_for_local_dev}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-20}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:9090,http://localhost:8080}
+      OTP_TOKEN_SECRET: ${OTP_TOKEN_SECRET:-development_only_32_byte_secret_change_me}
+    ports:
+      - "9090:9090"
+
+volumes:
+  pgdata:

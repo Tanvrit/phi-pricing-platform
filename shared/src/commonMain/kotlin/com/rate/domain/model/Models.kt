@@ -1,5 +1,7 @@
 package com.rate.domain.model
 
+import com.rate.domain.money.Money
+import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -104,9 +106,17 @@ val AGE_BANDS = listOf(
     AgeBand(86, 999, "86+")
 )
 
-/** VLOOKUP approximate-match equivalent — returns the last band whose minAge ≤ age */
-fun getAgeBand(age: Int): AgeBand =
-    AGE_BANDS.lastOrNull { it.minAge <= age } ?: AGE_BANDS.first()
+/**
+ * VLOOKUP approximate-match equivalent — returns the last band whose minAge ≤ age.
+ *
+ * Throws on out-of-range input so silent miscalculation is impossible. The Excel
+ * model only supports ages 5..99 (rate tables go to 86+); we accept a wider band
+ * 0..120 to be lenient on input but reject impossible values.
+ */
+fun getAgeBand(age: Int): AgeBand {
+    require(age in 0..120) { "Age $age is outside supported range 0..120" }
+    return AGE_BANDS.lastOrNull { it.minAge <= age } ?: AGE_BANDS.first()
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Core domain models
@@ -130,7 +140,13 @@ data class Plan(
     val rateTableId: String = "",        // maps to rate table (defaults to id)
     val minAge: Int = 5,
     val maxAge: Int = 99,
-    val isActive: Boolean = true
+    val isActive: Boolean = true,
+    /**
+     * Goods & Services Tax rate applied to the final premium. India = 18% (HSN 9971)
+     * for health insurance. Configurable per-product because exempt / standard / future
+     * GST changes can land without code changes.
+     */
+    val gstRate: Double = 0.18
 )
 
 @Serializable
@@ -223,7 +239,21 @@ data class QuoteResult(
     val instalmentCount: Int,
     val yearlyBreakdown: List<YearBreakdown>,
     val isValid: Boolean = true,
-    val validationErrors: List<String> = emptyList()
+    val validationErrors: List<String> = emptyList(),
+    // ── Tax (GST / IRDAI) ─────────────────────────────────────────────────
+    /** GST rate that was applied (e.g. 0.18 for 18%). */
+    val gstRate: Double = 0.18,
+    /** Tax amount in rupees, computed on (totalAfterDiscount + instalmentLoadingAmount). */
+    val gstAmount: Double = 0.0,
+    /** Final amount payable to the customer including GST. THIS is the headline figure. */
+    val totalIncludingGst: Double = 0.0,
+    // ── Audit / reproducibility ────────────────────────────────────────────
+    /** Semver of the pricing engine that produced this result. */
+    val engineVersion: String = "1.0.0",
+    /** Version tag of the rate-table snapshot used (e.g. "excel-v7.0", "db-2026-05-20"). */
+    val rateTableVersion: String = "unknown",
+    /** ISO-8601 instant when the calculation ran. */
+    val calculatedAt: Instant? = null
 )
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -253,8 +283,16 @@ val FAMILY_TYPES = listOf(
     FamilyTypeInfo("multi", 2, 0, 2, false, true)
 )
 
+/**
+ * Throws on unknown family-type codes. Silent fallback to "1A" (the old behaviour) hid
+ * typos and routing bugs in upstream code; engine/validation must reject unknown codes
+ * cleanly so they surface as validation errors instead of silently wrong premiums.
+ */
 fun getFamilyTypeInfo(code: String): FamilyTypeInfo =
-    FAMILY_TYPES.firstOrNull { it.code == code } ?: FAMILY_TYPES.first()
+    FAMILY_TYPES.firstOrNull { it.code == code }
+        ?: throw IllegalArgumentException(
+            "Unknown family type code '$code'. Valid: ${FAMILY_TYPES.joinToString { it.code }}"
+        )
 
 // Sum insured options are now driven entirely by the imported plan data in the database.
 // These constants are kept only as a UI fallback display before the first plan loads.

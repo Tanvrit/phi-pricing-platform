@@ -1,0 +1,24 @@
+{
+  "planId": "PHI_GLOBAL1",
+  "primaryAge": 50,
+  "sumInsured": 100000000,
+  "familyType": "2A",
+  "zone": "Zone 1",
+  "tenure": "FIVE_YEARS",
+  "paymentMode": "SINGLE_PREMIUM",
+  "paymentTenure": "FIVE_YEARS",
+  "members": [
+    { "memberId": 1, "age": 50, "relationship": "Self",   "gender": "M" },
+    { "memberId": 2, "age": 48, "relationship": "Spouse", "gender": "F" }
+  ],
+  "selectedCovers": [
+    { "coverId": "enhanced_geo",   "params": { "param1": "Worldwide excl. USA & Canada" } },
+    { "coverId": "critical_illness", "params": { "param1": "1000000" } }
+  ],
+  "selectedDiscounts": [
+    { "discountId": "disc_tenure" },
+    { "discountId": "disc_multi_member", "param": "2-3 members" }
+  ],
+  "uwLoadingFactor": 0.0,
+  "maxDiscountCap": 0.30
+}

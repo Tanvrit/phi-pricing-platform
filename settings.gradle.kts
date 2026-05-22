@@ -15,4 +15,4 @@ dependencyResolutionManagement {
     }
 }
 
-include(":shared", ":server", ":desktop", ":buyonline")
+include(":shared", ":server", ":desktop", ":buyonline", ":aegis")

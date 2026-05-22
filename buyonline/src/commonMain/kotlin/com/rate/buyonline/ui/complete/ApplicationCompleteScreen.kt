@@ -63,6 +63,10 @@ fun ApplicationCompleteScreen(vm: BuyOnlineViewModel) {
                 }
             }
 
+            // IRDAI footer surfaced on the final screen so the customer leaves with
+            // grievance + ombudsman + free-look + UIN visible alongside their proposal.
+            com.rate.buyonline.ui.components.IrdaiComplianceFooter()
+
             Spacer(Modifier.weight(1f))
             PRUButton("Track proposal", { vm.proceedToSatisfaction() })
             TextButton(onClick = { vm.navigate(com.rate.buyonline.navigation.BuyOnlineScreen.Landing) }) {

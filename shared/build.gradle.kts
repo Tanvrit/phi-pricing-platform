@@ -4,13 +4,24 @@ plugins {
 }
 
 kotlin {
+    jvmToolchain(21)
+
     // ── JVM (server + desktop) ─────────────────────────────────────────────
-    jvm()
+    jvm {
+        // Use JUnit 5 platform for jvmTest
+        testRuns["test"].executionTask.configure {
+            useJUnitPlatform()
+        }
+    }
 
     // ── iOS targets (requires Xcode on macOS) ─────────────────────────────
-    iosArm64()
-    iosX64()
-    iosSimulatorArm64()
+    // Only declare iOS targets on macOS hosts so non-macOS CI can still build :shared.
+    val os = org.gradle.internal.os.OperatingSystem.current()
+    if (os.isMacOsX) {
+        iosArm64()
+        iosX64()
+        iosSimulatorArm64()
+    }
 
     // ── Web / WASM ─────────────────────────────────────────────────────────
     @OptIn(org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl::class)
@@ -26,6 +37,13 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
+            implementation(libs.kotlinx.coroutines.test)
+        }
+        jvmTest.dependencies {
+            implementation(libs.junit.jupiter)
+            implementation(libs.junit.platform.launcher)
+            implementation(libs.kotest.runner.junit5)
+            implementation(libs.kotest.assertions.core)
         }
     }
 }

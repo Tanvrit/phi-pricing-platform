@@ -35,11 +35,23 @@ data class PremiumRequest(
     val sumInsured: Long,
     val tier: String,
     val tenure: Int,
-    val addOnIds: List<String>
+    val addOnIds: List<String>,
+    val primaryAge: Int = 35,
+    val familyType: String = "1A",
+    val zone: String = "Zone 1"
 )
 
 @Serializable
-data class PremiumResponse(val annualPremium: Double, val monthlyPremium: Double)
+data class PremiumResponse(
+    val annualPremium: Double,
+    val monthlyPremium: Double,
+    val gstAmount: Double = 0.0,
+    val totalIncludingGst: Double = 0.0,
+    val basePremium: Double = 0.0,
+    val totalAddons: Double = 0.0,
+    val totalDiscountAmount: Double = 0.0,
+    val tenureDiscountRate: Double = 0.0
+)
 
 @Serializable
 data class ProposalRequest(

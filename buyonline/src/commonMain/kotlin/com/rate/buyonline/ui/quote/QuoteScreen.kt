@@ -85,9 +85,13 @@ fun QuoteScreen(vm: BuyOnlineViewModel) {
                     }
                 }
 
-                // Plan detail card
-                val annual  = vm.estimatedPremium()
-                val monthly = annual / 12
+                // Plan detail card — uses the real engine's totals (with GST).
+                // Falls back to 0 while the first /premium response is in-flight.
+                val premium = vm.lastPremium
+                val annualPreTax = premium?.annualPremium ?: 0.0
+                val gst          = premium?.gstAmount ?: 0.0
+                val annualTotal  = premium?.totalIncludingGst ?: 0.0
+                val monthly      = annualTotal / 12.0
                 Card(
                     Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -109,7 +113,15 @@ fun QuoteScreen(vm: BuyOnlineViewModel) {
                             Text("₹%,.0f".format(monthly), fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)
                             Text("/month", fontSize = 13.sp, color = PruSubtext, modifier = Modifier.padding(bottom = 4.dp))
                         }
-                        Text("₹%,.0f yearly + 0%% GST".format(annual), fontSize = 13.sp, color = PruSubtext)
+                        // Full GST-inclusive premium ledger — replaces the "+ 0% GST" placeholder.
+                        Text("₹%,.0f base + ₹%,.0f GST (18%%) = ₹%,.0f/year".format(annualPreTax, gst, annualTotal),
+                            fontSize = 13.sp, color = PruSubtext)
+                        if (vm.premiumLoading) {
+                            Text("Calculating…", fontSize = 11.sp, color = PruSubtext)
+                        }
+                        vm.premiumError?.let { err ->
+                            Text(err, fontSize = 12.sp, color = PruRed)
+                        }
                         HorizontalDivider()
                         listOf("100% restoration from 2nd claim", "Loyalty addition benefit", "Customisable plan").forEach {
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -122,7 +134,7 @@ fun QuoteScreen(vm: BuyOnlineViewModel) {
                 }
             }
 
-            StickyPriceBar(annualPremium = vm.estimatedPremium(), onProceed = { vm.proceedFromQuote() })
+            StickyPriceBar(annualPremium = vm.totalAnnualWithGst, onProceed = { vm.proceedFromQuote() })
         }
 
         if (vm.showSISheet) {

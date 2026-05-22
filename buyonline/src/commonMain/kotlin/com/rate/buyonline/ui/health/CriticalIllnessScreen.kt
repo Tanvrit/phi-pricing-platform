@@ -80,9 +80,12 @@ fun CriticalIllnessScreen(vm: BuyOnlineViewModel) {
             Card(Modifier.width(200.dp).padding(16.dp),
                 colors = CardDefaults.cardColors(containerColor = PruInfoBg)) {
                 Column(Modifier.padding(12.dp)) {
-                    Text("Why to declare pre-existing diseases?", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    // Copy-paste bug pre-Foundation-Pack: this card lived in the Critical Illness
+                    // screen but used "Pre-existing diseases" copy. Fixed to match the screen.
+                    Text("Why declare critical illnesses?", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     Spacer(Modifier.height(8.dp))
-                    Text("To provide suitable long-term coverage and avoid issues with insurance.",
+                    Text("Honest disclosure lets us price your policy accurately and ensures " +
+                            "your claim isn't rejected later for non-disclosure.",
                         fontSize = 12.sp, color = PruSubtext)
                 }
             }

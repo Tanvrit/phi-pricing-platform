@@ -2,8 +2,10 @@ package com.rate.domain.engine
 
 import com.rate.domain.model.*
 import com.rate.domain.repository.RateDataProvider
+import com.rate.domain.validation.Validators
 import kotlinx.datetime.Clock
 import kotlin.math.abs
+import kotlin.math.max
 import kotlin.math.min
 
 /**
@@ -23,11 +25,39 @@ import kotlin.math.min
  */
 class PricingEngine(private val data: RateDataProvider) {
 
+    companion object {
+        const val ENGINE_VERSION: String = "1.1.0"
+
+        /**
+         * Clamp range for [QuoteRequest.uwLoadingFactor]. Underwriters occasionally
+         * leave the factor as raw input; without clamping a factor of `10.0` would
+         * apply a 1000% loading silently. The upper bound 2.0 (200%) is the IRDAI
+         * conventional ceiling for sub-standard health risks.
+         */
+        const val UW_LOADING_MIN: Double = 0.0
+        const val UW_LOADING_MAX: Double = 2.0
+
+        /** FP epsilon for "is this zero" comparisons that survive Double accumulation. */
+        private const val MONEY_EPS: Double = 0.005
+    }
+
     suspend fun calculate(request: QuoteRequest): QuoteResult {
-        val errors = validate(request)
-        if (errors.isNotEmpty()) {
-            return emptyResult(request, errors)
+        // Plan-aware validation (zone/SI/familyType/age within plan grid) runs FIRST so
+        // we surface configuration errors before consuming the engine.
+        val plan = data.getPlan(request.planId)
+        val planErrors = if (plan != null) Validators.quoteRequest(plan, request) else emptyList()
+        val engineErrors = validate(request)
+        val allErrors = engineErrors + planErrors
+        if (allErrors.isNotEmpty()) {
+            return emptyResult(request, allErrors, gstRate = plan?.gstRate ?: 0.18)
         }
+
+        // Clamp the UW loading factor instead of trusting raw input.
+        val clampedUwFactor = max(UW_LOADING_MIN, min(UW_LOADING_MAX, request.uwLoadingFactor))
+        val uwClampNote: List<String> =
+            if (clampedUwFactor != request.uwLoadingFactor)
+                listOf("UW loading factor ${request.uwLoadingFactor} clamped to $clampedUwFactor (range $UW_LOADING_MIN..$UW_LOADING_MAX)")
+            else emptyList()
 
         val years      = request.tenure.years
         val selected   = request.selectedCovers.associateBy { it.coverId }
@@ -375,10 +405,10 @@ class PricingEngine(private val data: RateDataProvider) {
 
         // ── 8. UW Loading (row 59) ─────────────────────────────────────────
         val uwArr = DoubleArray(years)
-        if (request.uwLoadingFactor > 0.0) {
+        if (clampedUwFactor > 0.0) {
             val uwBase = COVER_ACCUM_BASES[CoverIds.UW_LOADING]!!
             for (y in 0 until years) {
-                uwArr[y] = request.uwLoadingFactor * sumYr(uwBase, y)
+                uwArr[y] = clampedUwFactor * sumYr(uwBase, y)
             }
         }
         yr[CoverIds.UW_LOADING] = uwArr
@@ -387,11 +417,30 @@ class PricingEngine(private val data: RateDataProvider) {
         fun total(id: String) = yr[id]?.sum() ?: 0.0
 
         val basePremiumTotal  = total(CoverIds.BASE)
-        val addonTotal        = selected.keys.sumOf { total(it) }
-        val uwLoadingTotal    = uwArr.sum()
-        val totalBeforeDisc   = basePremiumTotal + addonTotal + uwLoadingTotal
 
-        // ── 10. Discounts (rows 64–72), hard-capped at 30% ────────────────
+        // Cover-pass items that are SEMANTICALLY discounts (smart_select, deductibles, co_pay)
+        // are computed in the cover loop above. Pre-fix, they bypassed the discount-cap rule:
+        // a customer could stack smart_select (-15%) + per_claim_deductible + aggregate_deductible
+        // + co_pay and reach 40%+ discount, exceeding the 30% plan cap.
+        //
+        // Fix: separate cover-pass discounts from cover-pass positives, then fold them into the
+        // same capping pool as the standalone discounts. The cap applies to the COMBINED total.
+        val coverPassDiscountIds = setOf(
+            CoverIds.SMART_SELECT, CoverIds.PER_CLAIM_DEDUCTIBLE,
+            CoverIds.AGGREGATE_DEDUCTIBLE, CoverIds.CO_PAY
+        )
+        val coverPassDiscountSum = selected.keys.filter { it in coverPassDiscountIds }.sumOf { total(it) }
+        val coverPassPositiveSum = selected.keys.filter { it !in coverPassDiscountIds }.sumOf { total(it) }
+
+        val uwLoadingTotal    = uwArr.sum()
+        // totalBeforeDisc is the "gross" — positive covers + UW loading + base. Negatives
+        // (cover-pass discounts) flow into the capped discount pool below.
+        val totalBeforeDisc   = basePremiumTotal + coverPassPositiveSum + uwLoadingTotal
+        // For schema compatibility, totalAddons remains the customer-visible sum of selected
+        // cover line items (positive + negative cover-pass), matching prior client expectations.
+        val addonTotal        = coverPassPositiveSum + coverPassDiscountSum
+
+        // ── 10. Discounts (rows 64–72), hard-capped at plan.maxDiscountCap ───
         val discBreakdowns  = mutableListOf<DiscountBreakdown>()
         val discountIds     = request.selectedDiscounts.map { it.discountId }.toSet()
 
@@ -405,7 +454,7 @@ class PricingEngine(private val data: RateDataProvider) {
                 val yearTotal = yr.values.sumOf { it.getOrElse(y) { 0.0 } }
                 discAmt      += yearTotal * (-tenureRates.getOrElse(y) { 0.0 })
             }
-            if (discAmt != 0.0)
+            if (abs(discAmt) > MONEY_EPS && abs(totalBeforeDisc) > MONEY_EPS)
                 discBreakdowns += DiscountBreakdown(CoverIds.DISC_TENURE, "Tenure Discount",
                     discAmt / totalBeforeDisc, discAmt)
         }
@@ -433,10 +482,28 @@ class PricingEngine(private val data: RateDataProvider) {
             discBreakdowns += DiscountBreakdown(CoverIds.DISC_MULTI_MEMBER, "Multiple Member Discount", rate, rate * totalBeforeDisc)
         }
 
-        // Hard cap at plan's maxDiscountCap (default 30%)
-        val rawDiscTotal    = discBreakdowns.sumOf { it.amount }
-        val cappedDiscTotal = -min(abs(rawDiscTotal), totalBeforeDisc * request.maxDiscountCap)
+        // Hard cap at plan's maxDiscountCap (default 30%) — applied to the COMBINED pool of
+        // cover-pass discounts (smart_select, deductibles, co_pay) + standalone discounts.
+        // This closes the pre-fix bypass where cover-pass discounts could push the effective
+        // reduction past the plan ceiling.
+        val standaloneDiscTotal = discBreakdowns.sumOf { it.amount }
+        val rawDiscTotal        = standaloneDiscTotal + coverPassDiscountSum
+        val capAmount           = totalBeforeDisc * request.maxDiscountCap
+        val cappedDiscTotal     = -min(abs(rawDiscTotal), capAmount)
 
+        // If the cap binds, scale BOTH pools proportionally so the customer breakdown is honest.
+        val capScale: Double = if (abs(rawDiscTotal) > capAmount && abs(rawDiscTotal) > MONEY_EPS)
+            capAmount / abs(rawDiscTotal) else 1.0
+        if (capScale < 1.0) {
+            // Rewrite standalone discount line items to the scaled amounts so the displayed
+            // breakdown sums to the actual applied discount.
+            for (i in discBreakdowns.indices) {
+                val d = discBreakdowns[i]
+                discBreakdowns[i] = d.copy(amount = d.amount * capScale)
+            }
+        }
+        // After capping: standalone breakdowns above are already scaled; the cover-pass
+        // pieces are scaled later when constructing coverBreakdownList using capScale.
         val totalAfterDisc  = totalBeforeDisc + cappedDiscTotal
 
         // ── 11. Instalment loading (row 76) ───────────────────────────────
@@ -444,24 +511,31 @@ class PricingEngine(private val data: RateDataProvider) {
         val instalLoadingAmt   = instalLoadingRate * totalAfterDisc
         val instalCount        = if (request.paymentMode == PaymentMode.SINGLE_PREMIUM) 1
                                   else data.getInstalmentCount(request.tenure, request.paymentTenure, request.paymentMode)
+        require(instalCount > 0) { "Instalment count must be positive, got $instalCount" }
         val instalPremium      = if (request.paymentMode == PaymentMode.SINGLE_PREMIUM) 0.0
                                   else (totalAfterDisc + instalLoadingAmt) / instalCount
+
+        // ── 11.5. GST (Indian HSN 9971: 18% on health insurance) ──────────
+        // Applied to the financed total (after discount + after instalment loading).
+        val gstRate            = plan?.gstRate ?: 0.18
+        val gstAmount          = (totalAfterDisc + instalLoadingAmt) * gstRate
+        val totalIncludingGst  = totalAfterDisc + instalLoadingAmt + gstAmount
 
         // ── Build result ───────────────────────────────────────────────────
         val coverBreakdownList = (selected.keys + CoverIds.UW_LOADING).map { id ->
             val arr  = yr[id] ?: DoubleArray(years)
-            val disc = id.startsWith("disc_") || id in listOf(
-                CoverIds.SMART_SELECT, CoverIds.GOOD_HEALTH,
-                CoverIds.PER_CLAIM_DEDUCTIBLE, CoverIds.AGGREGATE_DEDUCTIBLE, CoverIds.CO_PAY
-            )
+            val disc = id.startsWith("disc_") || id in coverPassDiscountIds || id == CoverIds.GOOD_HEALTH
+            // Apply discount cap-scale to cover-pass discounts so the breakdown sums honestly
+            val scaledTotal = if (disc && id in coverPassDiscountIds && capScale < 1.0)
+                arr.sum() * capScale else arr.sum()
             CoverPremiumBreakdown(
                 coverId        = id,
                 coverName      = coverDisplayName(id),
                 yearlyPremiums = arr.toList(),
-                totalPremium   = arr.sum(),
+                totalPremium   = scaledTotal,
                 isDiscount     = disc
             )
-        }.filter { it.totalPremium != 0.0 }
+        }.filter { abs(it.totalPremium) > MONEY_EPS }
 
         val yearlyBreakdowns = (0 until years).map { y ->
             YearBreakdown(
@@ -471,7 +545,7 @@ class PricingEngine(private val data: RateDataProvider) {
                 basePremium  = base[y],
                 coverPremiums = yr.filterKeys { it != CoverIds.BASE }
                     .mapValues { it.value.getOrElse(y) { 0.0 } }
-                    .filter { it.value != 0.0 },
+                    .filter { abs(it.value) > MONEY_EPS },
                 subtotal     = yr.values.sumOf { it.getOrElse(y) { 0.0 } }
             )
         }
@@ -490,7 +564,15 @@ class PricingEngine(private val data: RateDataProvider) {
             instalmentLoadingAmount = instalLoadingAmt,
             instalmentPremium      = instalPremium,
             instalmentCount        = instalCount,
-            yearlyBreakdown        = yearlyBreakdowns
+            yearlyBreakdown        = yearlyBreakdowns,
+            isValid                = true,
+            validationErrors       = uwClampNote,
+            gstRate                = gstRate,
+            gstAmount              = gstAmount,
+            totalIncludingGst      = totalIncludingGst,
+            engineVersion          = ENGINE_VERSION,
+            rateTableVersion       = data.rateTableVersion(),
+            calculatedAt           = Clock.System.now()
         )
     }
 
@@ -499,7 +581,14 @@ class PricingEngine(private val data: RateDataProvider) {
         val errors  = mutableListOf<String>()
         val ids     = req.selectedCovers.map { it.coverId }.toSet()
         val discIds = req.selectedDiscounts.map { it.discountId }.toSet()
-        val ft      = getFamilyTypeInfo(req.familyType)
+        // getFamilyTypeInfo throws on unknown codes; turn that into a friendly error
+        // instead of an uncaught exception so the caller gets a useful response.
+        val ft = try {
+            getFamilyTypeInfo(req.familyType)
+        } catch (e: IllegalArgumentException) {
+            errors += e.message ?: "Unknown family type"
+            return errors
+        }
         val singlePA = ft.isIndividual || !ft.isFloater  // single-adult or multi-individual
 
         if (req.primaryAge < 5 || req.primaryAge > 99)
@@ -632,16 +721,27 @@ class PricingEngine(private val data: RateDataProvider) {
         return errors
     }
 
-    private fun emptyResult(req: QuoteRequest, errors: List<String>) = QuoteResult(
+    private fun emptyResult(req: QuoteRequest, errors: List<String>, gstRate: Double = 0.18) = QuoteResult(
         requestId = generateId(), planId = req.planId,
         basePremiumTotal = 0.0, coverBreakdown = emptyList(), totalAddons = 0.0,
         uwLoadingAmount = 0.0, totalBeforeDiscount = 0.0, discountBreakdown = emptyList(),
         totalDiscountAmount = 0.0, totalAfterDiscount = 0.0,
         instalmentLoadingAmount = 0.0, instalmentPremium = 0.0, instalmentCount = 0,
-        yearlyBreakdown = emptyList(), isValid = false, validationErrors = errors
+        yearlyBreakdown = emptyList(), isValid = false, validationErrors = errors,
+        gstRate = gstRate, gstAmount = 0.0, totalIncludingGst = 0.0,
+        engineVersion = ENGINE_VERSION, rateTableVersion = "unknown",
+        calculatedAt = Clock.System.now()
     )
 
-    private fun generateId() = "Q-${Clock.System.now().toEpochMilliseconds()}"
+    /**
+     * ULID-like sortable ID with millisecond timestamp + small random suffix.
+     * Replaces the prior `Q-${epochMs}` which collided under concurrent load.
+     */
+    private fun generateId(): String {
+        val ms = Clock.System.now().toEpochMilliseconds()
+        val rnd = kotlin.random.Random.nextInt(0, 0xFFFF)
+        return "Q-${ms.toString(16).uppercase()}-${rnd.toString(16).uppercase().padStart(4, '0')}"
+    }
 
     private fun coverDisplayName(id: String) =
         id.split("_").joinToString(" ") { it.replaceFirstChar { c -> c.uppercase() } }

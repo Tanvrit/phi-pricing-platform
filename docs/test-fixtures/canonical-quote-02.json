@@ -1,0 +1,29 @@
+{
+  "planId": "PHI_FLAGSHIP1",
+  "primaryAge": 35,
+  "sumInsured": 2500000,
+  "familyType": "2A2C",
+  "zone": "Zone 2",
+  "tenure": "THREE_YEARS",
+  "paymentMode": "SINGLE_PREMIUM",
+  "paymentTenure": "THREE_YEARS",
+  "members": [
+    { "memberId": 1, "age": 35, "relationship": "Self",     "gender": "M" },
+    { "memberId": 2, "age": 33, "relationship": "Spouse",   "gender": "F" },
+    { "memberId": 3, "age": 8,  "relationship": "Son",      "gender": "M" },
+    { "memberId": 4, "age": 5,  "relationship": "Daughter", "gender": "F" }
+  ],
+  "selectedCovers": [
+    { "coverId": "day1_instant",  "params": { "param1": "2X" } },
+    { "coverId": "home_care",     "params": {} },
+    { "coverId": "air_ambulance", "params": {} },
+    { "coverId": "pre_post_hosp", "params": {} },
+    { "coverId": "loyalty_bonus", "params": { "param1": "100% upto 200%" } }
+  ],
+  "selectedDiscounts": [
+    { "discountId": "disc_tenure" },
+    { "discountId": "disc_auto_debit" }
+  ],
+  "uwLoadingFactor": 0.0,
+  "maxDiscountCap": 0.30
+}

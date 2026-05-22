@@ -59,6 +59,13 @@ interface RateDataProvider {
      * Empty set means no availability data imported — treat all covers as available.
      */
     suspend fun getCoverAvailability(planId: String): Set<String>
+
+    /**
+     * Identifier of the rate-table snapshot in use (e.g. "excel-v7.0", "db-2026-05-20").
+     * Stamped into every QuoteResult for audit + reproducibility. Default override
+     * returns a generic tag so existing implementations need not change.
+     */
+    suspend fun rateTableVersion(): String = "unspecified"
 }
 
 interface QuoteRepository {

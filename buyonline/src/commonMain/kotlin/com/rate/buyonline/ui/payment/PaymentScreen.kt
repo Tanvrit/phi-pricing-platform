@@ -30,9 +30,14 @@ fun PaymentScreen(vm: BuyOnlineViewModel) {
                     SummaryItem("Tenure",      "${vm.selectedTenure} year(s)")
                     SummaryItem("Members",     vm.allMembers.joinToString(", "))
                     HorizontalDivider()
+                    // Premium ledger — every component shown so the customer can reconcile
+                    // the figure they're about to pay.
+                    SummaryItem("Sub-total (pre-tax)", "₹%,.2f".format(vm.totalAnnualPreTax))
+                    SummaryItem("GST (18%)",           "₹%,.2f".format(vm.gstAmount))
+                    HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total Premium", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("₹%,.0f".format(vm.totalPremium), fontWeight = FontWeight.ExtraBold,
+                        Text("Total payable", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text("₹%,.0f".format(vm.totalAnnualWithGst), fontWeight = FontWeight.ExtraBold,
                             fontSize = 18.sp, color = PruRed)
                     }
                 }
@@ -46,16 +51,35 @@ fun PaymentScreen(vm: BuyOnlineViewModel) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text("You will be redirected to a secure payment gateway", fontSize = 13.sp, fontWeight = FontWeight.Medium)
                     Text("Accepted: UPI, Debit Card, Credit Card, Net Banking", fontSize = 12.sp, color = PruSubtext)
+                    Text("Payment gateway integration is Phase 2; in this build the Pay button " +
+                            "simulates a successful transaction.", fontSize = 11.sp, color = PruSubtext)
                 }
+            }
+
+            // IRDAI-style T&C acceptance required before payment. Defence-in-depth: the
+            // server-side proposal endpoint should also require this in Phase 2.
+            var tcAccepted by remember { mutableStateOf(false) }
+            Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                Checkbox(checked = tcAccepted, onCheckedChange = { tcAccepted = it },
+                    colors = CheckboxDefaults.colors(checkedColor = PruRed))
+                Text(
+                    "I confirm the information provided is accurate and accept the Terms & " +
+                            "Conditions, Privacy Policy, and the 15-day free-look period.",
+                    fontSize = 12.sp, color = PruText
+                )
             }
 
             Spacer(Modifier.weight(1f))
             Text("🔒 Your payment is protected by 256-bit SSL encryption", fontSize = 12.sp, color = PruSubtext)
-        }
 
-        Surface(shadowElevation = 8.dp) {
-            Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
-                PRUButton("Pay ₹%,.0f".format(vm.totalPremium), { vm.onPaymentComplete() }, enabled = !vm.loading)
+            Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
+                Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
+                    PRUButton(
+                        text = "Pay ₹%,.0f".format(vm.totalAnnualWithGst),
+                        onClick = { vm.onPaymentComplete() },
+                        enabled = tcAccepted && !vm.loading && vm.totalAnnualWithGst > 0.0
+                    )
+                }
             }
         }
     }

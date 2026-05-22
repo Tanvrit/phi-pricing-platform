@@ -128,12 +128,18 @@ fun LandingScreen(vm: BuyOnlineViewModel) {
                 Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.White)
             ) {
+                // Trust pills — these are the customer-visible claims.
+                // The "99% Claim Approval" pill was removed pre-launch: any displayed
+                // claim ratio must cite IRDAI Annual Report. Pass 2 of the audit calls
+                // this out; until we have a real ratio we display only IRDAI registration.
                 Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceAround) {
-                    FeaturePill("🏥", "500+ Hospitals")
-                    FeaturePill("✅", "99% Claim Approval")
-                    FeaturePill("⚡", "30-min Pre-auth")
+                    FeaturePill("🏥", "PRU Network")
+                    FeaturePill("🛡️", "IRDAI Registered")
+                    FeaturePill("📜", "15-day Free-Look")
                 }
             }
+            Spacer(Modifier.height(16.dp))
+            IrdaiComplianceFooter(modifier = Modifier.padding(horizontal = 16.dp))
             Spacer(Modifier.height(32.dp))
         }
 

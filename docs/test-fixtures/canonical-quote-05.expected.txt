@@ -1,0 +1,4 @@
+# rate_table_version: db-excel-v7.0
+# Captured: 2026-05-22
+# Scenario: identical to fixture-01 but MONTHLY payment mode → exercises the 6% instalment loading + GST on the loaded total
+PENDING_CAPTURE_FROM_STAGING

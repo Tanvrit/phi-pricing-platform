@@ -49,20 +49,49 @@ fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
                     val addOnNames = vm.availableAddOns.filter { it.id in vm.selectedAddOnIds }.map { it.name }
                     if (addOnNames.isNotEmpty()) SummaryRow("Add-ons", addOnNames.joinToString(", "))
                     HorizontalDivider()
+                    // Full premium ledger — replaces the prior "+ GST" placeholder line.
+                    // Every row breaks the headline figure into a defensible component so
+                    // customer + auditor can reconcile the total.
+                    val basePremium  = vm.lastPremium?.basePremium ?: 0.0
+                    val addons       = vm.lastPremium?.totalAddons ?: 0.0
+                    val discount     = vm.lastPremium?.totalDiscountAmount ?: 0.0
+                    val preTax       = vm.totalAnnualPreTax
+                    val gst          = vm.gstAmount
+                    val grandTotal   = vm.totalAnnualWithGst
+
+                    SummaryRow("Base premium",   "₹%,.2f".format(basePremium))
+                    if (addons != 0.0)   SummaryRow("Add-ons",        "₹%,.2f".format(addons))
+                    if (discount != 0.0) SummaryRow("Discount",       "-₹%,.2f".format(-discount))
+                    SummaryRow("Sub-total",      "₹%,.2f".format(preTax))
+                    SummaryRow("GST (18%)",      "₹%,.2f".format(gst))
+                    HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Premium per month", fontWeight = FontWeight.Medium)
-                        Text("₹%,.0f".format(vm.totalPremium / 12), fontWeight = FontWeight.Bold)
+                        Text("₹%,.0f".format(grandTotal / 12), fontWeight = FontWeight.Bold)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Premium per year", fontWeight = FontWeight.SemiBold)
-                        Text("₹%,.0f".format(vm.totalPremium), fontWeight = FontWeight.ExtraBold,
+                        Text("Total per year (incl. GST)", fontWeight = FontWeight.SemiBold)
+                        Text("₹%,.0f".format(grandTotal), fontWeight = FontWeight.ExtraBold,
                             fontSize = 18.sp, color = PruRed)
                     }
+                    if (vm.premiumLoading) {
+                        Text("Calculating latest premium…", fontSize = 11.sp, color = PruSubtext)
+                    }
+                    vm.premiumError?.let { Text(it, fontSize = 12.sp, color = PruRed) }
                 }
             }
 
             Text("Premiums are indicative. Final premiums may vary based on underwriting.",
                 fontSize = 11.sp, color = PruSubtext)
+            Text(
+                "Health insurance attracts 18% GST under HSN 9971. " +
+                "Section 80D may make a portion of the premium tax-deductible — consult your tax advisor.",
+                fontSize = 11.sp, color = PruSubtext
+            )
+            Spacer(Modifier.height(4.dp))
+            // IRDAI-mandated regulatory footer: registration number, free-look period,
+            // grievance redressal, ombudsman, UIN, GST disclosure.
+            IrdaiComplianceFooter()
         }
 
         Surface(shadowElevation = 8.dp) {
@@ -71,10 +100,10 @@ fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("₹%,.0f /yr".format(vm.totalPremium), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                        Text("+ GST", fontSize = 11.sp, color = PruSubtext)
+                        Text("₹%,.0f /yr".format(vm.totalAnnualWithGst), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("incl. 18% GST", fontSize = 11.sp, color = PruSubtext)
                     }
-                    Text("Price details →", color = PruRed, fontSize = 13.sp)
+                    Text("Price details ↑", color = PruRed, fontSize = 13.sp)
                 }
                 PRUButton("Proceed with payment", { vm.proceedFromSummary() })
             }

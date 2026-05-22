@@ -1,12 +1,28 @@
 <configuration>
+    <!--
+        Conversion rules for PII masking. Replaces Aadhaar / mobile / PAN patterns in
+        every log message with masked versions. Defence-in-depth: code should not log
+        PII at all, but if it slips through (third-party libs, stack traces, etc.) the
+        mask catches it.
+
+        For full structured logging, swap the pattern encoder for
+        net.logstash.logback.encoder.LogstashEncoder once the dependency is wired.
+    -->
+    <conversionRule conversionWord="piimsg"
+                    converterClass="com.rate.server.logging.PiiMaskingConverter"/>
+
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+            <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %piimsg%n</pattern>
         </encoder>
     </appender>
+
     <root level="INFO">
         <appender-ref ref="STDOUT" />
     </root>
-    <logger name="Exposed" level="DEBUG"/>
+
+    <!-- Exposed at INFO in production to avoid leaking SQL/table/column names. -->
+    <logger name="Exposed" level="INFO"/>
     <logger name="io.ktor" level="INFO"/>
+    <logger name="com.rate" level="INFO"/>
 </configuration>

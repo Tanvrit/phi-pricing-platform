@@ -87,39 +87,76 @@ class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
         else              -> "₹10 lakh"
     }
 
-    fun estimatedPremium(
-        si: Long = selectedSumInsured,
-        tier: PlanTier = selectedTier,
-        tenure: Int = selectedTenure
-    ): Double {
-        val base = when (si) {
-            1_000_000L  -> 31_248.0
-            2_500_000L  -> 35_248.0
-            5_000_000L  -> 52_000.0
-            10_000_000L -> 60_000.0
-            else        -> 31_248.0
-        }
-        val tierMult = when (tier) {
-            PlanTier.PREMIER   -> 1.0
-            PlanTier.SIGNATURE -> 1.25
-            PlanTier.GLOBAL    -> 1.80
-        }
-        return base * tierMult * (1 - (tenureDiscounts[tenure] ?: 0.0))
-    }
+    // ── Server-side pricing (single source of truth) ────────────────────────
+    //
+    // Pre-Foundation-Pack this VM contained an `estimatedPremium()` mock that hardcoded
+    // base premiums and tier multipliers, diverging from the real actuarial engine.
+    // It has been removed. The premium is now always whatever the engine returns
+    // (via /api/buy-online/premium). UI shows a small "Calculating…" state until the
+    // first response lands; no fabricated numbers are ever displayed.
+    var lastPremium      by mutableStateOf<PremiumResponse?>(null)
+        private set
+    var premiumLoading   by mutableStateOf(false)
+        private set
+    var premiumError     by mutableStateOf<String?>(null)
+        private set
 
-    // Fetch server-side premium (async; falls back to local calc until response arrives)
+    val totalAnnualWithGst: Double
+        get() = lastPremium?.totalIncludingGst ?: 0.0
+
+    val totalAnnualPreTax: Double
+        get() = lastPremium?.annualPremium ?: 0.0
+
+    val gstAmount: Double
+        get() = lastPremium?.gstAmount ?: 0.0
+
     fun refreshPremium() {
         scope.launch {
+            premiumLoading = true
+            premiumError = null
             runCatching {
                 client.calculatePremium(
                     PremiumRequest(
                         sumInsured = selectedSumInsured,
                         tier       = selectedTier.name,
                         tenure     = selectedTenure,
-                        addOnIds   = selectedAddOnIds.toList()
+                        addOnIds   = effectiveAddOnIds().toList(),
+                        primaryAge = eldestAge.toIntOrNull() ?: 35,
+                        familyType = deriveFamilyTypeCode(),
+                        zone       = "Zone 1"
                     )
                 )
-            }.onSuccess { serverPremium = it.annualPremium }
+            }.onSuccess {
+                lastPremium = it
+                serverPremium = it.annualPremium
+            }.onFailure {
+                premiumError = "Couldn't calculate premium right now. Please retry."
+                lastPremium = null
+                serverPremium = null
+            }
+            premiumLoading = false
+        }
+    }
+
+    /** Map BuyOnline tier defaults + user selections into the single add-on ID set. */
+    private fun effectiveAddOnIds(): Set<String> =
+        // The mapped IDs from BUYONLINE_ADDONS — kept stable across UI changes.
+        selectedAddOnIds
+
+    /** Derive family-type code from selected members. */
+    private fun deriveFamilyTypeCode(): String {
+        val hasSpouse = com.rate.buyonline.model.MemberType.SPOUSE in selectedMembers
+        return when {
+            hasSpouse && kidsCount == 0 -> "2A"
+            hasSpouse && kidsCount == 1 -> "2A1C"
+            hasSpouse && kidsCount == 2 -> "2A2C"
+            hasSpouse && kidsCount == 3 -> "2A3C"
+            hasSpouse                   -> "2A4C"
+            kidsCount == 0              -> "1A"
+            kidsCount == 1              -> "1A1C"
+            kidsCount == 2              -> "1A2C"
+            kidsCount == 3              -> "1A3C"
+            else                        -> "1A4C"
         }
     }
 
@@ -143,7 +180,9 @@ class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
     }
 
     val totalAddOnCost get() = availableAddOns.filter { it.id in selectedAddOnIds }.sumOf { it.annualCost }
-    val totalPremium   get() = (serverPremium ?: estimatedPremium()) + totalAddOnCost
+    // Headline figure: GST-inclusive total from the engine. If the engine hasn't
+    // responded yet we show 0.0 (UI gates on `premiumLoading` and `premiumError`).
+    val totalPremium   get() = lastPremium?.totalIncludingGst ?: 0.0
 
     // ── Personal details ──────────────────────────────────────────────────────
     var personalDetails by mutableStateOf<Map<String, PersonalDetail>>(emptyMap())

@@ -5,11 +5,22 @@ import com.rate.domain.model.QuoteRequest
 import com.rate.domain.model.QuoteResult
 import com.rate.domain.repository.QuoteRepository
 import com.rate.domain.repository.RateDataProvider
+import com.rate.server.audit.AuditActor
+import com.rate.server.audit.AuditEventService
+import com.rate.server.metrics.Metrics
+import com.rate.server.plugins.ACTOR_SUBJECT_KEY
+import com.rate.server.plugins.REQUEST_ID_KEY
+import com.rate.server.plugins.withIdempotency
+import com.rate.server.security.IdempotencyService
 import io.ktor.http.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 
 @Serializable
 data class SavedQuoteResponse(val id: String, val result: QuoteResult)
@@ -28,25 +39,56 @@ data class QuoteListItem(
     val tenure: String
 )
 
-fun Route.quoteRoutes(rateProvider: RateDataProvider, quoteRepo: QuoteRepository) {
+private val routeJson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+
+fun Route.quoteRoutes(
+    rateProvider: RateDataProvider,
+    quoteRepo: QuoteRepository,
+    auditService: AuditEventService,
+    idempotencyService: IdempotencyService
+) {
     val engine = PricingEngine(rateProvider)
 
     route("/api/quotes") {
         // Calculate without saving
         post("/calculate") {
             val request = call.receive<QuoteRequest>()
-            call.respond(engine.calculate(request))
+            val result  = engine.calculate(request)
+            Metrics.recordQuoteCalculation(request.planId, result.isValid)
+            call.respond(result)
         }
 
-        // Calculate and save
+        // Calculate and save (idempotent on Idempotency-Key header)
         post {
-            val request = call.receive<QuoteRequest>()
-            val result  = engine.calculate(request)
-            if (result.isValid) {
-                val id = quoteRepo.saveQuote(request, result)
-                call.respond(HttpStatusCode.Created, SavedQuoteResponse(id = id, result = result))
-            } else {
-                call.respond(HttpStatusCode.UnprocessableEntity, result)
+            withIdempotency(idempotencyService, routeKey = "POST /api/quotes") { rawBody ->
+                val request = routeJson.decodeFromString<QuoteRequest>(rawBody)
+                val result  = engine.calculate(request)
+                Metrics.recordQuoteCalculation(request.planId, result.isValid)
+                if (result.isValid) {
+                    val id = quoteRepo.saveQuote(request, result)
+                    val rid = call.attributes.getOrNull(REQUEST_ID_KEY)
+                    val actor = call.attributes.getOrNull(ACTOR_SUBJECT_KEY)
+                        ?.let { AuditActor(subject = it) } ?: AuditActor.unknown()
+                    auditService.record(
+                        action = "quote.created",
+                        resourceType = "quote",
+                        resourceId = id,
+                        payload = JsonObject(mapOf(
+                            "planId" to JsonPrimitive(request.planId),
+                            "primaryAge" to JsonPrimitive(request.primaryAge),
+                            "sumInsured" to JsonPrimitive(request.sumInsured),
+                            "familyType" to JsonPrimitive(request.familyType),
+                            "zone" to JsonPrimitive(request.zone),
+                            "tenure" to JsonPrimitive(request.tenure.label),
+                            "finalPremium" to JsonPrimitive(result.totalAfterDiscount)
+                        )),
+                        actor = actor,
+                        requestId = rid
+                    )
+                    HttpStatusCode.Created to routeJson.encodeToString(SavedQuoteResponse(id, result))
+                } else {
+                    HttpStatusCode.UnprocessableEntity to routeJson.encodeToString(result)
+                }
             }
         }
 

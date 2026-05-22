@@ -1,0 +1,19 @@
+{
+  "planId": "PHI_SENIOR",
+  "primaryAge": 65,
+  "sumInsured": 1000000,
+  "familyType": "1A",
+  "zone": "Pan India",
+  "tenure": "ONE_YEAR",
+  "paymentMode": "ANNUAL",
+  "paymentTenure": "ONE_YEAR",
+  "members": [
+    { "memberId": 1, "age": 65, "relationship": "Self", "gender": "M" }
+  ],
+  "selectedCovers": [
+    { "coverId": "chronic_management", "params": { "param1": "1" } }
+  ],
+  "selectedDiscounts": [],
+  "uwLoadingFactor": 0.0,
+  "maxDiscountCap": 0.20
+}

@@ -77,14 +77,29 @@ fun OtpScreen(vm: BuyOnlineViewModel) {
                 }
             }
 
+            // Surface OTP verification errors. Pre-Foundation-Pack the `otpError` state
+            // existed in the VM but was never rendered, so users got no feedback on a wrong
+            // code. Now displayed in a red banner.
+            vm.otpError?.let { msg ->
+                Box(
+                    Modifier.fillMaxWidth()
+                        .background(PruRed.copy(alpha = 0.1f), RoundedCornerShape(8.dp))
+                        .border(1.dp, PruRed.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
+                        .padding(12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(msg, color = PruRed, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+                }
+            }
+
             Spacer(Modifier.weight(1f))
 
             PRUButton("Verify", { vm.verifyOtp() }, enabled = vm.otpFilled && !vm.loading)
 
-            Box(
-                Modifier.fillMaxWidth().background(PruSuccess.copy(alpha = 0.1f), RoundedCornerShape(8.dp)).padding(12.dp),
-                contentAlignment = Alignment.Center
-            ) { Text("✅ 99% CLAIM APPROVAL", fontWeight = FontWeight.SemiBold, color = PruSuccess) }
+            // Replaced "99% CLAIM APPROVAL" unsubstantiated claim with IRDAI-compliant
+            // trust strip. Claim ratio is only displayed once a real, citable number is
+            // wired in via IrdaiRegistrationInfo.claimSettlementRatio.
+            IrdaiTrustStrip(modifier = Modifier.fillMaxWidth())
         }
     }
 }

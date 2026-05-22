@@ -1,0 +1,17 @@
+{
+  "planId": "PHI_BASIC",
+  "primaryAge": 30,
+  "sumInsured": 1000000,
+  "familyType": "1A",
+  "zone": "Zone 1",
+  "tenure": "ONE_YEAR",
+  "paymentMode": "ANNUAL",
+  "paymentTenure": "ONE_YEAR",
+  "members": [
+    { "memberId": 1, "age": 30, "relationship": "Self", "gender": "M" }
+  ],
+  "selectedCovers": [],
+  "selectedDiscounts": [],
+  "uwLoadingFactor": 0.0,
+  "maxDiscountCap": 0.30
+}

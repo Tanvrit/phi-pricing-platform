@@ -32,7 +32,9 @@ fun SumInsuredSheet(vm: BuyOnlineViewModel, onDone: () -> Unit) {
 
         vm.sumInsuredOptions.forEach { si ->
             val selected = si == vm.selectedSumInsured
-            val annual   = vm.estimatedPremium(si = si)
+            // Only the currently-selected SI has an engine-priced premium readily available.
+            // Other options show "Tap to view"; switching SI triggers a fresh engine call.
+            val annual   = if (selected) vm.totalAnnualWithGst else 0.0
             val monthly  = annual / 12
             Row(
                 Modifier.fillMaxWidth().clickable { vm.selectedSumInsured = si }
@@ -47,8 +49,15 @@ fun SumInsuredSheet(vm: BuyOnlineViewModel, onDone: () -> Unit) {
                         Text(siLabels[si] ?: "", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                         if (si == popular) PopularBadge()
                     }
-                    Text("₹%,.0f per year | Monthly ₹%,.0f".format(annual, monthly), fontSize = 12.sp, color = PruSubtext)
-                    if (si != 1_000_000L) Text("2.5x cover | Save ₹4,000/yr", fontSize = 11.sp, color = PruSuccess)
+                    if (selected) {
+                        Text(
+                            if (annual > 0) "₹%,.0f per year | Monthly ₹%,.0f".format(annual, monthly)
+                            else "Calculating…",
+                            fontSize = 12.sp, color = PruSubtext
+                        )
+                    } else {
+                        Text("Tap to view premium", fontSize = 12.sp, color = PruSubtext)
+                    }
                 }
             }
             if (si != vm.sumInsuredOptions.last()) HorizontalDivider()
