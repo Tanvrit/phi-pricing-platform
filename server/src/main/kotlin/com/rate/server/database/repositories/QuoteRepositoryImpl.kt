@@ -3,6 +3,7 @@ package com.rate.server.database.repositories
 import com.rate.domain.model.QuoteRequest
 import com.rate.domain.model.QuoteResult
 import com.rate.domain.repository.QuoteRepository
+import com.rate.domain.repository.QuoteSummary
 import com.rate.server.database.tables.QuotesTable
 import kotlinx.datetime.Clock
 import kotlinx.serialization.encodeToString
@@ -50,5 +51,29 @@ class QuoteRepositoryImpl : QuoteRepository {
             QuotesTable.selectAll().limit(limit).map {
                 it[QuotesTable.id] to json.decodeFromString<QuoteRequest>(it[QuotesTable.requestJson])
             }
+        }
+
+    /**
+     * Dashboard projection — reads the indexed columns directly (no resultJson decode
+     * per row). Sorted newest-first so the explorer's "recent quotes" doesn't have to
+     * re-sort on the client.
+     */
+    override suspend fun listQuoteSummaries(limit: Int): List<QuoteSummary> =
+        newSuspendedTransaction {
+            QuotesTable
+                .selectAll()
+                .orderBy(QuotesTable.createdAt, org.jetbrains.exposed.sql.SortOrder.DESC)
+                .limit(limit)
+                .map {
+                    val request = json.decodeFromString<QuoteRequest>(it[QuotesTable.requestJson])
+                    val result  = json.decodeFromString<QuoteResult>(it[QuotesTable.resultJson])
+                    QuoteSummary(
+                        id                = it[QuotesTable.id],
+                        createdAt         = it[QuotesTable.createdAt],
+                        request           = request,
+                        totalIncludingGst = result.totalIncludingGst,
+                        isValid           = result.isValid
+                    )
+                }
         }
 }

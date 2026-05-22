@@ -11,7 +11,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.components.*
+import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
+import com.rate.aegis.data.rememberDashboardData
 import com.rate.aegis.theme.*
 import com.rate.domain.money.formatRupees
 
@@ -28,8 +30,8 @@ fun QuoteExplorerSurface() {
     var tierFilter by remember { mutableStateOf<TierFilter>(TierFilter.All) }
     var validityFilter by remember { mutableStateOf<ValidityFilter>(ValidityFilter.All) }
     var selected by remember { mutableStateOf<FakeAegisRepo.FakeQuote?>(null) }
-
-    val all = FakeAegisRepo.quotes
+    val dashboard by rememberDashboardData()
+    val all = dashboard.quotes
     val filtered = remember(search, tierFilter, validityFilter) {
         all.filter { q ->
             val matchesSearch = search.isBlank() ||
@@ -59,7 +61,12 @@ fun QuoteExplorerSurface() {
         verticalArrangement = Arrangement.spacedBy(AegisSpacing.s4)
     ) {
         Text("Quote Explorer", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
-        Text("${filtered.size} of ${all.size} quotes — search, filter, drill-down.",
+        val sourceLabel = when (dashboard.source) {
+            DashboardSource.LOADING -> "loading…"
+            DashboardSource.LIVE    -> "live from server"
+            DashboardSource.DEMO    -> "demo data — ${dashboard.fallbackReason}"
+        }
+        Text("${filtered.size} of ${all.size} quotes — $sourceLabel.",
             fontSize = 13.sp, color = AegisColors.textSecondary)
 
         AegisCard {

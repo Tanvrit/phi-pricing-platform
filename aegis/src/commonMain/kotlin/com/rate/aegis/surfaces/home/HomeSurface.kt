@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -14,7 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.components.*
+import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
+import com.rate.aegis.data.rememberDashboardData
 import com.rate.aegis.theme.*
 import com.rate.domain.money.formatRupees
 import kotlin.math.roundToInt
@@ -29,17 +32,16 @@ import kotlin.math.roundToInt
  */
 @Composable
 fun HomeSurface() {
-    val kpis = FakeAegisRepo.homeKpis
-    val recentQuotes = FakeAegisRepo.quotes.sortedByDescending { it.createdAt }.take(10)
+    val dashboard by rememberDashboardData()
+    val kpis = dashboard.kpis
+    val recentQuotes = dashboard.quotes.sortedByDescending { it.createdAt }.take(10)
     Column(
         Modifier.fillMaxSize().background(AegisColors.canvas)
             .verticalScroll(rememberScrollState()).padding(AegisSpacing.s6),
         verticalArrangement = Arrangement.spacedBy(AegisSpacing.s5)
     ) {
         Text("Home", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
-        Text("PRUHealth Aegis — operations snapshot. Tiles update from the audit_event " +
-                "stream + quotes table; right now this surface reads from the synthetic repo.",
-            fontSize = 14.sp, color = AegisColors.textSecondary)
+        DashboardSourceBanner(dashboard.source, dashboard.fallbackReason)
 
         // KPI tiles ─────────────────────────────────────────────────────────
         Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s4)) {
@@ -95,7 +97,7 @@ fun HomeSurface() {
                         "a representative quarter."
             )
             Spacer(Modifier.height(AegisSpacing.s4))
-            val q = FakeAegisRepo.quotes
+            val q = dashboard.quotes
             val totalGwp = q.sumOf { it.totalIncludingGst }
             val preTax = totalGwp / 1.18
             val gst = totalGwp - preTax
@@ -120,7 +122,7 @@ fun HomeSurface() {
                 columns = listOf(
                     AegisColumn<FakeAegisRepo.FakeQuote>(
                         header = "Quote ID", weight = 1.6f,
-                        cell = { Text(it.id, fontSize = 13.sp, color = AegisColors.textBody) }
+                        cell = { Text(it.id, fontSize = 13.sp, color = AegisColors.textBody) },
                     ),
                     AegisColumn(
                         header = "Created", weight = 0.9f,
@@ -160,6 +162,27 @@ fun HomeSurface() {
                 )
             )
         }
+    }
+}
+
+@Composable
+private fun DashboardSourceBanner(source: DashboardSource, reason: String) {
+    when (source) {
+        DashboardSource.LOADING -> AegisCallout(
+            kind = CalloutKind.INFO,
+            title = "Loading…",
+            body = "Talking to the server to pull the latest quote stream."
+        )
+        DashboardSource.LIVE -> AegisCallout(
+            kind = CalloutKind.SUCCESS,
+            title = "Live data",
+            body = "Tiles and tables below are computed from the server's quote table."
+        )
+        DashboardSource.DEMO -> AegisCallout(
+            kind = CalloutKind.WARN,
+            title = "Demo data",
+            body = reason.ifBlank { "Server unreachable — showing a deterministic synthetic dataset." }
+        )
     }
 }
 

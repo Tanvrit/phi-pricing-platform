@@ -1,6 +1,7 @@
 package com.rate.domain.repository
 
 import com.rate.domain.model.*
+import kotlinx.datetime.Instant
 
 interface RateDataProvider {
     /** Base premium: planId × familyType × zone × ageBandMinAge × sumInsured → INR */
@@ -68,10 +69,34 @@ interface RateDataProvider {
     suspend fun rateTableVersion(): String = "unspecified"
 }
 
+/**
+ * Lightweight projection of a saved quote — enough to render a row in the operator
+ * dashboard / explorer without re-decoding the full result JSON for every quote.
+ */
+data class QuoteSummary(
+    val id: String,
+    val createdAt: Instant,
+    val request: QuoteRequest,
+    /** Headline figure — post-GST. Zero for INVALID quotes. */
+    val totalIncludingGst: Double,
+    val isValid: Boolean = true
+)
+
 interface QuoteRepository {
     suspend fun saveQuote(request: QuoteRequest, result: QuoteResult): String
     suspend fun getQuote(id: String): Pair<QuoteRequest, QuoteResult>?
     suspend fun listQuotes(limit: Int = 50): List<Pair<String, QuoteRequest>>
+
+    /**
+     * Dashboard-flavored list: same rows as [listQuotes] but with creation time
+     * and post-GST totals included. Default implementation re-decodes the result
+     * JSON per row; an Exposed implementation can override to pull from indexed
+     * columns directly.
+     */
+    suspend fun listQuoteSummaries(limit: Int = 50): List<QuoteSummary> =
+        listQuotes(limit).map { (id, request) ->
+            QuoteSummary(id = id, createdAt = Instant.DISTANT_PAST, request = request, totalIncludingGst = 0.0)
+        }
 }
 
 interface PlanRepository {

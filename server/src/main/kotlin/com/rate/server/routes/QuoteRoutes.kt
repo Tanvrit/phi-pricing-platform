@@ -36,7 +36,10 @@ data class QuoteListItem(
     val sumInsured: Long,
     val familyType: String,
     val zone: String,
-    val tenure: String
+    val tenure: String,
+    val createdAt: String,            // ISO-8601 instant; UI parses for grouping/sort
+    val totalIncludingGst: Double,    // headline figure (post-GST). 0.0 for INVALID quotes.
+    val isValid: Boolean = true
 )
 
 private val routeJson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
@@ -100,16 +103,19 @@ fun Route.quoteRoutes(
 
         get {
             val limit  = call.request.queryParameters["limit"]?.toIntOrNull() ?: 50
-            val quotes = quoteRepo.listQuotes(limit)
-            call.respond(quotes.map { (id, req) ->
+            val quotes = quoteRepo.listQuoteSummaries(limit)
+            call.respond(quotes.map { summary ->
                 QuoteListItem(
-                    id = id,
-                    planId = req.planId,
-                    age = req.primaryAge,
-                    sumInsured = req.sumInsured,
-                    familyType = req.familyType,
-                    zone = req.zone,
-                    tenure = req.tenure.label
+                    id                = summary.id,
+                    planId            = summary.request.planId,
+                    age               = summary.request.primaryAge,
+                    sumInsured        = summary.request.sumInsured,
+                    familyType        = summary.request.familyType,
+                    zone              = summary.request.zone,
+                    tenure            = summary.request.tenure.label,
+                    createdAt         = summary.createdAt.toString(),
+                    totalIncludingGst = summary.totalIncludingGst,
+                    isValid           = summary.isValid
                 )
             })
         }
