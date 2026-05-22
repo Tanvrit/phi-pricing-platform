@@ -23,9 +23,12 @@ import com.rate.aegis.customer.buyonline.BuyOnlineApp
 import com.rate.aegis.surfaces.audit.AuditEventsSurface
 import com.rate.aegis.surfaces.calculator.CalculatorSurface
 import com.rate.aegis.surfaces.covers.CoverCatalogSurface
+import com.rate.aegis.surfaces.discounts.DiscountsSurface
 import com.rate.aegis.surfaces.home.HomeSurface
 import com.rate.aegis.surfaces.plans.PlanConfiguratorSurface
 import com.rate.aegis.surfaces.quotes.QuoteExplorerSurface
+import com.rate.aegis.surfaces.reports.ReportsSurface
+import com.rate.aegis.surfaces.settings.SettingsSurface
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
 import com.rate.aegis.theme.AegisTheme
@@ -70,7 +73,10 @@ private fun BusinessRoot() {
             AegisSurface.QUOTES            -> QuoteExplorerSurface()
             AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
             AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
+            AegisSurface.DISCOUNTS         -> DiscountsSurface()
+            AegisSurface.REPORTS           -> ReportsSurface()
             AegisSurface.AUDIT             -> AuditEventsSurface()
+            AegisSurface.SETTINGS          -> SettingsSurface()
             else -> SurfaceTodo(active)
         }
     }
@@ -90,7 +96,10 @@ private fun AdminRoot() {
             AegisSurface.QUOTES            -> QuoteExplorerSurface()
             AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
             AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
+            AegisSurface.DISCOUNTS         -> DiscountsSurface()
+            AegisSurface.REPORTS           -> ReportsSurface()
             AegisSurface.CALCULATOR        -> CalculatorSurface()
+            AegisSurface.SETTINGS          -> SettingsSurface()
             else -> SurfaceTodo(active)
         }
     }

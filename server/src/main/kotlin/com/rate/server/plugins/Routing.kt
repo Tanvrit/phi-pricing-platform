@@ -98,6 +98,7 @@ fun Application.configureRouting(
         quoteRoutes(rateDataProvider, quoteRepo, auditService, idempotencyService)
         planRoutes(planRepo, auditService)
         coverRoutes()
+        discountRoutes(rateDataProvider)
         importRoutes(auditService, idempotencyService)
         buyOnlineRoutes(otpService, pricingEngine, auditService, idempotencyService)
     }

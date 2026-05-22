@@ -89,6 +89,17 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
     suspend fun getAuditEvents(limit: Int = 100): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/audit/events?limit=$limit").body()
 
+    // ── Discounts ─────────────────────────────────────────────────────────
+
+    /**
+     * Returns the discount catalogue with server-resolved rates. Same
+     * parse-on-client shape as [listQuotes] / [getAuditEvents] so the Aegis
+     * surface can pick fields without dragging a serialization schema across
+     * the wire.
+     */
+    suspend fun getDiscounts(): List<Map<String, JsonElement>> =
+        http.get("$baseUrl/api/discounts").body()
+
     // ── Import (seed only — file upload is JVM-side, see jvmMain extension) ──
 
     suspend fun seedBuiltinData(): Map<String, JsonElement> =
