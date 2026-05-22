@@ -26,7 +26,13 @@ subprojects {
             force(
                 "androidx.lifecycle:lifecycle-common:2.9.4",
                 "androidx.lifecycle:lifecycle-runtime:2.9.4",
-                "androidx.lifecycle:lifecycle-viewmodel:2.9.4"
+                "androidx.lifecycle:lifecycle-viewmodel:2.9.4",
+                // collection-jvm 1.4.0 is referenced transitively but its jar isn't
+                // mirrored to mavenCentral and dl.google.com TLS-resets here; 1.5.0
+                // is cached locally + Aliyun-mirrored.
+                "androidx.collection:collection:1.5.0",
+                "androidx.collection:collection-jvm:1.5.0",
+                "androidx.collection:collection-ktx:1.5.0"
             )
         }
     }
