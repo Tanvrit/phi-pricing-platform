@@ -1,4 +1,6 @@
 # rate_table_version: db-excel-v7.0
-# Captured: 2026-05-22
-# Scenario: Family floater 2A2C, age 35, ₹25L, Zone 2, 3yr Single Premium, popular add-ons + tenure + auto-debit discounts
-PENDING_CAPTURE_FROM_STAGING
+# Captured: 2026-05-22 against local server
+# Scenario: PHI_FLAGSHIP1, 2A2C, age 35, ₹25L SI, Zone 2, 3-year SINGLE_PREMIUM,
+# day1_instant (2X) + home_care + air_ambulance + pre_post_hosp + loyalty_bonus (100% upto 200%),
+# disc_tenure + disc_auto_debit.
+122418.841875

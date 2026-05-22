@@ -1,9 +1,5 @@
-# rate_table_version: db-excel-v7.0 (or fake-test-v1 against the FakeRateDataProvider)
-# Captured: 2026-05-22 from staging environment
-# Scenario: PHI_BASIC, 1A, age 30, ₹10L SI, Zone 1, 1-year annual, no add-ons, no discounts
-#
-# This is the headline customer-facing figure: totalIncludingGst (₹).
-# The canonical golden value for this input. Any divergence > ₹1 fires the canary alert.
-#
-# Last refreshed: 2026-05-22
-PENDING_CAPTURE_FROM_STAGING
+# rate_table_version: db-excel-v7.0
+# Captured: 2026-05-22 against local server (rate_calculator DB, post-V3 migration)
+# Scenario: PHI_BASIC, 1A, age 30, ₹10L SI, Zone 1, 1-year ANNUAL, no add-ons, no discounts.
+# This is the headline canonical baseline — any divergence > ₹1 fires the canary alert.
+8521.96

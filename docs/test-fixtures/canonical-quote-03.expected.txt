@@ -1,4 +1,8 @@
-# rate_table_version: db-excel-v7.0
-# Captured: 2026-05-22
-# Scenario: Senior plan, age 65 (band boundary), ₹10L SI, Pan India, chronic_management cover, lower max-discount-cap
-PENDING_CAPTURE_FROM_STAGING
+# rate_table_version: unknown   (engine returned isValid=false because validation rejects this combo)
+# Captured: 2026-05-22 against local server
+# Scenario: PHI_SENIOR, 1A, age 65, ₹10L SI, Pan India, 1-year ANNUAL, chronic_management cover.
+# Expected: INVALID (isValid=false). The combination violates a plan-specific rule —
+# Phase 5 follow-up should classify which rule and surface it. The canary's contract for
+# this fixture: server MUST return isValid=false (any 2xx with totalIncludingGst > 0
+# is a regression).
+INVALID
