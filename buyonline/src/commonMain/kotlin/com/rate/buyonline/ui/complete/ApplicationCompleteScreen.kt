@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.complete
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,7 +48,7 @@ fun ApplicationCompleteScreen(vm: BuyOnlineViewModel) {
                         ProposalRow("Proposal No.",  result.proposalNumber)
                         ProposalRow("Plan",          "PRUHealth ${result.planTier}")
                         ProposalRow("Sum Insured",   vm.formatSI(result.sumInsured))
-                        ProposalRow("Premium/year",  "₹%,.0f".format(result.annualPremium))
+                        ProposalRow("Premium/year",  formatRupees(result.annualPremium))
                         ProposalRow("Members",       "${vm.allMembers.size}")
                         ProposalRow("Tenure",        "${vm.selectedTenure} year(s)")
                         HorizontalDivider()

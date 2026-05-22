@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.payment
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,12 +34,12 @@ fun PaymentScreen(vm: BuyOnlineViewModel) {
                     HorizontalDivider()
                     // Premium ledger — every component shown so the customer can reconcile
                     // the figure they're about to pay.
-                    SummaryItem("Sub-total (pre-tax)", "₹%,.2f".format(vm.totalAnnualPreTax))
-                    SummaryItem("GST (18%)",           "₹%,.2f".format(vm.gstAmount))
+                    SummaryItem("Sub-total (pre-tax)", formatRupees(vm.totalAnnualPreTax, 2))
+                    SummaryItem("GST (18%)",           formatRupees(vm.gstAmount, 2))
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total payable", fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                        Text("₹%,.0f".format(vm.totalAnnualWithGst), fontWeight = FontWeight.ExtraBold,
+                        Text(formatRupees(vm.totalAnnualWithGst), fontWeight = FontWeight.ExtraBold,
                             fontSize = 18.sp, color = PruRed)
                     }
                 }
@@ -75,7 +77,7 @@ fun PaymentScreen(vm: BuyOnlineViewModel) {
             Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
                     PRUButton(
-                        text = "Pay ₹%,.0f".format(vm.totalAnnualWithGst),
+                        text = "Pay ${formatRupees(vm.totalAnnualWithGst)}",
                         onClick = { vm.onPaymentComplete() },
                         enabled = tcAccepted && !vm.loading && vm.totalAnnualWithGst > 0.0
                     )

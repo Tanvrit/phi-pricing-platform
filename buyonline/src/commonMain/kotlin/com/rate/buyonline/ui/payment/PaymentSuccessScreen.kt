@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.payment
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -53,7 +55,7 @@ fun PaymentSuccessScreen(vm: BuyOnlineViewModel) {
                     HorizontalDivider()
                     TxnRow("Transaction ID", vm.transactionId)
                     TxnRow("Payment type",   vm.paymentMethod)
-                    TxnRow("Amount paid",    "₹%,.0f".format(vm.paymentAmount))
+                    TxnRow("Amount paid",    formatRupees(vm.paymentAmount))
                 }
             }
 

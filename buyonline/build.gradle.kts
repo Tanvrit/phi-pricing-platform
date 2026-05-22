@@ -31,7 +31,8 @@ kotlin {
             implementation(compose.components.resources)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.content.negotiation)
-            implementation(libs.ktor.serialization.kotlinx.json)
+            // Use the KMP umbrella artifact (not -jvm) so wasmJs can resolve a variant.
+            implementation(libs.ktor.serialization.kotlinx.json.mp)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)

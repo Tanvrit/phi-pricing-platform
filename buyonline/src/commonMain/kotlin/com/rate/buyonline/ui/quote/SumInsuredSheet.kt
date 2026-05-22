@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.quote
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -51,7 +53,7 @@ fun SumInsuredSheet(vm: BuyOnlineViewModel, onDone: () -> Unit) {
                     }
                     if (selected) {
                         Text(
-                            if (annual > 0) "₹%,.0f per year | Monthly ₹%,.0f".format(annual, monthly)
+                            if (annual > 0) "${formatRupees(annual)} per year | Monthly ${formatRupees(monthly)}"
                             else "Calculating…",
                             fontSize = 12.sp, color = PruSubtext
                         )

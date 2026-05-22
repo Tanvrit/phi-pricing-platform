@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.summary
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -59,19 +61,19 @@ fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
                     val gst          = vm.gstAmount
                     val grandTotal   = vm.totalAnnualWithGst
 
-                    SummaryRow("Base premium",   "₹%,.2f".format(basePremium))
-                    if (addons != 0.0)   SummaryRow("Add-ons",        "₹%,.2f".format(addons))
-                    if (discount != 0.0) SummaryRow("Discount",       "-₹%,.2f".format(-discount))
-                    SummaryRow("Sub-total",      "₹%,.2f".format(preTax))
-                    SummaryRow("GST (18%)",      "₹%,.2f".format(gst))
+                    SummaryRow("Base premium",   formatRupees(basePremium, 2))
+                    if (addons != 0.0)   SummaryRow("Add-ons",        formatRupees(addons, 2))
+                    if (discount != 0.0) SummaryRow("Discount",       "-${formatRupees(-discount, 2)}")
+                    SummaryRow("Sub-total",      formatRupees(preTax, 2))
+                    SummaryRow("GST (18%)",      formatRupees(gst, 2))
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Premium per month", fontWeight = FontWeight.Medium)
-                        Text("₹%,.0f".format(grandTotal / 12), fontWeight = FontWeight.Bold)
+                        Text(formatRupees(grandTotal / 12), fontWeight = FontWeight.Bold)
                     }
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("Total per year (incl. GST)", fontWeight = FontWeight.SemiBold)
-                        Text("₹%,.0f".format(grandTotal), fontWeight = FontWeight.ExtraBold,
+                        Text(formatRupees(grandTotal), fontWeight = FontWeight.ExtraBold,
                             fontSize = 18.sp, color = PruRed)
                     }
                     if (vm.premiumLoading) {
@@ -100,7 +102,7 @@ fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
                     Column {
-                        Text("₹%,.0f /yr".format(vm.totalAnnualWithGst), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("${formatRupees(vm.totalAnnualWithGst)} /yr", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                         Text("incl. 18% GST", fontSize = 11.sp, color = PruSubtext)
                     }
                     Text("Price details ↑", color = PruRed, fontSize = 13.sp)

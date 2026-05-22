@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.quote
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -110,11 +112,11 @@ fun QuoteScreen(vm: BuyOnlineViewModel) {
                             }
                         }
                         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Text("₹%,.0f".format(monthly), fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)
+                            Text(formatRupees(monthly), fontWeight = FontWeight.ExtraBold, fontSize = 26.sp)
                             Text("/month", fontSize = 13.sp, color = PruSubtext, modifier = Modifier.padding(bottom = 4.dp))
                         }
                         // Full GST-inclusive premium ledger — replaces the "+ 0% GST" placeholder.
-                        Text("₹%,.0f base + ₹%,.0f GST (18%%) = ₹%,.0f/year".format(annualPreTax, gst, annualTotal),
+                        Text("${formatRupees(annualPreTax)} base + ${formatRupees(gst)} GST (18%) = ${formatRupees(annualTotal)}/year",
                             fontSize = 13.sp, color = PruSubtext)
                         if (vm.premiumLoading) {
                             Text("Calculating…", fontSize = 11.sp, color = PruSubtext)

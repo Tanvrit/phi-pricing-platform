@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.addons
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -43,7 +45,7 @@ fun AddOnsScreen(vm: BuyOnlineViewModel) {
                             verticalAlignment = Alignment.CenterVertically) {
                             Column {
                                 Text("Recommended bundle for You", fontWeight = FontWeight.SemiBold)
-                                Text("+₹%,.0f/year".format(vm.totalAddOnCost), fontSize = 13.sp, color = PruRed)
+                                Text("+${formatRupees(vm.totalAddOnCost)}/year", fontSize = 13.sp, color = PruRed)
                             }
                             if (vm.selectedTier != PlanTier.PREMIER) {
                                 TextButton(onClick = { vm.editingAddOns = !vm.editingAddOns }) {
@@ -61,11 +63,11 @@ fun AddOnsScreen(vm: BuyOnlineViewModel) {
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Total add-on cost", fontSize = 14.sp, color = PruSubtext)
-                            Text("₹%,.0f".format(vm.totalAddOnCost), fontSize = 14.sp, fontWeight = FontWeight.Medium)
+                            Text(formatRupees(vm.totalAddOnCost), fontSize = 14.sp, fontWeight = FontWeight.Medium)
                         }
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                             Text("Total premium (plan + add-ons)", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                            Text("₹%,.0f".format(vm.totalPremium), fontSize = 14.sp,
+                            Text(formatRupees(vm.totalPremium), fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold, color = PruText)
                         }
                     }

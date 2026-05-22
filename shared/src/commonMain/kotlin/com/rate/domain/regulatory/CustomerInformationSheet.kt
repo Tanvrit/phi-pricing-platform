@@ -2,6 +2,7 @@ package com.rate.domain.regulatory
 
 import com.rate.domain.model.Plan
 import com.rate.domain.model.QuoteResult
+import com.rate.domain.money.Money
 import kotlinx.serialization.Serializable
 
 /**
@@ -50,20 +51,18 @@ object CisBuilder {
             CisField("Sum Insured", "₹${formatSumInsured(quoteResult)}"),
             CisField("Family Type", "(see quote)"),
             CisField("Zone", "(see quote)"),
-            CisField("Base Premium",
-                "₹%,.2f".format(quoteResult.basePremiumTotal)),
-            CisField("Total Add-ons",
-                "₹%,.2f".format(quoteResult.totalAddons)),
-            CisField("UW Loading",
-                "₹%,.2f".format(quoteResult.uwLoadingAmount)),
-            CisField("Total Discount",
-                "₹%,.2f".format(quoteResult.totalDiscountAmount)),
+            // Format via Money.formatIndian so the same Indian grouping renders on every
+            // KMP target (String.format is JVM-only and breaks wasmJs commonMain).
+            CisField("Base Premium",            Money.fromRupees(quoteResult.basePremiumTotal).formatIndian()),
+            CisField("Total Add-ons",           Money.fromRupees(quoteResult.totalAddons).formatIndian()),
+            CisField("UW Loading",              Money.fromRupees(quoteResult.uwLoadingAmount).formatIndian()),
+            CisField("Total Discount",          Money.fromRupees(quoteResult.totalDiscountAmount).formatIndian()),
             CisField("Sub-total (pre-tax)",
-                "₹%,.2f".format(quoteResult.totalAfterDiscount + quoteResult.instalmentLoadingAmount)),
+                Money.fromRupees(quoteResult.totalAfterDiscount + quoteResult.instalmentLoadingAmount).formatIndian()),
             CisField("GST (${(quoteResult.gstRate * 100).toInt()}%)",
-                "₹%,.2f".format(quoteResult.gstAmount)),
+                Money.fromRupees(quoteResult.gstAmount).formatIndian()),
             CisField("Total Premium (incl. GST)",
-                "₹%,.2f".format(quoteResult.totalIncludingGst)),
+                Money.fromRupees(quoteResult.totalIncludingGst).formatIndian()),
             CisField("Free-Look Period", "${IrdaiCircular2024.FREE_LOOK_DAYS_ONLINE} days"),
             CisField("PED Waiting Period", "Up to ${IrdaiCircular2024.PED_MAX_WAITING_MONTHS} months"),
             CisField("Initial Waiting (Sickness)", "${IrdaiCircular2024.INITIAL_WAITING_DAYS_SICKNESS} days"),

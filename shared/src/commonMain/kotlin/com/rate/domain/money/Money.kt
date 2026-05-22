@@ -17,7 +17,10 @@ import kotlin.math.roundToLong
  * - `toRupees(): Double` is only for display.
  * - Arithmetic operators preserve precision. Division rounds half-up to nearest paisa.
  */
-@JvmInline
+// `value class` is multiplatform-portable; the JVM `@JvmInline` annotation that previously
+// adorned this class is unavailable on wasmJs/iOS commonMain. We drop it — on JVM the
+// compiler still inlines where it can, and the marginal boxing cost at our call sites
+// is negligible vs the cost of forking the type into expect/actual.
 @Serializable
 value class Money(val paise: Long) : Comparable<Money> {
 
@@ -94,3 +97,13 @@ private fun Double.roundHalfEven(): Long {
 
 fun Double.toMoney(): Money = Money.fromRupees(this)
 fun Iterable<Money>.sumMoney(): Money = fold(Money.ZERO) { acc, m -> acc + m }
+
+/**
+ * Multiplatform replacement for JVM's `"₹%,.0f".format(v)` / `"₹%,.2f".format(v)` idiom.
+ * Works on jvm + wasmJs + iOS — String.format itself is JVM-only and breaks the wasm build.
+ *
+ *  decimals=0 → "₹1,23,456"     (headline UI)
+ *  decimals=2 → "₹1,23,456.78"  (ledger / receipt)
+ */
+fun formatRupees(value: Double, decimals: Int = 0): String =
+    Money.fromRupees(value).formatIndian(showSymbol = true, showDecimals = decimals > 0)

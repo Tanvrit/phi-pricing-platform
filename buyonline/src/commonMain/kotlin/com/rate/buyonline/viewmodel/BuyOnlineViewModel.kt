@@ -41,7 +41,8 @@ class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
     }
 
     val otpFilled get() = otpDigits.all { it.isNotEmpty() }
-    val otpTimerFormatted get() = "%02d:%02d".format(otpTimer / 60, otpTimer % 60)
+    val otpTimerFormatted get() =
+        "${(otpTimer / 60).toString().padStart(2, '0')}:${(otpTimer % 60).toString().padStart(2, '0')}"
 
     // ── GetStarted ────────────────────────────────────────────────────────────
     var pincode         by mutableStateOf("")
@@ -224,7 +225,8 @@ class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
         kycOtpDigits = kycOtpDigits.toMutableList().also { it[index] = value.takeLast(1) }
     }
     val kycOtpFilled get() = kycOtpDigits.all { it.isNotEmpty() }
-    val kycOtpTimerFormatted get() = "%02d:%02d".format(kycOtpTimer / 60, kycOtpTimer % 60)
+    val kycOtpTimerFormatted get() =
+        "${(kycOtpTimer / 60).toString().padStart(2, '0')}:${(kycOtpTimer % 60).toString().padStart(2, '0')}"
 
     fun startKycOtpTimer() {
         kycOtpTimer = 180

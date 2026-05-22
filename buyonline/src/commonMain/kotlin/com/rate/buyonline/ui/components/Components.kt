@@ -1,5 +1,7 @@
 package com.rate.buyonline.ui.components
 
+import com.rate.domain.money.formatRupees
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -161,7 +163,7 @@ fun StickyPriceBar(annualPremium: Double, onProceed: () -> Unit, proceedText: St
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
-                Text("₹%,.0f /yr".format(annualPremium), fontWeight = FontWeight.Bold, color = PruText, fontSize = 18.sp)
+                Text("${formatRupees(annualPremium)} /yr", fontWeight = FontWeight.Bold, color = PruText, fontSize = 18.sp)
                 Text("+ GST", fontSize = 11.sp, color = PruSubtext)
             }
             Button(
