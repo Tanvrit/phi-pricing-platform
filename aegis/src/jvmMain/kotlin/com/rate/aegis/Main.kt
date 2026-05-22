@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.rate.aegis.settings.AegisSettingsStore
 
 /**
  * Aegis desktop entry. Defaults to BUSINESS role — the role can be overridden
@@ -13,9 +14,15 @@ import androidx.compose.ui.window.rememberWindowState
  * this JVM binary is the operator/admin app distributed to PRUHealth staff.
  */
 fun main() {
+    // Resolution order: -Daegis.role override → operator-saved defaultRole → BUSINESS.
+    // A corrupt/unknown saved value (e.g. older build wrote "OPS") silently degrades
+    // to BUSINESS rather than crashing the desktop binary on launch.
     val role = System.getProperty("aegis.role")?.let {
         runCatching { AegisRole.valueOf(it.uppercase()) }.getOrNull()
-    } ?: AegisRole.BUSINESS
+    } ?: run {
+        val saved = AegisSettingsStore.load().defaultRole
+        runCatching { AegisRole.valueOf(saved.uppercase()) }.getOrElse { AegisRole.BUSINESS }
+    }
 
     val title = when (role) {
         AegisRole.CUSTOMER -> "Aegis — Buy Online (preview)"

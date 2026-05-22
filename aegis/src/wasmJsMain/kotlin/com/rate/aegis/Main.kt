@@ -2,6 +2,7 @@ package com.rate.aegis
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
+import com.rate.aegis.settings.AegisSettingsStore
 import kotlinx.browser.document
 import kotlinx.browser.window
 
@@ -25,11 +26,23 @@ fun main() {
 }
 
 private fun roleFromQueryString(search: String): AegisRole {
-    if (search.isEmpty() || search == "?") return AegisRole.CUSTOMER
+    if (search.isEmpty() || search == "?") return defaultRoleFromSettings()
     val params = search.removePrefix("?").split("&")
     val rolePair = params.firstOrNull { it.startsWith("role=", ignoreCase = true) }
-        ?: return AegisRole.CUSTOMER
+        ?: return defaultRoleFromSettings()
     val value = rolePair.substringAfter('=').trim()
     return runCatching { AegisRole.valueOf(value.uppercase()) }
+        .getOrElse { defaultRoleFromSettings() }
+}
+
+/**
+ * Resolve the boot role from operator-saved settings. Any unparseable / corrupt
+ * value (e.g. an older build wrote "GUEST", or the localStorage entry got
+ * hand-edited) falls back to CUSTOMER — the safe default for the public web
+ * entry, matching the prior hardcoded behaviour.
+ */
+private fun defaultRoleFromSettings(): AegisRole {
+    val saved = AegisSettingsStore.load().defaultRole
+    return runCatching { AegisRole.valueOf(saved.uppercase()) }
         .getOrElse { AegisRole.CUSTOMER }
 }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import com.rate.aegis.business.calculator.api.ApiClient
+import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.domain.model.Plan
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -210,7 +211,11 @@ class LiveDashboardRepo(private val client: ApiClient) {
  */
 @Composable
 fun rememberDashboardData(
-    baseUrl: String = "http://localhost:9090",
+    /** Defaults to the operator-saved value from [AegisSettingsStore]. Kotlin re-evaluates
+     *  default parameter expressions on every call, so editing the server URL in
+     *  SettingsSurface and re-entering this composable picks up the change without any
+     *  extra plumbing. Callers can still pass an explicit URL to override. */
+    baseUrl: String = AegisSettingsStore.load().serverBaseUrl,
     /** Auto-refresh cadence. Set to 0 to fetch once. Default: 30s — generous enough that
      *  the dashboard updates between operator clicks without hammering the API. */
     refreshEverySeconds: Int = 30
