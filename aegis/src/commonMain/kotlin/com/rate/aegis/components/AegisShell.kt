@@ -19,6 +19,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Assignment
+import androidx.compose.material.icons.filled.Calculate
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Discount
 import androidx.compose.material.icons.filled.Folder
@@ -49,6 +50,7 @@ import com.rate.aegis.theme.AegisTypography
 /** Top-level surfaces the shell can route to. Pass 6 §6.1. */
 enum class AegisSurface(val displayName: String, val icon: ImageVector) {
     HOME("Home", Icons.Filled.Home),
+    CALCULATOR("Calculator", Icons.Filled.Calculate),
     PRODUCT_CATALOG("Product catalog", Icons.Filled.ViewModule),
     PLAN_CONFIGURATOR("Plan configurator", Icons.Filled.Tune),
     COVER_CATALOG("Cover catalog", Icons.Filled.Shield),

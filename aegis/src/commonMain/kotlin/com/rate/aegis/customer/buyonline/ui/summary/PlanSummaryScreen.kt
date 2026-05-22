@@ -54,9 +54,9 @@ fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
                     // Full premium ledger — replaces the prior "+ GST" placeholder line.
                     // Every row breaks the headline figure into a defensible component so
                     // customer + auditor can reconcile the total.
-                    val basePremium  = vm.lastPremium?.basePremium ?: 0.0
-                    val addons       = vm.lastPremium?.totalAddons ?: 0.0
-                    val discount     = vm.lastPremium?.totalDiscountAmount ?: 0.0
+                    val basePremium  = vm.lastQuote?.basePremiumTotal ?: 0.0
+                    val addons       = vm.lastQuote?.totalAddons ?: 0.0
+                    val discount     = vm.lastQuote?.totalDiscountAmount ?: 0.0
                     val preTax       = vm.totalAnnualPreTax
                     val gst          = vm.gstAmount
                     val grandTotal   = vm.totalAnnualWithGst

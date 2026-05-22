@@ -88,11 +88,10 @@ fun QuoteScreen(vm: BuyOnlineViewModel) {
                 }
 
                 // Plan detail card — uses the real engine's totals (with GST).
-                // Falls back to 0 while the first /premium response is in-flight.
-                val premium = vm.lastPremium
-                val annualPreTax = premium?.annualPremium ?: 0.0
-                val gst          = premium?.gstAmount ?: 0.0
-                val annualTotal  = premium?.totalIncludingGst ?: 0.0
+                // Falls back to 0 while the first calculation is in-flight.
+                val annualPreTax = vm.totalAnnualPreTax
+                val gst          = vm.gstAmount
+                val annualTotal  = vm.totalAnnualWithGst
                 val monthly      = annualTotal / 12.0
                 Card(
                     Modifier.fillMaxWidth(),

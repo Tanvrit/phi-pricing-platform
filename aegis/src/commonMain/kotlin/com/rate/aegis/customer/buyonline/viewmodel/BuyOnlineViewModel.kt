@@ -4,9 +4,23 @@ import androidx.compose.runtime.*
 import com.rate.aegis.customer.buyonline.api.*
 import com.rate.aegis.customer.buyonline.model.*
 import com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen
+import com.rate.domain.buyonline.BUYONLINE_ADDONS
+import com.rate.domain.buyonline.BuyOnlineTier
+import com.rate.domain.buyonline.toPlanId
+import com.rate.domain.data.InProcessRateDataProvider
+import com.rate.domain.engine.PricingEngine
+import com.rate.domain.model.CoverSelection
+import com.rate.domain.model.Member
+import com.rate.domain.model.PaymentMode
+import com.rate.domain.model.QuoteRequest
+import com.rate.domain.model.QuoteResult
+import com.rate.domain.model.Tenure
 import kotlinx.coroutines.*
 
-class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
+class BuyOnlineViewModel(
+    private val client: BuyOnlineApiClient,
+    private val engine: PricingEngine = PricingEngine(InProcessRateDataProvider())
+) {
 
     private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
 
@@ -88,14 +102,17 @@ class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
         else              -> "₹10 lakh"
     }
 
-    // ── Server-side pricing (single source of truth) ────────────────────────
+    // ── In-process pricing (single source of truth) ─────────────────────────
     //
     // Pre-Foundation-Pack this VM contained an `estimatedPremium()` mock that hardcoded
     // base premiums and tier multipliers, diverging from the real actuarial engine.
-    // It has been removed. The premium is now always whatever the engine returns
-    // (via /api/buy-online/premium). UI shows a small "Calculating…" state until the
-    // first response lands; no fabricated numbers are ever displayed.
-    var lastPremium      by mutableStateOf<PremiumResponse?>(null)
+    // Foundation Pack moved it to a server round-trip (/api/buy-online/premium). This
+    // iteration moves it again — straight to the engine in-process. The engine is in
+    // :shared/commonMain (KMP-portable), so it runs on the WASM/JVM client without any
+    // server hop. The HTTP path stays for OTP / proposal / KYC, which still need the
+    // server, but every rupee shown to the customer comes from the same `PricingEngine`
+    // that the server uses.
+    var lastQuote        by mutableStateOf<QuoteResult?>(null)
         private set
     var premiumLoading   by mutableStateOf(false)
         private set
@@ -103,40 +120,78 @@ class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
         private set
 
     val totalAnnualWithGst: Double
-        get() = lastPremium?.totalIncludingGst ?: 0.0
+        get() = lastQuote?.totalIncludingGst ?: 0.0
 
     val totalAnnualPreTax: Double
-        get() = lastPremium?.annualPremium ?: 0.0
+        get() = lastQuote?.let { it.totalAfterDiscount + it.instalmentLoadingAmount } ?: 0.0
 
     val gstAmount: Double
-        get() = lastPremium?.gstAmount ?: 0.0
+        get() = lastQuote?.gstAmount ?: 0.0
 
     fun refreshPremium() {
         scope.launch {
             premiumLoading = true
             premiumError = null
             runCatching {
-                client.calculatePremium(
-                    PremiumRequest(
-                        sumInsured = selectedSumInsured,
-                        tier       = selectedTier.name,
-                        tenure     = selectedTenure,
-                        addOnIds   = effectiveAddOnIds().toList(),
-                        primaryAge = eldestAge.toIntOrNull() ?: 35,
-                        familyType = deriveFamilyTypeCode(),
-                        zone       = "Zone 1"
-                    )
-                )
-            }.onSuccess {
-                lastPremium = it
-                serverPremium = it.annualPremium
+                engine.calculate(buildQuoteRequest())
+            }.onSuccess { result ->
+                if (result.isValid) {
+                    lastQuote = result
+                    serverPremium = result.totalAfterDiscount + result.instalmentLoadingAmount
+                } else {
+                    premiumError = result.validationErrors.firstOrNull()
+                        ?: "Unable to calculate premium for this combination."
+                    lastQuote = null
+                    serverPremium = null
+                }
             }.onFailure {
                 premiumError = "Couldn't calculate premium right now. Please retry."
-                lastPremium = null
+                lastQuote = null
                 serverPremium = null
             }
             premiumLoading = false
         }
+    }
+
+    /** Build a QuoteRequest from the current UI state. Tier → planId via shared mapping. */
+    private fun buildQuoteRequest(): QuoteRequest {
+        val tier = when (selectedTier) {
+            PlanTier.PREMIER   -> BuyOnlineTier.PREMIER
+            PlanTier.SIGNATURE -> BuyOnlineTier.SIGNATURE
+            PlanTier.GLOBAL    -> BuyOnlineTier.GLOBAL
+        }
+        val tenureYears = selectedTenure.coerceIn(1, 5)
+        val primaryAge = eldestAge.toIntOrNull() ?: 35
+        val members = buildEngineMembers(primaryAge)
+        val covers = BUYONLINE_ADDONS
+            .filter { it.id in selectedAddOnIds }
+            .map { CoverSelection(it.coverId, it.defaultParam) }
+        return QuoteRequest(
+            planId         = tier.toPlanId(),
+            primaryAge     = primaryAge,
+            sumInsured     = selectedSumInsured,
+            familyType     = deriveFamilyTypeCode(),
+            zone           = "Zone 1",
+            tenure         = Tenure.fromYears(tenureYears),
+            paymentMode    = PaymentMode.ANNUAL,
+            paymentTenure  = Tenure.fromYears(tenureYears),
+            members        = members,
+            selectedCovers = covers
+        )
+    }
+
+    /** Build the engine's Member list from the current member selection. */
+    private fun buildEngineMembers(primaryAge: Int): List<Member> {
+        val out = mutableListOf(Member(memberId = 1, age = primaryAge, relationship = "Self"))
+        var id = 2
+        if (MemberType.SPOUSE in selectedMembers) {
+            // Spouse age unknown at this stage; use primary age as a proxy (real flow captures it later).
+            out += Member(memberId = id++, age = primaryAge, relationship = "Spouse", gender = "F")
+        }
+        repeat(kidsCount) {
+            out += Member(memberId = id++, age = 5, relationship = "Son")
+        }
+        return out
     }
 
     /** Map BuyOnline tier defaults + user selections into the single add-on ID set. */
@@ -183,7 +238,7 @@ class BuyOnlineViewModel(private val client: BuyOnlineApiClient) {
     val totalAddOnCost get() = availableAddOns.filter { it.id in selectedAddOnIds }.sumOf { it.annualCost }
     // Headline figure: GST-inclusive total from the engine. If the engine hasn't
     // responded yet we show 0.0 (UI gates on `premiumLoading` and `premiumError`).
-    val totalPremium   get() = lastPremium?.totalIncludingGst ?: 0.0
+    val totalPremium   get() = lastQuote?.totalIncludingGst ?: 0.0
 
     // ── Personal details ──────────────────────────────────────────────────────
     var personalDetails by mutableStateOf<Map<String, PersonalDetail>>(emptyMap())
