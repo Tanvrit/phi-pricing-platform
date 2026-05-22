@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed — Platform unification (Aegis is everything)
+
+- **One module to rule them all**: the customer buyonline journey and the operator
+  rate calculator were merged into a single Compose Multiplatform module, `:aegis`,
+  with JVM + WASM targets and role-based routing (`CUSTOMER` / `BUSINESS` / `ADMIN`).
+  JVM defaults to BUSINESS (operator console). WASM defaults to CUSTOMER (the
+  Cloudflare Pages deployment at https://phi-buyonline.pages.dev/).
+- **Retired modules**: `:desktop` and `:buyonline` were removed from
+  `settings.gradle.kts` and their source physically deleted (preserved in git
+  history). All UI now lives under `:aegis` —
+  `aegis/src/commonMain/.../customer/buyonline/` for the customer journey and
+  `aegis/src/jvmMain/.../business/calculator/desktop/` for the operator calculator.
+  Role-router lives in `aegis/src/commonMain/kotlin/com/rate/aegis/AegisRoot.kt`.
+- **Cloudflare Pages**: `wrangler.toml` now points at
+  `aegis/build/dist/wasmJs/productionExecutable`. WASM bundle is `aegis.js`
+  (was `buyonline.js`).
+- **Makefile**: `desktop` + `buyonline` targets replaced by `aegis`,
+  `aegis-customer` (`-Daegis.role=CUSTOMER`), and `aegis-web`.
+
 ### Added — Foundation Pack
 - **Tests**: JUnit 5 + Kotest runner wired into `:shared:jvmTest`. Engine, validators,
   Money, and age-band tests cover the core arithmetic and edge cases.

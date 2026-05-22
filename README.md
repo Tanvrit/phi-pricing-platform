@@ -1,8 +1,9 @@
-# PRUHealth Rate Platform
+# Aegis — PRUHealth Rate Platform
 
-A Kotlin Multiplatform (KMP) platform for an Indian retail health-insurance (PHI) product:
-an actuarial pricing engine + Ktor REST API + Compose Desktop calculator (for agents/actuaries)
-+ Compose Multiplatform buy-online journey (for customers).
+Aegis is **one** Kotlin Multiplatform app — a single Compose Multiplatform module that
+renders the customer buy-online journey on the web (WASM) and the operator / admin
+console on the desktop (JVM), backed by a Ktor server that wraps the shared actuarial
+pricing engine.
 
 The pricing engine replicates the `Rate_Calculator_v7.0.xlsm` actuarial workbook **row-for-row**:
 14 plan tiers, 50+ covers, 7 zones, 11 family types, single-premium tenure discounts, capped
@@ -30,17 +31,17 @@ all KMP-portable so the same engine runs on JVM, iOS, and WASM.
                                      │ used by
                 ┌────────────────────┴─────────────────────────┐
                 │                                              │
-        ┌───────▼────────┐   ┌────────────────┐   ┌────────────▼────────────┐
-        │   :server      │   │   :desktop     │   │       :buyonline        │
-        │   Ktor + JDBC  │   │ Compose Desktop│   │  Compose Multiplatform  │
-        │   port 9090    │   │  agent tool    │   │  customer journey       │
-        │                │   │                │   │  (22 screens)           │
-        │  RateDataPro-  │   │  ApiClient ──→ │   │  ApiClient ──→ server   │
-        │  viderImpl     │   │  server         │   │                         │
-        │  → PostgreSQL  │   │                │   │                         │
-        └───────┬────────┘   └────────────────┘   └─────────────────────────┘
-                │
-        ┌───────▼────────┐
+        ┌───────▼────────┐                          ┌──────────▼──────────────┐
+        │   :server      │                          │        :aegis           │
+        │   Ktor + JDBC  │                          │  Compose Multiplatform  │
+        │   port 9090    │                          │  (JVM + WASM)           │
+        │                │                          │                         │
+        │  RateDataPro-  │ ◀── ApiClient ── role ─▶ │  CUSTOMER  → buyonline  │
+        │  viderImpl     │                          │  BUSINESS  → operator   │
+        │  → PostgreSQL  │                          │  ADMIN     → audit/RBAC │
+        └───────┬────────┘                          └─────────────────────────┘
+                │                                       jvm    → desktop binary
+        ┌───────▼────────┐                              wasmJs → Cloudflare Pages
         │  PostgreSQL    │   port 5432
         │  rate_calc db  │   Flyway-managed schema (non-destructive after V2)
         └────────────────┘
@@ -65,19 +66,27 @@ all KMP-portable so the same engine runs on JVM, iOS, and WASM.
 ./gradlew :shared:jvmTest
 ```
 
-### 2. Run the desktop rate calculator
+### 2. Run Aegis desktop (operator / BUSINESS role — default)
 
 ```bash
-./gradlew :desktop:run
+./gradlew :aegis:run
 ```
 
-### 3. Run the buy-online journey (KMP, currently JVM target only)
+### 3. Run Aegis desktop in CUSTOMER role (buyonline preview)
 
 ```bash
-./gradlew :buyonline:run
+./gradlew :aegis:run -Daegis.role=CUSTOMER
 ```
 
-### 4. Run the server (needs Postgres)
+### 4. Build the Aegis WASM bundle (what Cloudflare Pages serves)
+
+```bash
+./gradlew :aegis:wasmJsBrowserDistribution
+# Output: aegis/build/dist/wasmJs/productionExecutable/
+# Deployed to: https://phi-buyonline.pages.dev/
+```
+
+### 5. Run the server (needs Postgres)
 
 ```bash
 # 1. Bring up Postgres locally OR via Docker:
@@ -94,7 +103,7 @@ PORT=9090 ./gradlew :server:run
 curl http://localhost:9090/health
 ```
 
-### 5. Full Docker dev stack
+### 6. Full Docker dev stack
 
 ```bash
 docker compose up --build
@@ -106,12 +115,14 @@ docker compose up --build
 
 ## Module map
 
-| Module       | Lang/Tech                    | Purpose                                                 |
-|--------------|------------------------------|---------------------------------------------------------|
-| `:shared`    | Kotlin KMP (JVM/iOS/WASM)    | Pricing engine, domain, Money, validators               |
-| `:server`    | Kotlin JVM + Ktor + Exposed  | REST API, PostgreSQL, Flyway, Excel import              |
-| `:desktop`   | Kotlin JVM + Compose Desktop | Actuary / agent calculator + configurator + importer    |
-| `:buyonline` | Kotlin KMP + Compose MP      | 22-screen customer purchase journey                     |
+| Module    | Lang/Tech                       | Purpose                                                  |
+|-----------|---------------------------------|----------------------------------------------------------|
+| `:shared` | Kotlin KMP (JVM/iOS/WASM)       | Pricing engine, domain, Money, validators                |
+| `:server` | Kotlin JVM + Ktor + Exposed     | REST API, PostgreSQL, Flyway, Excel import               |
+| `:aegis`  | Kotlin KMP (JVM + WASM)         | Single Compose MP app — role-routed (Customer/Business/Admin) |
+
+The `:aegis` module subsumes the retired `:desktop` (calculator + configurator) and
+`:buyonline` (22-screen journey) modules — see `CHANGELOG.md` Unreleased entry.
 
 ---
 

@@ -24,4 +24,7 @@ dependencyResolutionManagement {
     }
 }
 
-include(":shared", ":server", ":desktop", ":buyonline", ":aegis")
+// :desktop and :buyonline were retired — both are now subsumed by :aegis (role-based,
+// JVM + WASM). The directories are kept for historical diffability but are no longer
+// built. Will be physically deleted once we're confident nothing references them.
+include(":shared", ":server", ":aegis")
