@@ -85,7 +85,14 @@ fun SharedQuoteView(
             when {
                 loading -> LoadingCard()
                 detail == null -> NotFoundCard(quoteId)
-                else -> QuoteSummaryCard(detail!!, plan)
+                else -> {
+                    QuoteSummaryCard(detail!!, plan)
+                    // Optional "About this plan" card — only if the plan
+                    // resolved. We never want a transient plan-lookup miss to
+                    // block the headline summary, so this is intentionally a
+                    // sibling card rather than nested into QuoteSummaryCard.
+                    plan?.let { AboutPlanCard(it) }
+                }
             }
 
             WhatsNextCard()
@@ -280,6 +287,59 @@ private fun QuoteSummaryCard(detail: QuoteDetailResponse, plan: Plan?) {
             SummaryRow("Total payable", formatRupees(res.totalIncludingGst), bold = true)
         }
     }
+}
+
+/**
+ * Compact "About this plan" card rendered beneath the quote breakdown when
+ * the plan lookup succeeded. Surfaces non-pricing context (geography, family
+ * mix, SI grid, discount cap) so the customer can sanity-check that the
+ * advisor matched them to the right product before they tap Continue.
+ *
+ * Deliberately a separate card from [QuoteSummaryCard] — the breakdown is the
+ * load-bearing artefact, this is enrichment. Null plans drop the whole card
+ * instead of degrading individual rows; partial info would be more confusing
+ * than no info.
+ */
+@Composable
+private fun AboutPlanCard(plan: Plan) {
+    Card(
+        Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = PruSurface),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(Modifier.fillMaxWidth().padding(20.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(
+                "About ${plan.name}",
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 16.sp,
+                color = PruRed
+            )
+            HorizontalDivider(color = Color(0xFFE0E0E0))
+            SummaryRow("Plan", plan.name)
+            SummaryRow("Geography", formatGeography(plan.availableZones))
+            SummaryRow("Family types covered", "${plan.availableFamilyTypes.size} family types covered")
+            val sis = plan.availableSumInsureds
+            if (sis.isNotEmpty()) {
+                val minSi = formatRupees(sis.min().toDouble())
+                val maxSi = formatRupees(sis.max().toDouble())
+                SummaryRow("Sum insured", "$minSi — $maxSi")
+            }
+            SummaryRow("Max discount cap", "${(plan.maxDiscountCap * 100).toInt()}%")
+        }
+    }
+}
+
+/**
+ * Collapses the plan's zone list into a one-line label. We render all zones
+ * verbatim when the list is short (≤3) because the names ("Zone A", "Pan
+ * India"…) are short and worth showing literally; once the list grows we
+ * switch to a count-with-callout to stay on a single line.
+ */
+private fun formatGeography(zones: List<String>): String {
+    if (zones.isEmpty()) return "—"
+    if (zones.size <= 3) return zones.joinToString(", ")
+    val hasPanIndia = zones.any { it.contains("Pan India", ignoreCase = true) }
+    return if (hasPanIndia) "${zones.size} zones incl. Pan India" else "${zones.size} zones"
 }
 
 @Composable

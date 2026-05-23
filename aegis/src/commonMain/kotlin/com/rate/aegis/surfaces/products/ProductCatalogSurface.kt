@@ -6,6 +6,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -18,6 +23,7 @@ import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
+import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.theme.*
 import com.rate.domain.data.CoverCatalog
 import com.rate.domain.model.Plan
@@ -232,10 +238,40 @@ fun ProductCatalogSurface() {
         onClose = { selected = null },
         title = selected?.name ?: "Plan details",
         subtitle = selected?.let { "${it.id} · ${it.planType.displayName}" },
+        actions = selected?.let { plan ->
+            { PinStarButton(planId = plan.id) }
+        },
     ) {
         selected?.let { plan ->
             PlanDetailDrawerBody(plan, onClose = { selected = null })
         }
+    }
+}
+
+/**
+ * Pin/unpin toggle in the drawer header. Mirrors the PlanCard control in the
+ * Plan Configurator — same per-operator [AegisSettings.pinnedPlanIds] set.
+ * Keyed by [planId] so swapping the selected plan rehydrates the local state
+ * from the persisted record.
+ */
+@Composable
+private fun PinStarButton(planId: String) {
+    val initial = remember(planId) { AegisSettingsStore.load() }
+    var pinned by remember(planId) { mutableStateOf(planId in initial.pinnedPlanIds) }
+    IconButton(
+        onClick = {
+            val current = AegisSettingsStore.load()
+            val updated = if (pinned) current.pinnedPlanIds - planId
+                          else current.pinnedPlanIds + planId
+            AegisSettingsStore.save(current.copy(pinnedPlanIds = updated))
+            pinned = !pinned
+        },
+    ) {
+        Icon(
+            imageVector = if (pinned) Icons.Filled.Star else Icons.Outlined.Star,
+            contentDescription = if (pinned) "Unpin plan" else "Pin plan",
+            tint = if (pinned) AegisColors.brand else AegisColors.textSecondary,
+        )
     }
 }
 

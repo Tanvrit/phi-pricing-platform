@@ -19,6 +19,11 @@ import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
+// Both `Star` extensions (on `Icons.Filled` and `Icons.Outlined`) are imported
+// — Kotlin disambiguates by receiver at the call site, so writing
+// `Icons.Filled.Star` and `Icons.Outlined.Star` selects the right one.
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -37,6 +42,7 @@ import com.rate.aegis.business.calculator.navigation.Screen
 import com.rate.aegis.business.calculator.ui.components.*
 import com.rate.aegis.components.AegisChip
 import com.rate.aegis.components.AegisSurface
+import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.util.buildCsv
 import com.rate.aegis.util.saveCsv
 import com.rate.aegis.util.todayIsoDate
@@ -475,6 +481,14 @@ private fun PlanCard(
     val siMax  = plan.availableSumInsureds.maxOrNull()
     val siRange = if (siMin != null && siMax != null) "${siMin.toSILabel()} – ${siMax.toSILabel()}" else "—"
 
+    // Per-operator pin state. Snapshotted once via `remember` so the icon
+    // doesn't flicker mid-recomposition while we round-trip through the
+    // platform-backed AegisSettingsStore on click. Each card reads/writes
+    // the full settings record because pinning is rare enough that a per-
+    // click load+save is cheaper than introducing a shared in-memory store.
+    val persistedPin = remember(plan.id) { AegisSettingsStore.load() }
+    var pinned by remember(plan.id) { mutableStateOf(plan.id in persistedPin.pinnedPlanIds) }
+
     Card(
         modifier  = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
@@ -509,6 +523,29 @@ private fun PlanCard(
                         verticalAlignment     = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
+                        // Pin/unpin: filled red star when this plan id is in
+                        // `pinnedPlanIds`, outlined neutral star otherwise.
+                        // Re-reads the persisted record on click so a pin made
+                        // from the Product Catalog drawer (or vice-versa) is
+                        // honoured even if this card was composed earlier.
+                        IconButton(
+                            onClick = {
+                                val current = AegisSettingsStore.load()
+                                val updated = if (pinned) current.pinnedPlanIds - plan.id
+                                              else current.pinnedPlanIds + plan.id
+                                AegisSettingsStore.save(current.copy(pinnedPlanIds = updated))
+                                pinned = !pinned
+                            },
+                            modifier = Modifier.size(28.dp),
+                        ) {
+                            Icon(
+                                imageVector        = if (pinned) Icons.Filled.Star else Icons.Outlined.Star,
+                                contentDescription = if (pinned) "Unpin plan" else "Pin plan",
+                                tint               = if (pinned) Color(0xFFE31837)
+                                                     else MaterialTheme.colorScheme.outline,
+                                modifier           = Modifier.size(18.dp),
+                            )
+                        }
                         Text(
                             if (plan.isActive) "Active" else "Inactive",
                             style = MaterialTheme.typography.labelSmall,

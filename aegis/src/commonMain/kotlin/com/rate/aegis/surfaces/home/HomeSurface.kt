@@ -1,6 +1,8 @@
 package com.rate.aegis.surfaces.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -15,6 +17,7 @@ import androidx.compose.material3.TooltipBox
 import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,17 +25,24 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.AEGIS_VERSION
 import com.rate.aegis.AEGIS_RELEASE_NOTES
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
+import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.components.*
 import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.data.rememberDashboardData
 import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.theme.*
+import com.rate.domain.model.Plan
+import com.rate.domain.model.PlanLifecycle
 import com.rate.domain.money.formatRupees
 import kotlin.math.roundToInt
 
@@ -170,6 +180,13 @@ fun HomeSurface() {
                 modifier = Modifier.weight(1f)
             )
         }
+
+        // Operator-pinned plans ────────────────────────────────────────────
+        // Per-device set of `Plan.id`s the operator has starred in the Plan
+        // Configurator or Product Catalog drawer. Empty state nudges them
+        // towards the pin affordance; non-empty fetches the live plan
+        // catalogue once and renders matching rows with lifecycle pills.
+        PinnedPlansCard()
 
         // Hero Premium-Flow Sankey placeholder ─────────────────────────────
         AegisCard(
@@ -364,4 +381,147 @@ private fun pctSigned(now: Double, prev: Double): String {
     if (prev == 0.0) return "+0.0%"
     val pct = ((now - prev) / prev) * 100.0
     return if (pct >= 0) "+${pct.format1()}%" else "${pct.format1()}%"
+}
+
+/**
+ * "Pinned plans" KPI tile — operator-pinned plan ids from
+ * [AegisSettingsStore]. The set is snapshotted once on first composition so a
+ * pin made elsewhere this session shows up on the next Home open (matches the
+ * "apply-on-next-open" contract used by What's-new / theme / locale).
+ *
+ *   - Empty `pinnedPlanIds`: INFO callout that points the operator at the
+ *     pin affordance.
+ *   - Non-empty: fires `client.getPlans()` once, intersects with the pinned
+ *     set, and renders one compact row per match. Clicking a row writes a
+ *     plan-id [DeepLink] and routes to the Plan Configurator, which already
+ *     resolves the deep link by opening the edit dialog on the matching plan.
+ *     Pinned ids missing from the live catalogue (e.g. a retired-and-removed
+ *     plan) render as a muted "missing — id" row instead of being silently
+ *     dropped, so the operator can see what to unpin.
+ */
+@Composable
+private fun PinnedPlansCard() {
+    val persisted = remember { AegisSettingsStore.load() }
+    val pinnedIds = persisted.pinnedPlanIds
+
+    if (pinnedIds.isEmpty()) {
+        AegisCard(title = "Pinned plans") {
+            AegisCallout(
+                kind = CalloutKind.INFO,
+                title = "No pinned plans yet",
+                body = "Star plans in the Plan Configurator or Product Catalog to surface " +
+                        "them here with their lifecycle status at a glance.",
+            )
+        }
+        return
+    }
+
+    val client = rememberApiClient()
+    var plans by remember { mutableStateOf<List<Plan>>(emptyList()) }
+    var loaded by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(client, pinnedIds) {
+        runCatching { client.getPlans() }
+            .onSuccess { plans = it; loadError = null; loaded = true }
+            .onFailure { t -> loadError = t.message ?: t::class.simpleName ?: "unknown error"; loaded = true }
+    }
+
+    val router = LocalSurfaceRouter.current
+    val deepLink = LocalAegisDeepLink.current
+
+    val byId = plans.associateBy { it.id }
+    // Stable order so the rows don't shuffle between recomposes.
+    val sortedPinned = pinnedIds.sorted()
+
+    AegisCard(
+        title = "Pinned plans",
+        subtitle = "${pinnedIds.size} starred · click a row to open in Plan Configurator",
+    ) {
+        when {
+            !loaded -> Text(
+                "Loading plan catalogue…",
+                fontSize = 13.sp,
+                color = AegisColors.textSecondary,
+            )
+            loadError != null -> AegisCallout(
+                kind = CalloutKind.WARN,
+                title = "Could not load plans",
+                body = "Pinned ids are kept locally, but we can't show their lifecycle " +
+                        "right now: $loadError.",
+            )
+            else -> Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                sortedPinned.forEach { id ->
+                    val plan = byId[id]
+                    PinnedPlanRow(
+                        id = id,
+                        plan = plan,
+                        onClick = {
+                            // Only deep-link when the plan still exists — a
+                            // dangling id would just open Configurator on a
+                            // no-op, which is more confusing than a quiet click.
+                            if (plan != null) {
+                                deepLink.value = DeepLink(planId = plan.id)
+                                router(AegisSurface.PLAN_CONFIGURATOR)
+                            }
+                        },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PinnedPlanRow(id: String, plan: Plan?, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (plan != null) Modifier.clickableNoIndication(onClick)
+                else Modifier
+            )
+            .padding(vertical = AegisSpacing.s2),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+    ) {
+        Text(
+            id,
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            color = AegisColors.textBody,
+            modifier = Modifier.weight(1.2f),
+        )
+        Text(
+            plan?.name ?: "missing — pin no longer in catalogue",
+            fontSize = 13.sp,
+            color = if (plan != null) AegisColors.textBody else AegisColors.textSecondary,
+            fontWeight = if (plan != null) FontWeight.Medium else FontWeight.Normal,
+            modifier = Modifier.weight(2f),
+        )
+        Box(modifier = Modifier.weight(1f)) {
+            if (plan != null) AegisStatusPill(plan.lifecycle.toAegisStatus())
+            else Text("—", fontSize = 13.sp, color = AegisColors.textSecondary)
+        }
+    }
+}
+
+private fun PlanLifecycle.toAegisStatus(): AegisStatus = when (this) {
+    PlanLifecycle.LIVE -> AegisStatus.Live
+    PlanLifecycle.DRAFT -> AegisStatus.Draft
+    PlanLifecycle.RETIRED -> AegisStatus.Retired
+}
+
+/**
+ * `Modifier.clickable` without the default ripple — keeps the row visually
+ * quiet inside an AegisCard where a ripple would feel out of place. Uses an
+ * empty `MutableInteractionSource` and `indication = null`.
+ */
+@Composable
+private fun Modifier.clickableNoIndication(onClick: () -> Unit): Modifier {
+    val source = remember { MutableInteractionSource() }
+    return this.clickable(
+        interactionSource = source,
+        indication = null,
+        onClick = onClick,
+    )
 }

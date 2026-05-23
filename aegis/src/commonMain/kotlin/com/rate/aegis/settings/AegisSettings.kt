@@ -66,6 +66,13 @@ import kotlinx.serialization.json.Json
  *                    underneath. Strictly per-device — we deliberately don't
  *                    roam this to the server; recents are a UI affordance,
  *                    not part of the operator's identity.
+ *   pinnedPlanIds  — set of `Plan.id`s the operator has starred via the
+ *                    pin button on the Plan Configurator PlanCard / the
+ *                    Product Catalog drawer. Surfaces as a "Pinned plans"
+ *                    KPI tile on HomeSurface. Per-device, never roamed to
+ *                    the server — pinning is a personal navigation
+ *                    affordance, not part of the plan record. No cap on
+ *                    how many plans can be pinned.
  *
  * The settings record is intentionally narrow.
  */
@@ -80,6 +87,7 @@ data class AegisSettings(
     val localeAutoSeeded: Boolean = false,
     val seenBuild: String = "",
     val recentCommandIds: List<String> = emptyList(),
+    val pinnedPlanIds: Set<String> = emptySet(),
 )
 
 /**
