@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 private val CHRONIC_CONDITIONS = listOf(
     "Cancer", "Diabetes", "Heart Disease", "Hypertension", "Stroke",
@@ -33,11 +34,11 @@ fun CriticalIllnessScreen(vm: BuyOnlineViewModel) {
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(20.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Have any member(s) been treated for critical conditions?",
+                Text(t("critical.title"),
                     fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
 
                 TextButton(onClick = { vm.showCriticalInfoModal = true }) {
-                    Text("View 13 covered conditions →", color = PruRed, fontSize = 13.sp)
+                    Text(t("critical.view.conditions"), color = PruRed, fontSize = 13.sp)
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -55,7 +56,7 @@ fun CriticalIllnessScreen(vm: BuyOnlineViewModel) {
                 }
 
                 if (vm.hasCriticalIllness) {
-                    Text("Please select applicable members:", fontWeight = FontWeight.Medium)
+                    Text(t("critical.select.members"), fontWeight = FontWeight.Medium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         vm.extendedMembers.forEach { member ->
@@ -74,7 +75,7 @@ fun CriticalIllnessScreen(vm: BuyOnlineViewModel) {
                 }
 
                 Spacer(Modifier.height(16.dp))
-                PRUButton("Proceed", { vm.proceedFromCriticalIllness() })
+                PRUButton(t("critical.cta"), { vm.proceedFromCriticalIllness() })
             }
 
             Card(Modifier.width(200.dp).padding(16.dp),

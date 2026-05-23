@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun BankDetailsScreen(vm: BuyOnlineViewModel) {
@@ -19,9 +20,9 @@ fun BankDetailsScreen(vm: BuyOnlineViewModel) {
         PRUTopBar(onBack = { vm.navigateBack() }, progress = 3, currentStep = "KYC")
 
         Column(Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Enter bank details", style = MaterialTheme.typography.headlineSmall,
+            Text(t("bank.title"), style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold)
-            Text("Bank details are required for policy issuance and premium refunds.",
+            Text(t("bank.subtitle"),
                 fontSize = 13.sp, color = PruSubtext)
 
             OutlinedTextField(value = vm.bankDetails.accountNumber,
@@ -41,7 +42,7 @@ fun BankDetailsScreen(vm: BuyOnlineViewModel) {
 
         Surface(shadowElevation = 8.dp) {
             Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
-                PRUButton("Verify", { vm.submitBankDetails() },
+                PRUButton(t("bank.cta"), { vm.submitBankDetails() },
                     enabled = vm.bankDetails.accountNumber.isNotEmpty() &&
                               vm.bankDetails.bankName.isNotEmpty() &&
                               vm.bankDetails.ifscCode.length >= 11 && !vm.loading)

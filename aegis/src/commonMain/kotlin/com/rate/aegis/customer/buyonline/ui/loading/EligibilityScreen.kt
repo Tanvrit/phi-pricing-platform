@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -30,9 +31,9 @@ fun EligibilityScreen(vm: BuyOnlineViewModel) {
         ) {
             Spacer(Modifier.height(32.dp))
             Text("🎉", fontSize = 48.sp)
-            Text("Great news!", style = MaterialTheme.typography.headlineMedium,
+            Text(t("eligibility.title"), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, color = PruText)
-            Text("We can provide health coverage for the following members",
+            Text(t("eligibility.subtitle"),
                 fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
 
             if (vm.coveredMembers.isNotEmpty()) {
@@ -51,7 +52,7 @@ fun EligibilityScreen(vm: BuyOnlineViewModel) {
                 }
             }
 
-            PRUButton("Check out the plans", { vm.proceedFromEligibility() })
+            PRUButton(t("eligibility.cta"), { vm.proceedFromEligibility() })
 
             if (vm.uncoveredMembers.isNotEmpty()) {
                 HorizontalDivider()

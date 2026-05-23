@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun KycSubmittedScreen(vm: BuyOnlineViewModel) {
@@ -26,12 +27,12 @@ fun KycSubmittedScreen(vm: BuyOnlineViewModel) {
 
             Spacer(Modifier.weight(1f))
             Text("🎉", fontSize = 64.sp)
-            Text("KYC Submitted", style = MaterialTheme.typography.headlineMedium,
+            Text(t("kyc.submitted.title"), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text("To issue your policy, we need your bank details and insured member information. We will be in touch shortly.",
+            Text(t("kyc.submitted.body"),
                 fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
             Spacer(Modifier.weight(1f))
-            PRUButton("Proceed", { vm.proceedFromKycSubmitted() })
+            PRUButton(t("kyc.submitted.cta"), { vm.proceedFromKycSubmitted() })
         }
     }
 }

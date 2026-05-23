@@ -17,6 +17,7 @@ import com.rate.aegis.customer.buyonline.model.KycMethod
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun KycMethodScreen(vm: BuyOnlineViewModel) {
@@ -24,7 +25,7 @@ fun KycMethodScreen(vm: BuyOnlineViewModel) {
         PRUTopBar(onBack = { vm.navigateBack() }, onSaveExit = {}, progress = 3, currentStep = "KYC")
 
         Column(Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Choose your method of verification",
+            Text(t("kyc.method.title"),
                 style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
 
             KycMethod.values().forEach { method ->
@@ -48,7 +49,7 @@ fun KycMethodScreen(vm: BuyOnlineViewModel) {
             }
 
             Spacer(Modifier.weight(1f))
-            PRUButton("Proceed", { vm.proceedFromKycMethod() })
+            PRUButton(t("kyc.method.cta"), { vm.proceedFromKycMethod() })
         }
     }
 }

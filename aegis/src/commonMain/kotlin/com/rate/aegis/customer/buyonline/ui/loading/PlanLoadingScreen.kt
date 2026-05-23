@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun PlanLoadingScreen(vm: BuyOnlineViewModel) {
@@ -40,10 +41,10 @@ fun PlanLoadingScreen(vm: BuyOnlineViewModel) {
                 ) { Text("🛡️", fontSize = 40.sp) }
             }
 
-            Text("Finding the most suitable plans..", style = MaterialTheme.typography.headlineSmall,
+            Text(t("loading.title"), style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
 
-            Text("Analysing age and members", fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
+            Text(t("loading.subtitle"), fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
 
             CircularProgressIndicator(color = PruRed, strokeWidth = 3.dp)
         }

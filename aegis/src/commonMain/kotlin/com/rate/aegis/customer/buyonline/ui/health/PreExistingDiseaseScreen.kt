@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -28,7 +29,7 @@ fun PreExistingDiseaseScreen(vm: BuyOnlineViewModel) {
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 Text(
-                    "Does any member(s) have any pre-existing disease? E.g., Diabetes, High cholesterol, Hypertension etc?",
+                    t("ped.title"),
                     fontWeight = FontWeight.SemiBold, fontSize = 15.sp
                 )
 
@@ -47,7 +48,7 @@ fun PreExistingDiseaseScreen(vm: BuyOnlineViewModel) {
                 }
 
                 if (vm.hasPED) {
-                    Text("Please select applicable members:", fontWeight = FontWeight.Medium)
+                    Text(t("ped.select.members"), fontWeight = FontWeight.Medium)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         vm.extendedMembers.forEach { member ->
@@ -64,7 +65,7 @@ fun PreExistingDiseaseScreen(vm: BuyOnlineViewModel) {
                 }
 
                 Spacer(Modifier.height(16.dp))
-                PRUButton("Proceed", { vm.proceedFromPreExisting() })
+                PRUButton(t("ped.cta"), { vm.proceedFromPreExisting() })
             }
 
             Card(

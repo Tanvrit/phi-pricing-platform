@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun SatisfactionScreen(vm: BuyOnlineViewModel) {
@@ -27,10 +28,10 @@ fun SatisfactionScreen(vm: BuyOnlineViewModel) {
 
             Spacer(Modifier.weight(1f))
             Text("😊", fontSize = 56.sp)
-            Text("How satisfied are you with this journey?",
+            Text(t("satisfaction.title"),
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text("Your feedback helps us improve the experience for everyone.",
+            Text(t("satisfaction.subtitle"),
                 fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
 
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -49,8 +50,8 @@ fun SatisfactionScreen(vm: BuyOnlineViewModel) {
             }
 
             Spacer(Modifier.weight(1f))
-            PRUButton("Submit", onClick = {}, enabled = vm.satisfactionRating > 0)
-            TextButton(onClick = {}) { Text("Skip", color = PruSubtext) }
+            PRUButton(t("satisfaction.cta"), onClick = {}, enabled = vm.satisfactionRating > 0)
+            TextButton(onClick = {}) { Text(t("satisfaction.skip"), color = PruSubtext) }
         }
     }
 }

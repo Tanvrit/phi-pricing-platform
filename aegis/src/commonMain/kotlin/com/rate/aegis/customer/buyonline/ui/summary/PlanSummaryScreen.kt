@@ -19,6 +19,7 @@ import com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
@@ -30,7 +31,7 @@ fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
             Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Here is your plan summary", style = MaterialTheme.typography.headlineSmall,
+            Text(t("summary.title"), style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold)
 
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -107,7 +108,7 @@ fun PlanSummaryScreen(vm: BuyOnlineViewModel) {
                     }
                     Text("Price details ↑", color = PruRed, fontSize = 13.sp)
                 }
-                PRUButton("Proceed with payment", { vm.proceedFromSummary() })
+                PRUButton(t("summary.cta"), { vm.proceedFromSummary() })
             }
         }
     }

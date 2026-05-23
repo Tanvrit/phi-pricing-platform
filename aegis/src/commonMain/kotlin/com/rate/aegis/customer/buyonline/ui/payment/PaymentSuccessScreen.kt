@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun PaymentSuccessScreen(vm: BuyOnlineViewModel) {
@@ -29,9 +30,9 @@ fun PaymentSuccessScreen(vm: BuyOnlineViewModel) {
 
             Spacer(Modifier.height(24.dp))
             Text("👍", fontSize = 56.sp)
-            Text("Payment successful!", style = MaterialTheme.typography.headlineMedium,
+            Text(t("paymentsuccess.title"), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text("Please complete your KYC for policy approval",
+            Text(t("paymentsuccess.subtitle"),
                 fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
 
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8)),
@@ -65,12 +66,12 @@ fun PaymentSuccessScreen(vm: BuyOnlineViewModel) {
                 OutlinedButton(onClick = { vm.proceedToKyc() },
                     modifier = Modifier.weight(1f).height(48.dp),
                     border = androidx.compose.foundation.BorderStroke(1.5.dp, PruRed)) {
-                    Text("Complete KYC", color = PruRed)
+                    Text(t("paymentsuccess.cta.kyc"), color = PruRed)
                 }
                 Button(onClick = { vm.navigate(com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen.LifestyleQuestions) },
                     modifier = Modifier.weight(1f).height(48.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PruRed)) {
-                    Text("Health questions", fontWeight = FontWeight.SemiBold)
+                    Text(t("paymentsuccess.cta.health"), fontWeight = FontWeight.SemiBold)
                 }
             }
         }

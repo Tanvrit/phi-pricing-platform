@@ -4,6 +4,8 @@ import com.rate.domain.engine.PricingEngine
 import com.rate.server.audit.AuditEventService
 import com.rate.server.database.DatabaseFactory
 import com.rate.server.database.repositories.RateDataProviderImpl
+import com.rate.server.email.EmailSender
+import com.rate.server.email.FileSystemEmailSender
 import com.rate.server.metrics.Metrics
 import com.rate.server.plugins.configureHTTP
 import com.rate.server.plugins.configureRequestLog
@@ -35,12 +37,15 @@ fun Application.module() {
     val pricingEngine = PricingEngine(rateDataProvider)
     val auditService = AuditEventService()
     val idempotencyService = IdempotencyService()
+    // Phase-1 email: writes `.eml` files under ~/.aegis/outbox. Phase-2 will
+    // swap in an SMTP/SES-backed implementation behind the same interface.
+    val emailSender: EmailSender = FileSystemEmailSender()
 
     // Background cleanup of expired idempotency entries (24h TTL).
     val backgroundScope = CoroutineScope(SupervisorJob())
     idempotencyService.startCleanup(backgroundScope)
 
-    configureRouting(rateDataProvider, pricingEngine, otpService, auditService, idempotencyService)
+    configureRouting(rateDataProvider, pricingEngine, otpService, auditService, idempotencyService, emailSender)
 
     // Graceful shutdown: stop background jobs + close DB pool when the JVM is asked to stop.
     Runtime.getRuntime().addShutdownHook(Thread {

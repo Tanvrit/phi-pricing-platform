@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun KycOtpScreen(vm: BuyOnlineViewModel) {
@@ -31,7 +32,7 @@ fun KycOtpScreen(vm: BuyOnlineViewModel) {
             horizontalAlignment = Alignment.CenterHorizontally) {
 
             Spacer(Modifier.height(32.dp))
-            Text("Enter OTP", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Text(t("kyc.otp.title"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
             Text("Please enter the OTP sent to your registered mobile number XXXXXX${vm.kycAadhaar.takeLast(4)}",
                 fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
 
@@ -62,12 +63,12 @@ fun KycOtpScreen(vm: BuyOnlineViewModel) {
                 Text(vm.kycOtpTimerFormatted, color = PruRed, fontWeight = FontWeight.SemiBold)
                 Text("|", color = PruSubtext)
                 TextButton(onClick = { vm.startKycOtpTimer() }, enabled = vm.kycOtpTimer == 0) {
-                    Text("Resend OTP", color = if (vm.kycOtpTimer == 0) PruRed else PruSubtext)
+                    Text(t("kyc.otp.resend"), color = if (vm.kycOtpTimer == 0) PruRed else PruSubtext)
                 }
             }
 
             Spacer(Modifier.weight(1f))
-            PRUButton("Proceed", { vm.verifyKycOtp() }, enabled = vm.kycOtpFilled && !vm.loading)
+            PRUButton(t("kyc.otp.cta"), { vm.verifyKycOtp() }, enabled = vm.kycOtpFilled && !vm.loading)
         }
     }
 }

@@ -17,6 +17,7 @@ import com.rate.aegis.customer.buyonline.model.PlanTier
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,7 +57,7 @@ fun QuoteScreen(vm: BuyOnlineViewModel) {
                     Row(Modifier.fillMaxWidth().clickable { vm.showSISheet = true }.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Sum insured", fontSize = 12.sp, color = PruSubtext)
+                            Text(t("quote.suminsured"), fontSize = 12.sp, color = PruSubtext)
                             Text(vm.formatSI(vm.selectedSumInsured), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         }
                         Text("▾", color = PruRed, fontSize = 18.sp)
@@ -68,7 +69,7 @@ fun QuoteScreen(vm: BuyOnlineViewModel) {
                     Row(Modifier.fillMaxWidth().clickable { vm.showTenureSheet = true }.padding(16.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("Tenure", fontSize = 12.sp, color = PruSubtext)
+                            Text(t("quote.tenure"), fontSize = 12.sp, color = PruSubtext)
                             Row(verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Text("${vm.selectedTenure} year${if (vm.selectedTenure > 1) "s" else ""}",

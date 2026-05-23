@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun GetStartedScreen(vm: BuyOnlineViewModel) {
@@ -23,7 +24,7 @@ fun GetStartedScreen(vm: BuyOnlineViewModel) {
         MemberSummaryBar(if (vm.kidsCount > 0) "2 Adults | ${vm.kidsCount} Children" else "2 Adults")
 
         Column(Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.spacedBy(20.dp)) {
-            Text("Let's get started...", style = MaterialTheme.typography.headlineSmall,
+            Text(t("getstarted.title"), style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold)
 
             OutlinedTextField(
@@ -34,7 +35,7 @@ fun GetStartedScreen(vm: BuyOnlineViewModel) {
                         if (it.length == 6) vm.submitPincode()
                     }
                 },
-                label = { Text("Pincode") },
+                label = { Text(t("getstarted.pincode")) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 singleLine = true, modifier = Modifier.fillMaxWidth()
             )
@@ -55,7 +56,7 @@ fun GetStartedScreen(vm: BuyOnlineViewModel) {
             }
 
             Spacer(Modifier.weight(1f))
-            PRUButton("Proceed", { vm.proceedFromGetStarted() }, enabled = vm.pincode.length == 6)
+            PRUButton(t("getstarted.cta"), { vm.proceedFromGetStarted() }, enabled = vm.pincode.length == 6)
         }
     }
 }

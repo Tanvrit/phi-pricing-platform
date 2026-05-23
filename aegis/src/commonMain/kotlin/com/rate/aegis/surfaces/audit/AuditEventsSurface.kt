@@ -24,6 +24,7 @@ import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.business.calculator.api.AuditVerify
 import com.rate.aegis.business.calculator.api.IdempotencyRow
+import com.rate.aegis.business.calculator.api.OutboxEntry
 import com.rate.aegis.components.*
 import com.rate.aegis.data.AuditEventDto
 import com.rate.aegis.data.openAuditStream
@@ -85,6 +86,16 @@ fun AuditEventsSurface() {
     var idemError by remember { mutableStateOf<String?>(null) }
     var idemLoaded by remember { mutableStateOf(false) }
 
+    // Email outbox snapshot — same 403-→-WARN contract as idempotency. Re-fetched
+    // on every global refresh tick so operators can watch the outbox grow during
+    // a live "Email me" repro without leaving the surface. Drill-in drawer
+    // (separate from the audit `selected`) holds the row whose preview body is
+    // currently being inspected.
+    var outboxRows by remember { mutableStateOf<List<OutboxEntry>>(emptyList()) }
+    var outboxError by remember { mutableStateOf<String?>(null) }
+    var outboxLoaded by remember { mutableStateOf(false) }
+    var selectedOutbox by remember { mutableStateOf<OutboxEntry?>(null) }
+
     // Global refresh tick — re-runs the polling / one-shot effects below.
     // Intentionally NOT keyed into [verifyTrigger]'s effect: chain integrity
     // walks the whole ledger server-side and is too expensive to fire on a
@@ -115,6 +126,23 @@ fun AuditEventsSurface() {
             .onFailure { t ->
                 idemError = t.message ?: t::class.simpleName ?: "unknown error"
                 idemLoaded = true
+            }
+    }
+
+    // Email outbox: re-fetched on every global refresh tick (operators
+    // repro'ing "did the email actually drop?" want fresh data without
+    // leaving the surface). 50 rows is plenty — the on-disk outbox grows
+    // unbounded, but the dashboard only needs the most recent slice.
+    LaunchedEffect(client, refreshTick) {
+        runCatching { client.listOutbox(limit = 50) }
+            .onSuccess { r ->
+                outboxRows = r
+                outboxError = null
+                outboxLoaded = true
+            }
+            .onFailure { t ->
+                outboxError = t.message ?: t::class.simpleName ?: "unknown error"
+                outboxLoaded = true
             }
     }
 
@@ -221,6 +249,13 @@ fun AuditEventsSurface() {
             loaded = idemLoaded,
         )
 
+        EmailOutboxCard(
+            rows = outboxRows,
+            error = outboxError,
+            loaded = outboxLoaded,
+            onRowClick = { selectedOutbox = it },
+        )
+
         AegisCard {
             Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
                 AegisInput(
@@ -319,6 +354,47 @@ fun AuditEventsSurface() {
                         )
                     }
                 )
+            }
+        }
+    }
+
+    // Outbox drawer: inspect the full preview body + filename + bytes for a
+    // single .eml row. Sits at the same level as the audit-event drawer below;
+    // the two can't be open simultaneously because each click on a row clears
+    // its sibling's selection implicitly via independent state.
+    val outboxDrawerOpen = selectedOutbox != null
+    AegisDrawer(
+        open = outboxDrawerOpen,
+        onClose = { selectedOutbox = null },
+        title = selectedOutbox?.subject?.ifBlank { "(no subject)" } ?: "Outbox entry",
+        subtitle = selectedOutbox?.let { "to ${it.to.ifBlank { "—" }} · ${formatBytes(it.sizeBytes)}" },
+    ) {
+        selectedOutbox?.let { row ->
+            Column(
+                Modifier.verticalScroll(rememberScrollState()).padding(AegisSpacing.s5),
+                verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+            ) {
+                LedgerRow("Filename", row.filename, mono = true)
+                LedgerRow("To", row.to.ifBlank { "—" })
+                LedgerRow("Subject", row.subject.ifBlank { "—" })
+                LedgerRow("Size", "${row.sizeBytes} bytes (${formatBytes(row.sizeBytes)})")
+                LedgerRow("Written at", row.createdAtIso)
+                AegisHDivider()
+                Text(
+                    "Preview (first 240 chars of body)",
+                    fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                    color = AegisColors.textSecondary,
+                )
+                if (row.previewText.isBlank()) {
+                    Text("(empty body)", fontSize = 13.sp, color = AegisColors.textSecondary)
+                } else {
+                    Text(
+                        row.previewText,
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace,
+                        color = AegisColors.textBody,
+                    )
+                }
             }
         }
     }
@@ -653,6 +729,145 @@ private fun IdempotencyCacheCard(
                 )
             }
         }
+    }
+}
+
+/**
+ * "Email outbox" diagnostic card. Lists the most recent `.eml` files dropped
+ * by the Phase-1 [FileSystemEmailSender] under `~/.aegis/outbox/`, so operators
+ * can verify the buyonline "Email me" flow actually wrote files without ssh'ing
+ * to the server. Same 403-→-WARN routing as the chain/idempotency cards.
+ *
+ * Phase-2 callout: when the server swaps in an SMTP/SES sender this card (and
+ * the `/api/admin/outbox` endpoint behind it) get removed — there's no
+ * filesystem outbox to surface, and operators move to provider-side dashboards.
+ */
+@Composable
+private fun EmailOutboxCard(
+    rows: List<OutboxEntry>,
+    error: String?,
+    loaded: Boolean,
+    onRowClick: (OutboxEntry) -> Unit,
+) {
+    AegisCard(
+        title = "Email outbox",
+        subtitle = "Phase-1 filesystem outbox — most recent .eml files written by the server. " +
+                "Refreshes with the global ticker; click a row to inspect the preview body.",
+    ) {
+        when {
+            !loaded -> Text(
+                "Loading email outbox snapshot…",
+                fontSize = 13.sp,
+                color = AegisColors.textSecondary,
+            )
+            error != null -> {
+                val is403 = error.contains("403")
+                AegisCallout(
+                    kind = if (is403) CalloutKind.WARN else CalloutKind.DANGER,
+                    title = if (is403) "Insufficient scope (403)"
+                            else "Outbox listing unavailable",
+                    body = if (is403)
+                        "The current operator identity does not have the `audit.verify` scope " +
+                                "(reused for this diagnostic). Set your identity in Settings or ask an admin " +
+                                "to grant the scope. Detail: $error"
+                    else
+                        "Could not fetch the email outbox: $error",
+                )
+            }
+            rows.isEmpty() -> AegisCallout(
+                kind = CalloutKind.INFO,
+                title = "No emails sent yet.",
+                body = "Nothing has been written to `~/.aegis/outbox/` on the server. Trigger the " +
+                        "buyonline \"Email me the link\" flow and refresh.",
+            )
+            else -> Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                AegisCallout(
+                    kind = CalloutKind.SUCCESS,
+                    title = "Live data",
+                    body = "${rows.size} entries — newest first. Bodies are truncated server-side to 240 chars.",
+                )
+                AegisTable(
+                    items = rows,
+                    onRowClick = onRowClick,
+                    columns = listOf(
+                        AegisColumn<OutboxEntry>(
+                            header = "Time", weight = 0.6f,
+                            cell = {
+                                Text(
+                                    extractHm(it.createdAtIso),
+                                    fontSize = 13.sp,
+                                    color = AegisColors.textSecondary,
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "To", weight = 1.3f,
+                            cell = {
+                                Text(
+                                    it.to.ifBlank { "—" },
+                                    fontSize = 13.sp,
+                                    color = AegisColors.textBody,
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Subject", weight = 2.0f,
+                            cell = {
+                                Text(
+                                    it.subject.ifBlank { "—" }
+                                        .let { s -> if (s.length > 40) s.take(39) + "…" else s },
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = AegisColors.textBody,
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Size", weight = 0.6f, mono = true,
+                            cell = {
+                                Text(
+                                    formatBytes(it.sizeBytes),
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AegisColors.textSecondary,
+                                )
+                            }
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Pulls `HH:MM` out of an ISO-8601 instant (e.g. `2026-05-22T10:42:11Z` →
+ * `10:42`). Sibling of [extractHms] — the outbox column is narrower so we drop
+ * the seconds field; falls back to the raw string on malformed input.
+ */
+private fun extractHm(iso: String): String {
+    val t = iso.indexOf('T')
+    if (t < 0 || t + 6 > iso.length) return iso
+    return iso.substring(t + 1, t + 6)
+}
+
+/**
+ * Human-readable byte size formatter: 0–1023 → `"N B"`, KB threshold uses
+ * 1024 (binary), one decimal of precision. Stops at MB because a single
+ * .eml file larger than that is already a red flag.
+ */
+private fun formatBytes(bytes: Long): String = when {
+    bytes < 1024L -> "$bytes B"
+    bytes < 1024L * 1024L -> {
+        val kb = bytes.toDouble() / 1024.0
+        // Manual one-decimal rounding — kotlin-common has no `%.1f`.
+        val rounded = (kb * 10.0).toLong().toDouble() / 10.0
+        "$rounded KB"
+    }
+    else -> {
+        val mb = bytes.toDouble() / (1024.0 * 1024.0)
+        val rounded = (mb * 10.0).toLong().toDouble() / 10.0
+        "$rounded MB"
     }
 }
 

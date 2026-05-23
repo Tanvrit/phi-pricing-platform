@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun LifestyleQuestionsScreen(vm: BuyOnlineViewModel) {
@@ -24,7 +25,7 @@ fun LifestyleQuestionsScreen(vm: BuyOnlineViewModel) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
-            Text("Lifestyle questions", style = MaterialTheme.typography.headlineSmall,
+            Text(t("lifestyle.title"), style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold)
 
             val members = vm.allMembers
@@ -61,7 +62,7 @@ fun LifestyleQuestionsScreen(vm: BuyOnlineViewModel) {
 
         Surface(shadowElevation = 4.dp) {
             Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
-                PRUButton("Proceed", { vm.proceedFromLifestyle() })
+                PRUButton(t("lifestyle.cta"), { vm.proceedFromLifestyle() })
             }
         }
     }

@@ -16,6 +16,7 @@ import com.rate.aegis.customer.buyonline.model.PersonalDetail
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +41,7 @@ fun PersonalDetailsScreen(vm: BuyOnlineViewModel) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
 
-            Text("Please enter information as it appears on Aadhaar / PAN",
+            Text(t("personal.helper"),
                 fontSize = 12.sp, color = PruSubtext)
 
             var titleExpanded by remember { mutableStateOf(false) }
@@ -106,9 +107,9 @@ fun PersonalDetailsScreen(vm: BuyOnlineViewModel) {
         Surface(shadowElevation = 8.dp) {
             Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
                 if (selectedMemberIndex < memberIds.size - 1) {
-                    PRUButton("Next member →", { selectedMemberIndex++ })
+                    PRUButton(t("personal.cta.next"), { selectedMemberIndex++ })
                 } else {
-                    PRUButton("Proceed", { vm.proceedFromPersonalDetails() })
+                    PRUButton(t("personal.cta.proceed"), { vm.proceedFromPersonalDetails() })
                 }
             }
         }

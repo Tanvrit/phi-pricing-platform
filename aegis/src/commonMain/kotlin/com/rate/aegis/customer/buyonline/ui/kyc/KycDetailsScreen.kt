@@ -18,6 +18,7 @@ import com.rate.aegis.customer.buyonline.model.KycMethod
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun KycDetailsScreen(vm: BuyOnlineViewModel) {
@@ -42,7 +43,7 @@ fun KycDetailsScreen(vm: BuyOnlineViewModel) {
 
         Surface(shadowElevation = 8.dp) {
             Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
-                PRUButton("Proceed", { vm.proceedFromKycDetails() })
+                PRUButton(t("kyc.details.cta"), { vm.proceedFromKycDetails() })
             }
         }
     }

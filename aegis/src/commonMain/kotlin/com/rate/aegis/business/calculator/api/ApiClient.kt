@@ -47,6 +47,22 @@ data class IdempotencyRow(
 )
 
 /**
+ * Wire-only DTO mirror of the server's `OutboxEntry`. One row per `.eml` file
+ * in the Phase-1 filesystem outbox; [previewText] is capped server-side at
+ * 240 chars so we never see the full body client-side. Same 403-→-WARN
+ * contract as [IdempotencyRow] — the route is gated by `audit.verify`.
+ */
+@Serializable
+data class OutboxEntry(
+    val filename: String,
+    val sizeBytes: Long,
+    val createdAtIso: String,
+    val to: String,
+    val subject: String,
+    val previewText: String,
+)
+
+/**
  * Wire-only DTO mirror of the server's [com.rate.server.auth.Operator]. Lives in
  * the client file so :shared doesn't need to know about RBAC primitives.
  */
@@ -235,6 +251,21 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun listIdempotencyKeys(limit: Int = 100): List<IdempotencyRow> {
         val resp = http.get("$baseUrl/api/audit/idempotency?limit=$limit")
+        if (!resp.status.isSuccess()) {
+            val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
+            error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
+        }
+        return resp.body()
+    }
+
+    /**
+     * Lists the most recent `.eml` files in the server's Phase-1 filesystem
+     * outbox (newest-first). Scope-gated server-side (`audit.verify`); same
+     * 403-→-thrown-error contract as [verifyAuditChain] / [listIdempotencyKeys]
+     * so the surface can render a WARN callout instead of a Ktor exception.
+     */
+    suspend fun listOutbox(limit: Int = 50): List<OutboxEntry> {
+        val resp = http.get("$baseUrl/api/admin/outbox?limit=$limit")
         if (!resp.status.isSuccess()) {
             val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
             error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")

@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun ApplicationCompleteScreen(vm: BuyOnlineViewModel) {
@@ -31,9 +32,9 @@ fun ApplicationCompleteScreen(vm: BuyOnlineViewModel) {
 
             Spacer(Modifier.height(16.dp))
             Text("🎊", fontSize = 56.sp)
-            Text("Application complete!", style = MaterialTheme.typography.headlineMedium,
+            Text(t("complete.title"), style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-            Text("Your proposal is in review. We will get in touch with you shortly.",
+            Text(t("complete.body"),
                 fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
 
             if (result != null) {
@@ -70,9 +71,9 @@ fun ApplicationCompleteScreen(vm: BuyOnlineViewModel) {
             com.rate.aegis.customer.buyonline.ui.components.IrdaiComplianceFooter()
 
             Spacer(Modifier.weight(1f))
-            PRUButton("Track proposal", { vm.proceedToSatisfaction() })
+            PRUButton(t("complete.cta"), { vm.proceedToSatisfaction() })
             TextButton(onClick = { vm.navigate(com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen.Landing) }) {
-                Text("Back to home", color = PruSubtext)
+                Text(t("complete.back"), color = PruSubtext)
             }
         }
     }

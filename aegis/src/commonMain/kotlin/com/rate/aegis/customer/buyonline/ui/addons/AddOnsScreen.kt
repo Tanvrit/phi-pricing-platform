@@ -20,6 +20,7 @@ import com.rate.aegis.customer.buyonline.model.PlanTier
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun AddOnsScreen(vm: BuyOnlineViewModel) {
@@ -32,7 +33,7 @@ fun AddOnsScreen(vm: BuyOnlineViewModel) {
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                Text("Any add-ons you'd like to include?", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                Text(t("addons.title"), fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
 
                 Card(
                     Modifier.fillMaxWidth(),
@@ -78,12 +79,12 @@ fun AddOnsScreen(vm: BuyOnlineViewModel) {
                 Row(Modifier.fillMaxWidth().background(Color.White).padding(16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     TextButton(onClick = { vm.showSkipAddOnConfirm = true }, modifier = Modifier.weight(1f)) {
-                        Text("Skip add-ons", color = PruSubtext)
+                        Text(t("addons.skip"), color = PruSubtext)
                     }
                     Button(onClick = { vm.proceedFromAddOns() },
                         modifier = Modifier.weight(2f).height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = PruRed)) {
-                        Text("Continue", fontWeight = FontWeight.SemiBold)
+                        Text(t("addons.cta"), fontWeight = FontWeight.SemiBold)
                     }
                 }
             }

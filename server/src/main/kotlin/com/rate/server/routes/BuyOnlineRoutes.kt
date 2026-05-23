@@ -12,6 +12,8 @@ import com.rate.server.audit.AuditEventService
 import com.rate.server.auth.requireScope
 import com.rate.server.database.repositories.BuyOnlineSessionRepository
 import com.rate.server.database.repositories.SessionWithTimestamps
+import com.rate.server.email.EmailMessage
+import com.rate.server.email.EmailSender
 import com.rate.server.metrics.Metrics
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
 import com.rate.server.plugins.REQUEST_ID_KEY
@@ -165,7 +167,8 @@ fun Route.buyOnlineRoutes(
     engine: PricingEngine,
     auditService: AuditEventService,
     idempotencyService: IdempotencyService,
-    sessionRepo: BuyOnlineSessionRepository
+    sessionRepo: BuyOnlineSessionRepository,
+    emailSender: EmailSender
 ) {
     route("/api/buy-online") {
 
@@ -497,14 +500,15 @@ fun Route.buyOnlineRoutes(
             ))
         }
 
-        // ── "Email me the resume link" (Phase-1 mock) ────────────────────────
-        // PHASE 2: send via real SMTP / SES / Postmark. For now we just log +
-        // audit-record so the operator dashboard shows "session.email_requested"
-        // with the email + URL. NB: this Phase-1 audit payload deliberately
-        // contains the customer email and the full resume URL (PII) so the
-        // operator can manually follow up if needed. Once a real send is wired,
-        // the audit payload MUST be redacted (mask email local-part, drop the
-        // URL query string) to match the Phase-2 PII contract used elsewhere.
+        // ── "Email me the resume link" (Phase-1 mock SMTP) ───────────────────
+        // PHASE 1: audit-record + write the message to ~/.aegis/outbox/*.eml
+        // via [EmailSender]. PHASE 2 will swap the implementation for real
+        // SMTP / SES / Postmark behind the same interface — no route change
+        // required. NB: the Phase-1 audit payload deliberately contains the
+        // customer email and the full resume URL (PII) so the operator can
+        // manually follow up if needed. Once a real send is wired, the audit
+        // payload MUST be redacted (mask email local-part, drop the URL query
+        // string) to match the Phase-2 PII contract used elsewhere.
         post("/session/email") {
             val req = call.receive<SessionEmailRequest>()
             val rid = call.attributes.getOrNull(REQUEST_ID_KEY)
@@ -520,14 +524,55 @@ fun Route.buyOnlineRoutes(
                 actor = actor,
                 requestId = rid
             )
+            // Body contents are NOT logged (PII). Outbox writer logs file path
+            // + recipient at INFO; that's the operator-visible breadcrumb.
             log.info("buyonline.email_requested: email={} url={}", req.email, req.url)
-            call.respond(HttpStatusCode.OK, mapOf("status" to "queued"))
+            val safeUrl = escHtml(req.url)
+            val sent = emailSender.send(EmailMessage(
+                to = req.email,
+                subject = "Resume your PRUHealth application",
+                bodyText = """
+                    Hi,
+
+                    We saved your progress. Resume your application here:
+                    ${req.url}
+
+                    This link is valid for 30 days.
+
+                    — PRUHealth
+                """.trimIndent(),
+                bodyHtml = """
+                    <p>Hi,</p>
+                    <p>We saved your progress. Resume your application here:</p>
+                    <p><a href="$safeUrl">$safeUrl</a></p>
+                    <p>This link is valid for 30 days.</p>
+                    <p>— PRUHealth</p>
+                """.trimIndent()
+            ))
+            @kotlinx.serialization.Serializable
+            data class SessionEmailResponse(val status: String, val queuedTo: String)
+            call.respond(
+                HttpStatusCode.OK,
+                SessionEmailResponse(
+                    status = if (sent) "queued" else "failed",
+                    queuedTo = req.email
+                )
+            )
         }
     }
 }
 
 private fun maskMobile(mobile: String): String =
     if (mobile.length < 4) "XXXXXX" else "XXXXXX" + mobile.takeLast(4)
+
+// Local HTML escape — ProspectusRoutes has a private `esc(...)`; we keep our
+// own copy here so this route doesn't reach across files just for four
+// `replace` calls. Used for the resume-link anchor in the Phase-1 mock email.
+private fun escHtml(s: String): String =
+    s.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace("\"", "&quot;")
 
 private fun generateProposalSuffix(): String {
     val ms = System.currentTimeMillis()

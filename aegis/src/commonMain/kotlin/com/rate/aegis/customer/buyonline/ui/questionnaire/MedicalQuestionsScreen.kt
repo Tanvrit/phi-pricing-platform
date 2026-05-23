@@ -18,6 +18,7 @@ import com.rate.aegis.customer.buyonline.model.MEDICAL_QUESTIONS
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun MedicalQuestionsScreen(vm: BuyOnlineViewModel) {
@@ -29,8 +30,8 @@ fun MedicalQuestionsScreen(vm: BuyOnlineViewModel) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)) {
 
-            Text("Medical questions", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("Have any of the family members been hospitalised or had any medical condition?",
+            Text(t("medical.title"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(t("medical.subtitle"),
                 fontSize = 13.sp, color = PruSubtext)
 
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
@@ -107,7 +108,7 @@ fun MedicalQuestionsScreen(vm: BuyOnlineViewModel) {
 
         Surface(shadowElevation = 4.dp) {
             Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
-                PRUButton("Proceed", { vm.proceedFromMedical() })
+                PRUButton(t("medical.cta"), { vm.proceedFromMedical() })
             }
         }
     }

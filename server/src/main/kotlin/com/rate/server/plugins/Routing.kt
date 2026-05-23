@@ -7,7 +7,10 @@ import com.rate.server.audit.AuditEventService
 import com.rate.server.auth.requireScope
 import com.rate.server.database.DatabaseFactory
 import com.rate.server.database.repositories.*
+import com.rate.server.email.EmailSender
+import com.rate.server.email.FileSystemEmailSender
 import com.rate.server.metrics.Metrics
+import java.io.File
 import com.rate.server.routes.*
 import com.rate.server.security.IdempotencyService
 import com.rate.server.security.OtpService
@@ -37,7 +40,8 @@ fun Application.configureRouting(
     pricingEngine: PricingEngine,
     otpService: OtpService,
     auditService: AuditEventService,
-    idempotencyService: IdempotencyService
+    idempotencyService: IdempotencyService,
+    emailSender: EmailSender
 ) {
     val quoteRepo   = QuoteRepositoryImpl()
     val planRepo    = PlanRepositoryImpl()
@@ -185,7 +189,18 @@ fun Application.configureRouting(
         coverRoutes()
         discountRoutes(rateDataProvider)
         importRoutes(auditService, idempotencyService)
-        buyOnlineRoutes(otpService, pricingEngine, auditService, idempotencyService, sessionRepo)
+        buyOnlineRoutes(otpService, pricingEngine, auditService, idempotencyService, sessionRepo, emailSender)
         operatorRoutes()
+
+        // Admin diagnostics: list the Phase-1 filesystem outbox so operators
+        // can verify the "Email me" flow without ssh'ing to the server. The
+        // dir is sourced from the live `FileSystemEmailSender` so any operator
+        // who instantiates the sender with a non-default path gets the right
+        // listing for free; if we're running with a future non-filesystem
+        // sender we fall back to the standard `~/.aegis/outbox` path so the
+        // endpoint stays functional during the transition.
+        val outboxDir: File = (emailSender as? FileSystemEmailSender)?.outboxDir
+            ?: File(System.getProperty("user.home"), ".aegis/outbox")
+        adminRoutes(outboxDir)
     }
 }
