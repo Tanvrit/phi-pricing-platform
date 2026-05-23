@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.AEGIS_VERSION
 import com.rate.aegis.LocalRefreshTicker
+import com.rate.aegis.business.calculator.api.DbPoolStats
 import com.rate.aegis.business.calculator.api.ServerConfigInfo
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
@@ -72,6 +73,13 @@ fun ServerHealthSurface() {
     var configError by remember { mutableStateOf<String?>(null) }
     var configLoaded by remember { mutableStateOf(false) }
 
+    // DB pool snapshot — polled every 5s like /health. Kept on a separate
+    // poller (not folded into the config-card single-shot) because pool
+    // counters move continuously and the operator wants live feedback when
+    // chasing a connection-pool exhaustion ticket.
+    var dbPoolStats by remember { mutableStateOf<DbPoolStats?>(null) }
+    var dbPoolError by remember { mutableStateOf<String?>(null) }
+
     val refreshTick by LocalRefreshTicker.current
 
     // ── /health poller (5s) ──────────────────────────────────────────────
@@ -126,6 +134,25 @@ fun ServerHealthSurface() {
                 configError = t.message ?: t::class.simpleName ?: "unknown error"
             }
         configLoaded = true
+    }
+
+    // ── /api/admin/db-pool poller (5s) ───────────────────────────────────
+    // Independent of /health and /metrics — same 5s cadence as /health so
+    // the surface stays cheap (one extra round-trip per cycle) while still
+    // giving operators near-real-time visibility into connection-pool
+    // exhaustion.
+    LaunchedEffect(client, refreshTick) {
+        while (coroutineContext.isActive) {
+            runCatching { client.getDbPoolStats() }
+                .onSuccess {
+                    dbPoolStats = it
+                    dbPoolError = null
+                }
+                .onFailure { t ->
+                    dbPoolError = t.message ?: t::class.simpleName ?: "unknown error"
+                }
+            delay(5_000L)
+        }
     }
 
     Column(
@@ -253,6 +280,14 @@ fun ServerHealthSurface() {
             error = configError,
             loaded = configLoaded,
         )
+
+        // ── 3e. DB connection pool card ─────────────────────────────────
+        // Live HikariCP counters polled every 5s. The "Waiting" tile turns
+        // red when non-zero — that's the canonical signal that the pool is
+        // exhausted (threads blocked in `getConnection()`), almost always a
+        // queryplan / slow-query problem rather than something to "fix" by
+        // raising the pool size.
+        DbPoolCard(stats = dbPoolStats, error = dbPoolError)
 
         // ── 4. Metrics card ─────────────────────────────────────────────
         AegisCard(
@@ -601,6 +636,110 @@ private fun ServerConfigRow(label: String, value: String) {
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             color = AegisColors.textBody,
+            fontFamily = FontFamily.Monospace,
+        )
+    }
+}
+
+/**
+ * "DB connection pool" diagnostic card — five tiles wired to `/api/admin/db-pool`.
+ *
+ * Tile layout (left → right): Active, Idle, Total, Waiting, Max. "Waiting"
+ * is colour-coded red when non-zero to flag connection-pool exhaustion at a
+ * glance — that's the row operators care about most when a slow-query incident
+ * is in progress.
+ *
+ * Same scope-gating contract as [ServerConfigCard]: a 403 routes to a WARN
+ * callout (operator just hasn't been granted `audit.verify`); a network / 5xx
+ * routes to DANGER.
+ */
+@Composable
+private fun DbPoolCard(stats: DbPoolStats?, error: String?) {
+    AegisCard(
+        title = "DB connection pool",
+        subtitle = "Live HikariCP counters. Auto-refreshes every 5s. " +
+                "Waiting > 0 means threads are blocked in getConnection() — pool exhausted.",
+    ) {
+        when {
+            error != null -> {
+                val is403 = error.contains("403")
+                AegisCallout(
+                    kind = if (is403) CalloutKind.WARN else CalloutKind.DANGER,
+                    title = if (is403) "Insufficient scope (403)"
+                            else "DB pool stats unavailable",
+                    body = if (is403)
+                        "The current operator identity does not have the `audit.verify` scope " +
+                                "(reused for this diagnostic). Set your identity in Settings or ask " +
+                                "an admin to grant the scope. Detail: $error"
+                    else
+                        "Could not fetch /api/admin/db-pool: $error",
+                )
+            }
+            stats == null -> Text(
+                "Waiting for first /api/admin/db-pool response…",
+                fontSize = 13.sp,
+                color = AegisColors.textSecondary,
+            )
+            else -> {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+                ) {
+                    DbPoolTile("Active", stats.active.toString(), Modifier.weight(1f))
+                    DbPoolTile("Idle", stats.idle.toString(), Modifier.weight(1f))
+                    DbPoolTile("Total", stats.total.toString(), Modifier.weight(1f))
+                    DbPoolTile(
+                        label = "Waiting",
+                        value = stats.threadsAwaiting.toString(),
+                        modifier = Modifier.weight(1f),
+                        // Red when non-zero: this is the canonical "pool
+                        // exhausted" signal. We light both the value and the
+                        // label so the tile reads as alarming even at a
+                        // glance, not just on close inspection.
+                        valueColor = if (stats.threadsAwaiting > 0)
+                            AegisColors.danger700 else AegisColors.textPrimary,
+                        labelColor = if (stats.threadsAwaiting > 0)
+                            AegisColors.danger500 else AegisColors.textSecondary,
+                    )
+                    DbPoolTile("Max", stats.maxPoolSize.toString(), Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * One stat tile inside [DbPoolCard]. Same visual shape as [OtpTile] above but
+ * kept private and accepts override colours so the "Waiting" tile can light
+ * up red when the pool is exhausted. No metric-name footer — the labels here
+ * (Active / Idle / Total / Waiting / Max) are self-explanatory and the extra
+ * mono-text line would just add visual noise.
+ */
+@Composable
+private fun DbPoolTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    valueColor: androidx.compose.ui.graphics.Color = AegisColors.textPrimary,
+    labelColor: androidx.compose.ui.graphics.Color = AegisColors.textSecondary,
+) {
+    Column(
+        modifier
+            .background(AegisColors.surfaceMuted, RoundedCornerShape(AegisRadii.rMd))
+            .padding(AegisSpacing.s3),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(
+            label,
+            fontSize = 11.sp,
+            color = labelColor,
+            fontWeight = FontWeight.Medium,
+        )
+        Text(
+            value,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = valueColor,
             fontFamily = FontFamily.Monospace,
         )
     }

@@ -6,6 +6,7 @@ import com.rate.server.auth.requireScope
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
 import com.rate.server.plugins.REQUEST_ID_KEY
 import com.rate.server.startedAt
+import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -68,6 +69,28 @@ data class OutboxEntry(
 data class OutboxPurgeResponse(val requested: Int, val deleted: Int)
 
 /**
+ * Wire-level snapshot of HikariCP connection-pool stats for the Aegis "DB
+ * connection pool" diagnostic card. Read-only — operators get to see how
+ * many connections are checked out vs. idle vs. waiting; the surface
+ * colour-codes [threadsAwaiting] red when non-zero (pool exhaustion).
+ *
+ * Sourced from `HikariDataSource.hikariPoolMXBean` (live JMX bean) — no
+ * tunables here; if `maxPoolSize` ever needs adjusting that goes through
+ * `DatabaseFactory.init` env vars, not this endpoint.
+ */
+@Serializable
+internal data class DbPoolStats(
+    val active: Int,
+    val idle: Int,
+    val total: Int,
+    val threadsAwaiting: Int,
+    val maxPoolSize: Int,
+)
+
+@Serializable
+private data class DbPoolStatus(val status: String)
+
+/**
  * Admin-only diagnostics. Today: list / bulk-prune the email outbox
  * (~/.aegis/outbox/), useful for verifying that the buyonline "Email me"
  * flow actually drops files where it claims to. In Phase 2 these endpoints
@@ -115,6 +138,39 @@ fun Route.adminRoutes(outboxDir: File, auditService: AuditEventService) {
                 otpTtlSec = 300,
                 idempotencyTtlHours = 24,
                 startedAtIso = startedAt.toString(),
+            )
+        )
+    }
+
+    // Sibling diagnostic: live HikariCP pool stats. Same `audit.verify` scope
+    // gate — read-only snapshot, no tunables exposed (pool size is set in
+    // DatabaseFactory.init via env vars and changing it requires a restart).
+    // We read the live JMX bean off the concrete `HikariDataSource` rather
+    // than going through `javax.sql.DataSource` because `hikariPoolMXBean` is
+    // Hikari-specific and `DatabaseFactory.dataSource` is already typed as
+    // `HikariDataSource?` so no cast is needed.
+    get("/api/admin/db-pool") {
+        if (!requireScope("audit.verify")) return@get
+        val ds = com.rate.server.database.DatabaseFactory.dataSource
+        if (ds == null) {
+            call.respond(HttpStatusCode.ServiceUnavailable, DbPoolStatus("not-initialised"))
+            return@get
+        }
+        val mx = ds.hikariPoolMXBean
+        if (mx == null) {
+            // MXBean is unregistered when the pool is mid-shutdown or JMX is
+            // disabled in the Hikari config. Don't treat as fatal — emit a
+            // distinct status so the surface can show a soft warning.
+            call.respond(DbPoolStatus("no-mxbean"))
+            return@get
+        }
+        call.respond(
+            DbPoolStats(
+                active = mx.activeConnections,
+                idle = mx.idleConnections,
+                total = mx.totalConnections,
+                threadsAwaiting = mx.threadsAwaitingConnection,
+                maxPoolSize = ds.maximumPoolSize,
             )
         )
     }

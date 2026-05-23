@@ -90,6 +90,24 @@ data class ServerConfigInfo(
 )
 
 /**
+ * Wire-only mirror of the server's `DbPoolStats`. Live HikariCP pool counters
+ * for the Aegis "DB connection pool" diagnostic card — defaults to all-zero so
+ * the surface can render an empty tile row before the first poll completes (or
+ * if the server is on an older build without the endpoint).
+ *
+ * Same scope-gating as `ServerConfigInfo` (`audit.verify`); the calling surface
+ * follows the same 403-→-WARN contract as the other admin diagnostics.
+ */
+@Serializable
+data class DbPoolStats(
+    val active: Int = 0,
+    val idle: Int = 0,
+    val total: Int = 0,
+    val threadsAwaiting: Int = 0,
+    val maxPoolSize: Int = 0,
+)
+
+/**
  * Wire-only DTO mirror of the server's [com.rate.server.auth.Operator]. Lives in
  * the client file so :shared doesn't need to know about RBAC primitives.
  */
@@ -396,6 +414,27 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun getServerConfig(): ServerConfigInfo {
         val resp = http.get("$baseUrl/api/admin/config")
+        if (!resp.status.isSuccess()) {
+            val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
+            error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
+        }
+        return resp.body()
+    }
+
+    /**
+     * Live HikariCP connection-pool counters for the Aegis "DB connection pool"
+     * diagnostic card. Scope-gated server-side (`audit.verify`); same 403-→-
+     * thrown-error contract as [getServerConfig] / [verifyAuditChain] so the
+     * calling surface can render a WARN callout instead of a Ktor exception.
+     *
+     * The server emits HTTP 503 with a `{"status":"not-initialised"}` body when
+     * `DatabaseFactory.dataSource` is null (pool hasn't been built yet) — we
+     * surface that as a thrown error rather than mapping to a stats payload so
+     * the UI can show the actual server state instead of a misleading row of
+     * zeros.
+     */
+    suspend fun getDbPoolStats(): DbPoolStats {
+        val resp = http.get("$baseUrl/api/admin/db-pool")
         if (!resp.status.isSuccess()) {
             val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
             error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")

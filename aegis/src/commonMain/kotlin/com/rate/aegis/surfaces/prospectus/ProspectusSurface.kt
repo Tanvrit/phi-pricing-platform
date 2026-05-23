@@ -91,6 +91,13 @@ fun ProspectusSurface() {
     var selectedId by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
+    // Sub-tab dispatch: the per-plan Prospectus document (default) vs. the
+    // shell-wide Regulatory overview. The enum slot in AegisShell is still a
+    // single "Prospectus" surface — this tab strip just lets the operator
+    // drill sideways into the regulator-facing dashboard without consuming a
+    // new top-level slot.
+    var tab by remember { mutableStateOf(ProspectusTab.Prospectus) }
+
     // Server-rendered HTML download state. The Compose document below remains
     // the primary view; this is a secondary path for sharing/email/PDF-print.
     @Suppress("UNUSED_VARIABLE")
@@ -145,6 +152,37 @@ fun ProspectusSurface() {
             fontSize = 13.sp,
             color = AegisColors.textSecondary,
         )
+
+        // ── Tab strip ────────────────────────────────────────────────────────
+        // Sits between the page headline and the loading banner so it reads as
+        // a sub-navigation for this surface rather than a floating control.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2),
+        ) {
+            AegisChip(
+                label = "Prospectus",
+                selected = tab == ProspectusTab.Prospectus,
+                onClick = { tab = ProspectusTab.Prospectus },
+            )
+            AegisChip(
+                label = "Regulatory overview",
+                selected = tab == ProspectusTab.Regulatory,
+                onClick = { tab = ProspectusTab.Regulatory },
+            )
+        }
+
+        if (tab == ProspectusTab.Regulatory) {
+            // Operator-side, read-only regulator dashboard. Reuses the same
+            // plan list the per-plan prospectus has already fetched (no extra
+            // server call).
+            RegulatoryOverview(
+                plans = plans,
+                loaded = loaded,
+                loadError = loadError,
+            )
+            return@Column
+        }
 
         // ── LOADING / LIVE / ERROR banner ────────────────────────────────────
         when {
@@ -860,6 +898,17 @@ private fun DocumentFooter(plan: Plan, meta: PlanMeta, docDate: String) {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sub-tab dispatch
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Sub-tabs within the Prospectus surface. The AegisShell enum slot stays a
+ * single "Prospectus" entry; this enum is private to the surface and routes
+ * between the per-plan document and the shell-wide Regulatory dashboard.
+ */
+internal enum class ProspectusTab { Prospectus, Regulatory }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

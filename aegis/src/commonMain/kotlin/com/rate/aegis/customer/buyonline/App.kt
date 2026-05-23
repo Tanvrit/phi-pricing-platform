@@ -35,6 +35,7 @@ import com.rate.aegis.customer.buyonline.ui.addons.AddOnsScreen
 import com.rate.aegis.customer.buyonline.ui.complete.ApplicationCompleteScreen
 import com.rate.aegis.customer.buyonline.ui.complete.SatisfactionScreen
 import com.rate.aegis.customer.buyonline.ui.components.ResumeBanner
+import com.rate.aegis.customer.buyonline.ui.components.SessionExpiresCallout
 import com.rate.aegis.customer.buyonline.ui.components.StepIndicator
 import com.rate.aegis.customer.buyonline.ui.details.PersonalDetailsScreen
 import com.rate.aegis.customer.buyonline.ui.getstarted.GetStartedScreen
@@ -112,6 +113,28 @@ fun BuyOnlineApp() {
     // customer; the VM mints a fresh hex id and stays quiet until they interact.
     LaunchedEffect(Unit) { vm.loadOrCreateSession(AegisLaunchContext.sessionId) }
 
+    // Session-age derived value, used to decide whether to surface the
+    // "expires soon" banner below. The server-side save+resume row has a
+    // documented 30-day TTL (not yet enforced — that's a Phase-2 cleanup
+    // task) so we warn the customer once they cross 25 days. Keyed on the
+    // VM's sessionId so a restored session re-evaluates after rehydrate.
+    //
+    // Source of `updatedAtIso`: vm.snapshot() — the VM doesn't expose the
+    // loaded session's original timestamp directly, and snapshot() is the
+    // canonical place that owns the field. Note that snapshot() stamps
+    // `Clock.System.now()` each call, so this derived value will read 0
+    // for fresh sessions and only flips positive once a real restore path
+    // surfaces an older timestamp into the snapshot (e.g. if the snapshot
+    // contract changes to preserve loaded `updatedAtIso`). Today this
+    // means the banner only fires for sessions that genuinely return a
+    // stale `updatedAtIso` from snapshot(); harmless on brand-new ones.
+    val ageDays = remember(vm.sessionId) {
+        val saved = vm.snapshot().updatedAtIso  // ISO instant
+        val updated = runCatching { kotlinx.datetime.Instant.parse(saved) }.getOrNull()
+        if (updated == null) null
+        else (kotlinx.datetime.Clock.System.now() - updated).inWholeDays
+    }
+
     // "Welcome back" affordance — only meaningful when the customer actually
     // arrived via a `?session=<id>` link (i.e. AegisLaunchContext.sessionId
     // was populated before composition). A brand-new session — where the VM
@@ -184,7 +207,19 @@ fun BuyOnlineApp() {
         val showWelcomeBack = welcomeBackShown &&
                 vm.currentScreen !is BuyOnlineScreen.Landing
 
+        // Expires-soon callout — only renders once a saved session crosses
+        // the 25-day mark. Sits above the ResumeBanner so it's the very
+        // first surface the customer sees on re-entry; the WelcomeBackCallout
+        // and StepIndicator follow underneath.
+        val showExpires = ageDays != null && ageDays >= 25 &&
+                vm.currentScreen !is BuyOnlineScreen.ApplicationComplete &&
+                vm.currentScreen !is BuyOnlineScreen.Satisfaction
+
         Column(Modifier.fillMaxSize()) {
+            if (showExpires && ageDays != null) {
+                val daysLeft = (30 - ageDays).coerceAtLeast(0)
+                SessionExpiresCallout(ageDays = ageDays, daysLeft = daysLeft)
+            }
             if (showBanner) {
                 ResumeBanner(sessionId = vm.sessionId)
             }
