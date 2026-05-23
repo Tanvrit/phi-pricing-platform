@@ -12,10 +12,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.LocalRefreshTicker
+import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
+import com.rate.domain.data.CoverCatalog
 import com.rate.domain.model.Plan
 import com.rate.domain.model.PlanLifecycle
 import com.rate.domain.model.PlanType
@@ -168,7 +172,7 @@ fun ProductCatalogSurface() {
         subtitle = selected?.let { "${it.id} · ${it.planType.displayName}" },
     ) {
         selected?.let { plan ->
-            PlanDetailDrawerBody(plan)
+            PlanDetailDrawerBody(plan, onClose = { selected = null })
         }
     }
 }
@@ -316,7 +320,9 @@ private fun FamilySection(
 }
 
 @Composable
-private fun PlanDetailDrawerBody(plan: Plan) {
+private fun PlanDetailDrawerBody(plan: Plan, onClose: () -> Unit) {
+    val deepLink = LocalAegisDeepLink.current
+    val router = LocalSurfaceRouter.current
     Column(
         Modifier
             .verticalScroll(rememberScrollState())
@@ -384,6 +390,27 @@ private fun PlanDetailDrawerBody(plan: Plan) {
         ) {
             plan.availableFamilyTypes.forEach { ft ->
                 AegisChip(label = ft, selected = false)
+            }
+        }
+
+        // Allowed covers — clickable: each chip closes the drawer, sets the
+        // deep-link to the cover id, and routes to the Cover Catalog surface
+        // (which already has a deep-link consumer that opens the cover drawer).
+        ChipSection(
+            label = "Allowed covers",
+            count = plan.allowedCoverIds.size,
+        ) {
+            plan.allowedCoverIds.sorted().forEach { coverId ->
+                val label = CoverCatalog.findById(coverId)?.name ?: coverId
+                AegisChip(
+                    label = label,
+                    selected = false,
+                    onClick = {
+                        deepLink.value = DeepLink(coverId = coverId)
+                        onClose()
+                        router(AegisSurface.COVER_CATALOG)
+                    },
+                )
             }
         }
     }

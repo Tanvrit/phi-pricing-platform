@@ -1,8 +1,11 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.rate.aegis.business.calculator.ui.configurator
 
 import com.rate.domain.money.formatRupees
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -27,9 +30,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.DeepLink
 import com.rate.aegis.LocalAegisDeepLink
+import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.business.calculator.navigation.Screen
 import com.rate.aegis.business.calculator.ui.components.*
+import com.rate.aegis.components.AegisChip
+import com.rate.aegis.components.AegisSurface
 import com.rate.aegis.util.buildCsv
 import com.rate.aegis.util.saveCsv
 import com.rate.aegis.util.todayIsoDate
@@ -731,6 +737,53 @@ private fun PlanEditDialog(
                             if (allSelected) "Clear all" else "Select all",
                             style = MaterialTheme.typography.labelMedium
                         )
+                    }
+                }
+
+                // ── Read-only chip strip: jump to each selected cover in the
+                // Cover Catalog. Clicking a chip dismisses this dialog, sets
+                // the deep link to the cover id, and routes via the Aegis
+                // surface router. Sits ABOVE the editable list so operators
+                // can navigate without scrolling through the checkboxes.
+                // For >12 covers we use a horizontally-scrollable Row to keep
+                // the dialog height bounded; smaller sets use FlowRow.
+                if (allowedCovers.isNotEmpty()) {
+                    val routerFromDialog = LocalSurfaceRouter.current
+                    val deepLinkFromDialog = LocalAegisDeepLink.current
+                    val sortedSelected = remember(allowedCovers) { allowedCovers.sorted() }
+                    val pickCover: (String) -> Unit = { coverId ->
+                        deepLinkFromDialog.value = DeepLink(coverId = coverId)
+                        onDismiss()
+                        routerFromDialog(AegisSurface.COVER_CATALOG)
+                    }
+                    Text(
+                        "Jump to a cover in the Cover Catalog:",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                    if (sortedSelected.size > 12) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            sortedSelected.forEach { id ->
+                                val label = CoverCatalog.findById(id)?.name ?: id
+                                AegisChip(label = label, onClick = { pickCover(id) })
+                            }
+                        }
+                    } else {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            sortedSelected.forEach { id ->
+                                val label = CoverCatalog.findById(id)?.name ?: id
+                                AegisChip(label = label, onClick = { pickCover(id) })
+                            }
+                        }
                     }
                 }
 

@@ -59,6 +59,11 @@ fun BuyOnlineApp() {
                     // (e.g. browser navigation) doesn't re-trigger the view,
                     // and flip the local flag to drop into the journey.
                     AegisLaunchContext.quoteId = null
+                    // Strip `?quote=<id>` from the browser address bar so a
+                    // page refresh lands the customer in the journey rather
+                    // than bouncing them back to the read-only summary. WASM
+                    // rewrites history; JVM is a no-op (no URL bar).
+                    clearQuoteParam()
                     showSharedQuote = false
                 }
             )

@@ -4,14 +4,17 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.DeepLink
 import com.rate.aegis.LocalAegisDeepLink
@@ -24,16 +27,20 @@ import com.rate.aegis.data.AuditEventDto
 import com.rate.aegis.data.openAuditStream
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
+import com.rate.aegis.util.copyToClipboard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
+import kotlinx.serialization.json.put
 
 /**
  * Aegis AUDIT surface — newest-first listing of the hash-chained audit ledger.
@@ -281,8 +288,19 @@ fun AuditEventsSurface() {
         }
     }
 
+    val drawerOpen = selected != null
+    // Inline "Copied ✓" confirmation for the Copy event JSON button. Keyed on
+    // `drawerOpen` so opening a different row resets the badge — otherwise a
+    // stale "Copied ✓" from the previous drawer would leak into the next one.
+    var copied by remember(drawerOpen) { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2_000L)
+            copied = false
+        }
+    }
     AegisDrawer(
-        open = selected != null,
+        open = drawerOpen,
         onClose = { selected = null },
         title = selected?.action ?: "Audit event",
         subtitle = selected?.let { "#${it.id} · ${it.resourceType}" },
@@ -292,6 +310,12 @@ fun AuditEventsSurface() {
                 Modifier.verticalScroll(rememberScrollState()).padding(AegisSpacing.s5),
                 verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)
             ) {
+                AegisButton(
+                    label = if (copied) "Copied ✓" else "Copy event JSON",
+                    onClick = { copied = copyToClipboard(buildEventJson(row)) },
+                    variant = AegisButtonVariant.Secondary,
+                    size = AegisButtonSize.Sm,
+                )
                 Text(row.action, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                 AegisHDivider()
                 LedgerRow("ID", row.id.toString())
@@ -666,6 +690,43 @@ private fun prettyJson(raw: String?): String? {
     }.getOrElse { raw }  // Fall back to raw text on parse failure rather than hiding it.
 }
 
+/**
+ * Serialize a single [AuditRow] into a complete pretty-printed JSON object.
+ * Backs the drawer's "Copy event JSON" button — operators paste this verbatim
+ * into Slack threads, support tickets, or regulator responses.
+ *
+ * Every column from the row is emitted (including the hash-chain fields), and
+ * `payloadJson` is inlined as a nested JSON object when it parses (so the
+ * receiver sees structured fields instead of a string-encoded blob) and as a
+ * raw string when it doesn't. Missing fields render as `null` rather than
+ * being dropped — preserves shape parity across rows for downstream tooling.
+ */
+private fun buildEventJson(row: AuditRow): String {
+    val obj = buildJsonObject {
+        put("id", row.id)
+        put("eventAt", row.eventAt)
+        put("action", row.action)
+        put("resourceType", row.resourceType)
+        put("resourceId", row.resourceId?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("actorSubject", row.actorSubject?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("actorRole", row.actorRole?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("requestId", row.requestId?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("prevHash", row.prevHash?.let { JsonPrimitive(it) } ?: JsonNull)
+        put("thisHash", row.thisHash)
+        // Inline the payload as structured JSON when possible so the receiver
+        // doesn't have to double-decode an escaped string. Fall back to the
+        // raw string on parse failure (or null when the row had none).
+        val raw = row.payloadJson
+        if (raw.isNullOrBlank()) {
+            put("payloadJson", JsonNull)
+        } else {
+            val parsed = runCatching { prettyJsonFormatter.parseToJsonElement(raw) }.getOrNull()
+            if (parsed != null) put("payloadJson", parsed) else put("payloadJson", raw)
+        }
+    }
+    return prettyJsonFormatter.encodeToString(JsonElement.serializer(), obj)
+}
+
 @Composable
 private fun LedgerRow(label: String, value: String, mono: Boolean = false) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -783,17 +844,29 @@ private fun ResourceIdLedgerRow(
     }
 }
 
-/** Max display length for one side of a diff value before truncation. */
-private const val DIFF_VALUE_MAX = 50
+/** Threshold above which a diff value gets its own line below the field name
+ *  instead of being squeezed into the side-by-side pill layout. */
+private const val DIFF_VALUE_STACK_THRESHOLD = 50
+
+/** Hard truncation for any single rendered value (post-stripping). Keeps the
+ *  drawer from being blown out by a multi-kB list serialization. */
+private const val DIFF_VALUE_TRUNCATE = 80
+
+/** Inline JSON encoder for non-primitive diff sides (arrays, objects). */
+private val diffJsonFormatter = Json { isLenient = true }
 
 /**
  * Renders a structured `plan.upserted` audit payload as a field-by-field diff.
  *
- * For creates we show a single "Created" badge — every field would otherwise
- * be "(none) -> <value>", which buries the signal. For updates we list only
- * the fields whose values actually changed; the server already filters those
- * out, so an empty changes object renders as "No field changes" (which can
- * happen when a write is functionally a no-op).
+ * For creates we emit a single "Created" success badge — every field would
+ * otherwise be "(none) -> <value>", which buries the signal. For updates we
+ * list only the fields whose values actually changed (server already filters
+ * those); each row is `Field name  |  old-pill  →  new-pill` with red/green
+ * tinting so eye-scanning a long diff is fast.
+ *
+ * Long values (>[DIFF_VALUE_STACK_THRESHOLD] chars on either side, e.g. a
+ * serialized list of cover ids) are stacked one above the other below the
+ * field name instead of being shoved into the side-by-side layout.
  */
 @Composable
 private fun PlanDiffView(planId: String?, isCreate: Boolean, changes: JsonObject?) {
@@ -810,7 +883,7 @@ private fun PlanDiffView(planId: String?, isCreate: Boolean, changes: JsonObject
                 if (isCreate) "Created" else "Updated",
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (isCreate) AegisColors.brand else AegisColors.textSecondary
+                color = if (isCreate) AegisColors.success700 else AegisColors.textSecondary
             )
         }
         // The server keys creates with a marker; drop it before counting "real" changes.
@@ -818,11 +891,21 @@ private fun PlanDiffView(planId: String?, isCreate: Boolean, changes: JsonObject
             ?.filter { it.key != "__create" }
             .orEmpty()
         when {
-            isCreate -> Text(
-                "New plan record — no prior version to diff against.",
-                fontSize = 12.sp,
-                color = AegisColors.textSecondary
-            )
+            isCreate -> {
+                // Single header instead of an "(none) -> <every-field>" wall.
+                Box(
+                    Modifier
+                        .background(AegisColors.success100, RoundedCornerShape(6.dp))
+                        .padding(horizontal = AegisSpacing.s3, vertical = AegisSpacing.s2)
+                ) {
+                    Text(
+                        "Created — new plan record, no prior version to diff against.",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AegisColors.success700
+                    )
+                }
+            }
             realChanges.isEmpty() -> Text(
                 "No field changes recorded.",
                 fontSize = 12.sp,
@@ -837,43 +920,127 @@ private fun PlanDiffView(planId: String?, isCreate: Boolean, changes: JsonObject
 }
 
 /**
- * One diff row: field name on the left, "old -> new" rendered in mono on the
- * right. Long values (list serializations) are truncated to keep the drawer
- * scannable; the raw payload is still searchable from the audit table.
+ * One diff row: field name on the left (fixed 140dp column, secondary tone),
+ * a 1dp vertical divider, then either a side-by-side `old → new` pill pair
+ * or — when either rendered side exceeds [DIFF_VALUE_STACK_THRESHOLD] chars —
+ * the old/new pills stacked vertically.
  */
 @Composable
 private fun DiffRow(field: String, old: JsonElement?, new: JsonElement?) {
+    val oldStr = renderDiffValue(old)
+    val newStr = renderDiffValue(new)
+    val stack = oldStr.length > DIFF_VALUE_STACK_THRESHOLD ||
+            newStr.length > DIFF_VALUE_STACK_THRESHOLD
     Row(
-        Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        modifier = Modifier.fillMaxWidth().padding(vertical = AegisSpacing.s1),
         verticalAlignment = Alignment.Top
     ) {
         Text(
             field,
             fontSize = 12.sp,
+            fontWeight = FontWeight.Medium,
             color = AegisColors.textSecondary,
-            modifier = Modifier.padding(end = AegisSpacing.s3)
+            modifier = Modifier.width(140.dp).padding(end = AegisSpacing.s2)
         )
+        Box(
+            Modifier
+                .width(1.dp)
+                .height(if (stack) 48.dp else 22.dp)
+                .background(AegisColors.slate3)
+        )
+        Spacer(Modifier.width(AegisSpacing.s3))
+        if (stack) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(AegisSpacing.s1)
+            ) {
+                DiffPill(text = oldStr, kind = DiffSide.OLD)
+                Text(
+                    "↓",
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = AegisColors.slate6
+                )
+                DiffPill(text = newStr, kind = DiffSide.NEW)
+            }
+        } else {
+            Row(
+                modifier = Modifier.weight(1f),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2)
+            ) {
+                DiffPill(text = oldStr, kind = DiffSide.OLD)
+                Text(
+                    "→",
+                    fontSize = 12.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = AegisColors.slate6
+                )
+                DiffPill(text = newStr, kind = DiffSide.NEW)
+            }
+        }
+    }
+}
+
+private enum class DiffSide { OLD, NEW }
+
+/**
+ * One coloured pill containing the rendered diff value. Falls back to inline
+ * hex tints if a host theme strips the danger/success ramps (defence in depth —
+ * the current palette ships them, but the spec asks for a graceful fallback
+ * when they're missing).
+ */
+@Composable
+private fun DiffPill(text: String, kind: DiffSide) {
+    val bg = when (kind) {
+        DiffSide.OLD -> AegisColors.danger100.orFallback(Color(0xFFFFE5E5))
+        DiffSide.NEW -> AegisColors.success100.orFallback(Color(0xFFD7FBE3))
+    }
+    val fg = when (kind) {
+        DiffSide.OLD -> AegisColors.danger700
+        DiffSide.NEW -> AegisColors.success700
+    }
+    Box(
+        Modifier
+            .background(bg, RoundedCornerShape(4.dp))
+            .padding(horizontal = AegisSpacing.s2, vertical = 2.dp)
+    ) {
         Text(
-            "${renderDiffValue(old)} → ${renderDiffValue(new)}",
+            text,
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
-            color = AegisColors.textBody
+            color = fg
         )
     }
 }
 
 /**
- * Render a diff side as a compact string. Primitives are unquoted (so a
- * string "LIVE" reads as `LIVE`, not `"LIVE"`); structured values fall back
- * to their JSON encoding. Truncated past [DIFF_VALUE_MAX] chars with an
- * ellipsis suffix so wide list serializations don't wrap forever.
+ * Backstop in case a host theme nulls out one of the semantic tints (alpha=0).
+ * AegisColors currently always returns a defined value, but the surface spec
+ * asks for a graceful fallback to the inline hex.
+ */
+private fun Color.orFallback(fallback: Color): Color =
+    if (this.alpha == 0f) fallback else this
+
+/**
+ * Render a diff side as a compact, presentation-ready string.
+ *  - `null` -> `"(none)"`
+ *  - JSON primitives (strings, numbers, booleans) -> their unquoted content.
+ *  - Arrays / objects -> their JSON encoding (so a list of cover ids reads
+ *    as `["IPD","OPD"]`, not `kotlinx.serialization.json.JsonArray@…`).
+ *  - Anything longer than [DIFF_VALUE_TRUNCATE] chars is suffixed with `…`.
  */
 private fun renderDiffValue(el: JsonElement?): String {
     if (el == null) return "(none)"
     val raw = when (el) {
         is JsonPrimitive -> el.content
-        else -> el.toString()
+        else -> runCatching {
+            diffJsonFormatter.encodeToString(JsonElement.serializer(), el)
+        }.getOrElse { el.toString() }
     }
-    return if (raw.length > DIFF_VALUE_MAX) raw.take(DIFF_VALUE_MAX - 1) + "…" else raw
+    return if (raw.length > DIFF_VALUE_TRUNCATE) {
+        raw.take(DIFF_VALUE_TRUNCATE - 1) + "…"
+    } else {
+        raw
+    }
 }
