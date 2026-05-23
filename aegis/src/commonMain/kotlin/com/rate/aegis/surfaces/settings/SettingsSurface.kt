@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.components.AegisButton
+import com.rate.aegis.components.AegisButtonSize
 import com.rate.aegis.components.AegisButtonVariant
 import com.rate.aegis.components.AegisCallout
 import com.rate.aegis.components.AegisCard
@@ -34,6 +35,9 @@ import com.rate.aegis.settings.AegisSettings
 import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
+import com.rate.aegis.util.copyToClipboard
+import com.rate.aegis.util.runtimeHostInfo
+import com.rate.aegis.util.runtimeKind
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -204,6 +208,13 @@ fun SettingsSurface() {
         if (defaultRole.uppercase() == "ADMIN") {
             ManageOperatorsCard()
         }
+
+        // ── System info ──────────────────────────────────────────────────
+        // Read-only diagnostic block. We render the persisted `serverBaseUrl`
+        // (not the in-flight `serverBaseUrl` state) so the value reflects what
+        // the running session is actually using — editing-but-not-saving the
+        // URL above shouldn't change this row.
+        SystemInfoCard(serverBaseUrl = persisted.serverBaseUrl)
 
         // ── Action footer ────────────────────────────────────────────────
         Row(
@@ -431,6 +442,101 @@ private fun ManageOperatorsCard() {
                     }
                 },
             )
+        }
+    }
+}
+
+// ── System info card ──────────────────────────────────────────────────────
+//
+// Diagnostic surface for bug reports. Everything here is static or read from
+// host APIs; nothing is sent off-device. Constants live next to the card
+// because they're literally the data it renders — no need to spread them
+// across the file.
+
+/**
+ * Aegis build tag. Hardcoded YYYY.MM.dev for now — once a real release pipeline
+ * lands (changelog + tag), this gets replaced by a generated `BuildConfig.kt`.
+ */
+private const val AEGIS_VERSION = "2026.05.dev"
+
+/**
+ * Library versions we surface in the card. Kept as plain strings instead of
+ * pulling from `KotlinVersion.CURRENT` etc. because (a) the Compose MP string
+ * has no runtime API, and (b) keeping all three together makes drift between
+ * the gradle catalog and the displayed values easier to spot in code review.
+ */
+private const val COMPOSE_MP_VERSION = "1.7.3"
+private const val KOTLIN_VERSION = "2.1.0"
+
+/**
+ * Read-only "System info" card. Six rows of build + runtime context plus a
+ * small Copy button that ships the same content as a tab-separated block to
+ * the clipboard. Purely informational — operators include the blob in bug
+ * reports so we know what host the issue was filed against.
+ *
+ * Receives [serverBaseUrl] from the caller rather than reading from
+ * [AegisSettingsStore] directly so the rendered value matches what the
+ * running session is using (the persisted snapshot, not the in-flight form).
+ */
+@Composable
+private fun SystemInfoCard(serverBaseUrl: String) {
+    val rows = listOf(
+        "Aegis build" to AEGIS_VERSION,
+        "Compose MP" to COMPOSE_MP_VERSION,
+        "Kotlin" to KOTLIN_VERSION,
+        "Runtime" to runtimeKind(),
+        "Host" to runtimeHostInfo(),
+        "Server URL" to serverBaseUrl,
+    )
+    // Inline copy-confirmation that auto-clears. Optimistic — the WASM
+    // clipboard write is fire-and-forget, so a "Copied" badge here doesn't
+    // promise the bytes actually landed in the OS clipboard.
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(2_000L)
+            copied = false
+        }
+    }
+
+    AegisCard(
+        title = "System info",
+        subtitle = "Build + runtime context. Useful when filing a bug — include this in the report.",
+        action = {
+            AegisButton(
+                label = if (copied) "Copied" else "Copy",
+                variant = AegisButtonVariant.Ghost,
+                size = AegisButtonSize.Sm,
+                onClick = {
+                    // Tab-separated so the block pastes cleanly into Slack /
+                    // GitHub issue bodies without monospaced formatting.
+                    val payload = rows.joinToString("\n") { (k, v) -> "$k\t$v" }
+                    copied = copyToClipboard(payload)
+                },
+            )
+        },
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+            rows.forEach { (label, value) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+                ) {
+                    Text(
+                        label,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AegisColors.textSecondary,
+                        modifier = Modifier.widthIn(min = 110.dp),
+                    )
+                    Text(
+                        value.ifBlank { "—" },
+                        fontSize = 12.sp,
+                        color = AegisColors.textBody,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
         }
     }
 }

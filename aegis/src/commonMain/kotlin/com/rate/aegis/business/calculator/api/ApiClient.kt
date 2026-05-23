@@ -14,6 +14,20 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
 
 /**
+ * Wire-only DTO mirror of the server's `AuditVerifyResponse`. The hash-chain
+ * walker reports `ok` plus `rowsChecked`; on a break it also hands back the
+ * offending row id and a human-readable reason. Defaults let older payloads
+ * (without `breakAtId`/`reason`) hydrate cleanly.
+ */
+@Serializable
+data class AuditVerify(
+    val ok: Boolean,
+    val rowsChecked: Int,
+    val breakAtId: Long? = null,
+    val reason: String? = null
+)
+
+/**
  * Wire-only DTO mirror of the server's [com.rate.server.auth.Operator]. Lives in
  * the client file so :shared doesn't need to know about RBAC primitives.
  */
@@ -158,6 +172,23 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun getAuditEvents(limit: Int = 100): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/audit/events?limit=$limit").body()
+
+    /**
+     * Walks the hash chain server-side and reports the result. Scope-gated
+     * (`audit.verify`); a caller without scope gets HTTP 403 with the standard
+     * `{errorCode, scope, identity}` body. We surface that as a thrown
+     * exception with the status code embedded in the message so the calling
+     * surface can render a sensible "403 — insufficient scope" callout
+     * without dragging a Ktor exception type into commonMain.
+     */
+    suspend fun verifyAuditChain(): AuditVerify {
+        val resp = http.get("$baseUrl/api/audit/verify")
+        if (!resp.status.isSuccess()) {
+            val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
+            error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
+        }
+        return resp.body()
+    }
 
     /**
      * Server-rendered IRDAI prospectus for [planId] as a self-contained HTML

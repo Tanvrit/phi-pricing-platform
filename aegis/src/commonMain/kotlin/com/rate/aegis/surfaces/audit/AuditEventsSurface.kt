@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.DeepLink
 import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.LocalSurfaceRouter
+import com.rate.aegis.business.calculator.api.AuditVerify
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -23,6 +24,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
@@ -45,6 +49,31 @@ fun AuditEventsSurface() {
     var resourceFilter by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<AuditRow?>(null) }
+
+    // Chain integrity check — operator-initiated only. Fires once on first
+    // composition and can be re-fired via the card's "Re-verify" button.
+    // NEVER polled: the verify endpoint walks the whole chain server-side
+    // and is too expensive for the 30s refresh cadence used by the events
+    // list. `verifyTrigger` is a bump-counter keying the LaunchedEffect so
+    // the operator can re-fire on demand.
+    var verifyResult by remember { mutableStateOf<AuditVerify?>(null) }
+    var verifyError by remember { mutableStateOf<String?>(null) }
+    var verifying by remember { mutableStateOf(false) }
+    var verifyTrigger by remember { mutableStateOf(0) }
+
+    LaunchedEffect(client, verifyTrigger) {
+        verifying = true
+        runCatching { client.verifyAuditChain() }
+            .onSuccess { v ->
+                verifyResult = v
+                verifyError = null
+            }
+            .onFailure { t ->
+                verifyResult = null
+                verifyError = t.message ?: t::class.simpleName ?: "unknown error"
+            }
+        verifying = false
+    }
 
     LaunchedEffect(client) {
         while (coroutineContext.isActive) {
@@ -103,6 +132,13 @@ fun AuditEventsSurface() {
                 body = "${filtered.size} of ${rows.size} events. Auto-refreshes every 30s."
             )
         }
+
+        ChainIntegrityCard(
+            verifying = verifying,
+            verifyResult = verifyResult,
+            verifyError = verifyError,
+            onReverify = { if (!verifying) verifyTrigger++ },
+        )
 
         AegisCard {
             Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
@@ -225,17 +261,125 @@ fun AuditEventsSurface() {
                 AegisHDivider()
                 Text("Payload", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                     color = AegisColors.textSecondary)
-                val pretty = remember(row.payloadJson) { prettyJson(row.payloadJson) }
-                if (pretty == null) {
-                    Text("(no payload)", fontSize = 13.sp, color = AegisColors.textSecondary)
+                if (row.action == "plan.upserted") {
+                    val parsed = remember(row.payloadJson) {
+                        row.payloadJson?.let {
+                            runCatching { Json.parseToJsonElement(it) }
+                                .getOrNull() as? JsonObject
+                        }
+                    }
+                    if (parsed == null) {
+                        Text("(no payload)", fontSize = 13.sp, color = AegisColors.textSecondary)
+                    } else {
+                        val isCreate =
+                            parsed["isCreate"]?.jsonPrimitive?.booleanOrNull ?: false
+                        val planId = parsed["planId"]?.jsonPrimitive?.contentOrNull
+                        val changes = parsed["changes"] as? JsonObject
+                        PlanDiffView(planId = planId, isCreate = isCreate, changes = changes)
+                    }
                 } else {
-                    Text(
-                        pretty,
-                        fontSize = 12.sp,
-                        fontFamily = FontFamily.Monospace,
-                        color = AegisColors.textBody
-                    )
+                    val pretty = remember(row.payloadJson) { prettyJson(row.payloadJson) }
+                    if (pretty == null) {
+                        Text("(no payload)", fontSize = 13.sp, color = AegisColors.textSecondary)
+                    } else {
+                        Text(
+                            pretty,
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = AegisColors.textBody
+                        )
+                    }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * Top-of-surface "Chain integrity" card. Renders the result of one
+ * `GET /api/audit/verify` call (fires on open, re-fires on operator click).
+ *
+ * Error rendering rules:
+ *  - 403 (scope-gated): WARN callout — the surface is reachable but the
+ *    operator hasn't been granted the `audit.verify` scope yet. The error
+ *    string returned by [ApiClient.verifyAuditChain] leads with
+ *    "HTTP 403 Forbidden" plus the server's `{errorCode, scope, identity}`
+ *    JSON body verbatim — we substring-detect "403" to pick the WARN tone.
+ *  - Anything else (network, 5xx): DANGER — surface unreachable / server bug.
+ */
+@Composable
+private fun ChainIntegrityCard(
+    verifying: Boolean,
+    verifyResult: AuditVerify?,
+    verifyError: String?,
+    onReverify: () -> Unit,
+) {
+    AegisCard(
+        title = "Chain integrity",
+        subtitle = "Walks the hash chain server-side and confirms no row has been tampered with.",
+        action = {
+            AegisButton(
+                label = if (verifying) "Verifying…" else "Re-verify",
+                onClick = onReverify,
+                variant = AegisButtonVariant.Secondary,
+                size = AegisButtonSize.Sm,
+                loading = verifying,
+                enabled = !verifying,
+            )
+        },
+    ) {
+        when {
+            verifying && verifyResult == null && verifyError == null -> {
+                Text(
+                    "Verifying chain… walking every audit row server-side.",
+                    fontSize = 13.sp,
+                    color = AegisColors.textSecondary,
+                )
+            }
+            verifyError != null -> {
+                // 403 is an expected pre-bootstrap state (operator hasn't been
+                // granted `audit.verify` scope yet), not a tamper signal —
+                // route it to WARN so the operator sees actionable guidance
+                // instead of a red alarm.
+                val is403 = verifyError.contains("403")
+                AegisCallout(
+                    kind = if (is403) CalloutKind.WARN else CalloutKind.DANGER,
+                    title = if (is403)
+                        "Insufficient scope (403)"
+                    else
+                        "Chain verification unavailable",
+                    body = if (is403)
+                        "The current operator identity does not have the `audit.verify` scope. " +
+                                "Set your identity in Settings or ask an admin to grant the scope. " +
+                                "Detail: $verifyError"
+                    else
+                        "Could not run the chain check: $verifyError",
+                )
+            }
+            verifyResult != null && verifyResult.ok -> {
+                AegisCallout(
+                    kind = CalloutKind.SUCCESS,
+                    title = "Chain integrity verified",
+                    body = "${verifyResult.rowsChecked} rows checked — every prev_hash matches the " +
+                            "previous row's this_hash. No tampering detected.",
+                )
+            }
+            verifyResult != null && !verifyResult.ok -> {
+                val breakAt = verifyResult.breakAtId?.let { "#$it" } ?: "(unknown id)"
+                val reason = verifyResult.reason ?: "(no reason returned)"
+                AegisCallout(
+                    kind = CalloutKind.DANGER,
+                    title = "Chain integrity FAILED — break at row $breakAt",
+                    body = "Checked ${verifyResult.rowsChecked} rows before the break. Reason: $reason. " +
+                            "Treat this as a tamper signal: do NOT trust newer rows until the chain is reconciled.",
+                )
+            }
+            else -> {
+                Text(
+                    "No verification has run yet.",
+                    fontSize = 13.sp,
+                    color = AegisColors.textSecondary,
+                )
             }
         }
     }
@@ -434,4 +578,99 @@ private fun ResourceIdLedgerRow(
             }
         }
     }
+}
+
+/** Max display length for one side of a diff value before truncation. */
+private const val DIFF_VALUE_MAX = 50
+
+/**
+ * Renders a structured `plan.upserted` audit payload as a field-by-field diff.
+ *
+ * For creates we show a single "Created" badge — every field would otherwise
+ * be "(none) -> <value>", which buries the signal. For updates we list only
+ * the fields whose values actually changed; the server already filters those
+ * out, so an empty changes object renders as "No field changes" (which can
+ * happen when a write is functionally a no-op).
+ */
+@Composable
+private fun PlanDiffView(planId: String?, isCreate: Boolean, changes: JsonObject?) {
+    Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Plan ${planId ?: "?"}",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AegisColors.textBody
+            )
+            Spacer(Modifier.width(AegisSpacing.s2))
+            Text(
+                if (isCreate) "Created" else "Updated",
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (isCreate) AegisColors.brand else AegisColors.textSecondary
+            )
+        }
+        // The server keys creates with a marker; drop it before counting "real" changes.
+        val realChanges = changes?.entries
+            ?.filter { it.key != "__create" }
+            .orEmpty()
+        when {
+            isCreate -> Text(
+                "New plan record — no prior version to diff against.",
+                fontSize = 12.sp,
+                color = AegisColors.textSecondary
+            )
+            realChanges.isEmpty() -> Text(
+                "No field changes recorded.",
+                fontSize = 12.sp,
+                color = AegisColors.textSecondary
+            )
+            else -> realChanges.forEach { (field, entry) ->
+                val obj = entry as? JsonObject
+                DiffRow(field = field, old = obj?.get("old"), new = obj?.get("new"))
+            }
+        }
+    }
+}
+
+/**
+ * One diff row: field name on the left, "old -> new" rendered in mono on the
+ * right. Long values (list serializations) are truncated to keep the drawer
+ * scannable; the raw payload is still searchable from the audit table.
+ */
+@Composable
+private fun DiffRow(field: String, old: JsonElement?, new: JsonElement?) {
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            field,
+            fontSize = 12.sp,
+            color = AegisColors.textSecondary,
+            modifier = Modifier.padding(end = AegisSpacing.s3)
+        )
+        Text(
+            "${renderDiffValue(old)} → ${renderDiffValue(new)}",
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            color = AegisColors.textBody
+        )
+    }
+}
+
+/**
+ * Render a diff side as a compact string. Primitives are unquoted (so a
+ * string "LIVE" reads as `LIVE`, not `"LIVE"`); structured values fall back
+ * to their JSON encoding. Truncated past [DIFF_VALUE_MAX] chars with an
+ * ellipsis suffix so wide list serializations don't wrap forever.
+ */
+private fun renderDiffValue(el: JsonElement?): String {
+    if (el == null) return "(none)"
+    val raw = when (el) {
+        is JsonPrimitive -> el.content
+        else -> el.toString()
+    }
+    return if (raw.length > DIFF_VALUE_MAX) raw.take(DIFF_VALUE_MAX - 1) + "…" else raw
 }

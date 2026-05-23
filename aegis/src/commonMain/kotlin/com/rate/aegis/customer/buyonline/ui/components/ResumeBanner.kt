@@ -28,7 +28,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.customer.buyonline.copyToClipboard
+import com.rate.aegis.util.copyToClipboard
 import com.rate.aegis.customer.buyonline.resumeUrl
 import com.rate.aegis.customer.buyonline.ui.theme.PruRed
 import com.rate.aegis.customer.buyonline.ui.theme.PruSubtext

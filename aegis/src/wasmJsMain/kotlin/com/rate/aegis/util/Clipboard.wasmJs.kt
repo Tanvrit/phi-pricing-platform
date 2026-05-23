@@ -1,4 +1,4 @@
-package com.rate.aegis.customer.buyonline
+package com.rate.aegis.util
 
 /**
  * WASM actual — invoke the browser `navigator.clipboard.writeText` API. The

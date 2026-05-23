@@ -1,4 +1,4 @@
-package com.rate.aegis.customer.buyonline
+package com.rate.aegis.util
 
 import java.awt.Toolkit
 import java.awt.datatransfer.StringSelection
@@ -7,7 +7,7 @@ import java.awt.datatransfer.StringSelection
  * JVM actual — push the string to the AWT system clipboard. Wrapped in a
  * try/catch because headless JDKs (`-Djava.awt.headless=true`, CI sandboxes)
  * raise `HeadlessException` on `getDefaultToolkit()` and we'd rather degrade
- * gracefully than crash the resume widget.
+ * gracefully than crash the calling UI.
  */
 actual fun copyToClipboard(text: String): Boolean = try {
     Toolkit.getDefaultToolkit().systemClipboard
