@@ -87,6 +87,10 @@ data class ProposalResponse(
 @Serializable
 data class QuoteDetailResponse(val request: QuoteRequest, val result: QuoteResult)
 
+/** Wire shape for the "email me the resume link" affordance on ResumeBanner. */
+@Serializable
+data class SessionEmailRequest(val email: String, val url: String)
+
 // ── Client ────────────────────────────────────────────────────────────────────
 
 class BuyOnlineApiClient(private val baseUrl: String = "http://localhost:9090") {
@@ -184,6 +188,22 @@ class BuyOnlineApiClient(private val baseUrl: String = "http://localhost:9090") 
     suspend fun getPlan(planId: String): Plan? = runCatching {
         http.get("$baseUrl/api/plans/$planId").body<Plan>()
     }.getOrNull()
+
+    /**
+     * Mail-me-the-resume-link path. Boolean-only result keeps the call site
+     * simple — the dialog just needs success/failure to choose between the two
+     * toast strings. Failures are swallowed by [runCatching]; we deliberately
+     * do not surface the HTTP status because the Phase-1 mock server always
+     * returns 200 anyway. Real failure modes (offline, 5xx) fall through to
+     * the false branch and the UI shows the "try copying instead" fallback.
+     */
+    suspend fun emailResumeLink(email: String, url: String): Boolean = runCatching {
+        http.post("$baseUrl/api/buy-online/session/email") {
+            contentType(ContentType.Application.Json)
+            setBody(SessionEmailRequest(email = email, url = url))
+        }
+        true
+    }.getOrElse { false }
 
     fun close() = http.close()
 }

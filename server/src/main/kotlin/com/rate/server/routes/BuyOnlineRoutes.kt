@@ -27,6 +27,7 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.slf4j.LoggerFactory
 
 // ── Generic error / message response ─────────────────────────────────────────
 @Serializable internal data class BuyOnlineErrorResponse(val errorCode: String, val message: String)
@@ -151,9 +152,13 @@ private fun SessionWithTimestamps.redact(): RedactedSession {
     )
 }
 
+// ── Email-self-link request (Phase-1 mock) ───────────────────────────────────
+@Serializable internal data class SessionEmailRequest(val email: String, val url: String)
+
 // ── Route definitions ─────────────────────────────────────────────────────────
 
 private val buyOnlineJson = Json { encodeDefaults = true; ignoreUnknownKeys = true }
+private val log = LoggerFactory.getLogger("com.rate.server.routes.BuyOnline")
 
 fun Route.buyOnlineRoutes(
     otpService: OtpService,
@@ -490,6 +495,33 @@ fun Route.buyOnlineRoutes(
                 status = "Under Review",
                 message = "Your proposal is being reviewed. We'll contact you within 2 business days."
             ))
+        }
+
+        // ── "Email me the resume link" (Phase-1 mock) ────────────────────────
+        // PHASE 2: send via real SMTP / SES / Postmark. For now we just log +
+        // audit-record so the operator dashboard shows "session.email_requested"
+        // with the email + URL. NB: this Phase-1 audit payload deliberately
+        // contains the customer email and the full resume URL (PII) so the
+        // operator can manually follow up if needed. Once a real send is wired,
+        // the audit payload MUST be redacted (mask email local-part, drop the
+        // URL query string) to match the Phase-2 PII contract used elsewhere.
+        post("/session/email") {
+            val req = call.receive<SessionEmailRequest>()
+            val rid = call.attributes.getOrNull(REQUEST_ID_KEY)
+            val actor = AuditActor.unknown()
+            auditService.record(
+                action = "session.email_requested",
+                resourceType = "session",
+                resourceId = req.url.substringAfter("session=", missingDelimiterValue = ""),
+                payload = JsonObject(mapOf(
+                    "email" to JsonPrimitive(req.email),
+                    "url" to JsonPrimitive(req.url)
+                )),
+                actor = actor,
+                requestId = rid
+            )
+            log.info("buyonline.email_requested: email={} url={}", req.email, req.url)
+            call.respond(HttpStatusCode.OK, mapOf("status" to "queued"))
         }
     }
 }

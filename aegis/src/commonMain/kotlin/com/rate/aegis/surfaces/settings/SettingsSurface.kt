@@ -31,6 +31,7 @@ import com.rate.aegis.components.AegisInput
 import com.rate.aegis.components.CalloutKind
 import com.rate.aegis.business.calculator.api.ApiOperator
 import com.rate.aegis.data.rememberApiClient
+import com.rate.aegis.i18n.AegisLocale
 import com.rate.aegis.settings.AegisSettings
 import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.surfaces.audit.MyAuditEvents
@@ -69,6 +70,7 @@ fun SettingsSurface() {
     var defaultRole by remember { mutableStateOf(persisted.defaultRole) }
     var theme by remember { mutableStateOf(normaliseTheme(persisted.theme)) }
     var operatorIdentity by remember { mutableStateOf(persisted.operatorIdentity) }
+    var locale by remember { mutableStateOf(normaliseLocale(persisted.locale)) }
     var saveBannerShown by remember { mutableStateOf(false) }
 
     // Auto-hide the SUCCESS callout a few seconds after it appears so the
@@ -84,7 +86,8 @@ fun SettingsSurface() {
     val dirty = serverBaseUrl != persisted.serverBaseUrl ||
             defaultRole != persisted.defaultRole ||
             theme != normaliseTheme(persisted.theme) ||
-            operatorIdentity != persisted.operatorIdentity
+            operatorIdentity != persisted.operatorIdentity ||
+            locale != normaliseLocale(persisted.locale)
     val canSave = dirty && urlError == null
 
     Column(
@@ -210,6 +213,33 @@ fun SettingsSurface() {
             }
         }
 
+        // ── Language ────────────────────────────────────────────────────
+        // Customer-journey only (buyonline). Operator surfaces stay English-only
+        // in Phase 1 — the localization budget is Phase 2. Visible to every
+        // role (NOT admin-gated) so customer-role browsers can flip locale too.
+        AegisCard(
+            title = "Language",
+            subtitle = "Language used by the customer buy-online journey. Operator surfaces remain English.",
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                    AegisLocale.entries.forEach { entry ->
+                        AegisChip(
+                            label = entry.displayName,
+                            selected = locale == entry.code,
+                            onClick = { locale = entry.code },
+                        )
+                    }
+                }
+                AegisCallout(
+                    kind = CalloutKind.INFO,
+                    title = "Heads up",
+                    body = "Language changes apply on next page open. Hindi coverage is partial; " +
+                            "any missing translation falls back to English.",
+                )
+            }
+        }
+
         // ── Manage operators (admin-gated) ──────────────────────────────
         // Local visibility check only; server enforces real RBAC.
         if (defaultRole.uppercase() == "ADMIN") {
@@ -238,6 +268,7 @@ fun SettingsSurface() {
                         // Trim to avoid sneaking whitespace into the X-Aegis-Actor
                         // header; a pure-whitespace input collapses to "" (= unknown).
                         operatorIdentity = operatorIdentity.trim(),
+                        locale = locale,
                     )
                     AegisSettingsStore.save(next)
                     // Refresh the "persisted" snapshot so `dirty` flips back to
@@ -258,6 +289,7 @@ fun SettingsSurface() {
                     defaultRole = d.defaultRole
                     theme = normaliseTheme(d.theme)
                     operatorIdentity = d.operatorIdentity
+                    locale = normaliseLocale(d.locale)
                 },
                 variant = AegisButtonVariant.Ghost,
             )
@@ -308,6 +340,14 @@ private fun normaliseTheme(raw: String): String {
     val v = raw.lowercase()
     return if (THEME_OPTIONS.any { it.first == v }) v else "light"
 }
+
+/**
+ * Normalises a persisted locale code ("en", "hi", …) to a recognised
+ * [AegisLocale] code. Anything unknown falls back to English — matches the
+ * resolver in [com.rate.aegis.i18n.AegisLocale.fromCode].
+ */
+private fun normaliseLocale(raw: String): String =
+    AegisLocale.fromCode(raw).code
 
 /** Five scopes the server gates today. New scopes added here when they ship. */
 private val OPERATOR_SCOPES = listOf(

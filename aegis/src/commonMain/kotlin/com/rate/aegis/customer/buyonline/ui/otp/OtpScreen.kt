@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun OtpScreen(vm: BuyOnlineViewModel) {
@@ -38,7 +39,7 @@ fun OtpScreen(vm: BuyOnlineViewModel) {
                 contentAlignment = Alignment.Center
             ) { Text("🔐", fontSize = 36.sp) }
 
-            Text("Verifying that it's you!", style = MaterialTheme.typography.headlineSmall,
+            Text(t("otp.title"), style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
 
             Text(
@@ -73,7 +74,7 @@ fun OtpScreen(vm: BuyOnlineViewModel) {
                 Text(vm.otpTimerFormatted, color = PruRed, fontWeight = FontWeight.SemiBold)
                 Text("|", color = PruSubtext)
                 TextButton(onClick = { vm.startOtpTimer() }, enabled = vm.otpTimer == 0) {
-                    Text("Resend OTP", color = if (vm.otpTimer == 0) PruRed else PruSubtext)
+                    Text(t("otp.resend"), color = if (vm.otpTimer == 0) PruRed else PruSubtext)
                 }
             }
 
@@ -94,7 +95,7 @@ fun OtpScreen(vm: BuyOnlineViewModel) {
 
             Spacer(Modifier.weight(1f))
 
-            PRUButton("Verify", { vm.verifyOtp() }, enabled = vm.otpFilled && !vm.loading)
+            PRUButton(t("otp.cta"), { vm.verifyOtp() }, enabled = vm.otpFilled && !vm.loading)
 
             // Replaced "99% CLAIM APPROVAL" unsubstantiated claim with IRDAI-compliant
             // trust strip. Claim ratio is only displayed once a real, citable number is

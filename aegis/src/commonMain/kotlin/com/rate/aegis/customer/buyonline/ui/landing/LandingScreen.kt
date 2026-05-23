@@ -19,6 +19,7 @@ import com.rate.aegis.customer.buyonline.model.MemberType
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun LandingScreen(vm: BuyOnlineViewModel) {
@@ -41,12 +42,12 @@ fun LandingScreen(vm: BuyOnlineViewModel) {
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        "India's health insurance\nthat puts your family first",
+                        t("landing.hero.title"),
                         style = MaterialTheme.typography.headlineSmall,
                         color = Color.White, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center
                     )
                     Spacer(Modifier.height(8.dp))
-                    Text("Find the right plan in a few seconds",
+                    Text(t("landing.hero.subtitle"),
                         color = Color.White.copy(alpha = 0.85f), fontSize = 14.sp, textAlign = TextAlign.Center)
                 }
             }
@@ -58,13 +59,13 @@ fun LandingScreen(vm: BuyOnlineViewModel) {
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text("Who are you insuring?", fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                    Text(t("landing.form.who"), fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
 
                     // Member chips
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        MemberChip("Self",   MemberType.SELF,   vm)
-                        MemberChip("Spouse", MemberType.SPOUSE, vm)
-                        MemberChip("Kids",   MemberType.KIDS,   vm)
+                        MemberChip(t("landing.form.member.self"),   MemberType.SELF,   vm)
+                        MemberChip(t("landing.form.member.spouse"), MemberType.SPOUSE, vm)
+                        MemberChip(t("landing.form.member.kids"),   MemberType.KIDS,   vm)
                     }
 
                     if (MemberType.KIDS in vm.selectedMembers) {
@@ -89,14 +90,14 @@ fun LandingScreen(vm: BuyOnlineViewModel) {
                     OutlinedTextField(
                         value = vm.eldestAge,
                         onValueChange = { if (it.length <= 2 && it.all(Char::isDigit)) vm.eldestAge = it },
-                        label = { Text("Age of eldest member") },
+                        label = { Text(t("landing.form.age")) },
                         singleLine = true, modifier = Modifier.fillMaxWidth()
                     )
 
                     OutlinedTextField(
                         value = vm.mobile,
                         onValueChange = { if (it.length <= 10 && it.all(Char::isDigit)) vm.mobile = it },
-                        label = { Text("Mobile number") },
+                        label = { Text(t("landing.form.mobile")) },
                         prefix = { Text("+91 ", color = PruSubtext) },
                         singleLine = true, modifier = Modifier.fillMaxWidth()
                     )
@@ -116,7 +117,7 @@ fun LandingScreen(vm: BuyOnlineViewModel) {
                     }
 
                     PRUButton(
-                        text    = "Get the best offer",
+                        text    = t("landing.cta"),
                         onClick = { vm.submitMobileForOtp() },
                         enabled = vm.mobile.length == 10 && vm.eldestAge.isNotEmpty() && vm.consentGiven
                     )

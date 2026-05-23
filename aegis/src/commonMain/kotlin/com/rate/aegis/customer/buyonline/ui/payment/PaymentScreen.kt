@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.customer.buyonline.ui.components.*
 import com.rate.aegis.customer.buyonline.ui.theme.*
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.aegis.i18n.t
 
 @Composable
 fun PaymentScreen(vm: BuyOnlineViewModel) {
@@ -22,8 +23,8 @@ fun PaymentScreen(vm: BuyOnlineViewModel) {
         PRUTopBar(onBack = { vm.navigateBack() }, onSaveExit = {}, progress = 2, currentStep = "Payment")
 
         Column(Modifier.weight(1f).padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Text("Plan Summary", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            Text("Review the summary before proceeding to payment.", fontSize = 13.sp, color = PruSubtext)
+            Text(t("payment.title"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Text(t("payment.subtitle"), fontSize = 13.sp, color = PruSubtext)
 
             Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White)) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -38,7 +39,7 @@ fun PaymentScreen(vm: BuyOnlineViewModel) {
                     SummaryItem("GST (18%)",           formatRupees(vm.gstAmount, 2))
                     HorizontalDivider()
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Total payable", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        Text(t("payment.total"), fontWeight = FontWeight.Bold, fontSize = 16.sp)
                         Text(formatRupees(vm.totalAnnualWithGst), fontWeight = FontWeight.ExtraBold,
                             fontSize = 18.sp, color = PruRed)
                     }
@@ -72,7 +73,7 @@ fun PaymentScreen(vm: BuyOnlineViewModel) {
             }
 
             Spacer(Modifier.weight(1f))
-            Text("🔒 Your payment is protected by 256-bit SSL encryption", fontSize = 12.sp, color = PruSubtext)
+            Text("🔒 " + t("payment.secured"), fontSize = 12.sp, color = PruSubtext)
 
             Surface(shadowElevation = 8.dp, modifier = Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {

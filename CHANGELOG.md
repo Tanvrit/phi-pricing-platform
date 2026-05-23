@@ -7,6 +7,78 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Aegis platform unification & shell
+- Single Compose Multiplatform app (`:aegis`) replaces the retired `:desktop` and
+  `:buyonline` modules; JVM + WASM targets share `commonMain`.
+- 14 operator surfaces routed via `AegisShell` — Home, Calculator, Quote Explorer,
+  Plan Configurator, Cover Catalog, Discounts, Reports, Audit, Import, Settings,
+  Product Catalog, IRDAI Prospectus, Server Health, Gallery.
+- Role-based routing (`CUSTOMER` / `BUSINESS` / `ADMIN`) honoured at startup and
+  via URL params on the WASM build.
+- `⌘K` command palette with deep-links to plans, quotes, covers, and discounts.
+- Global Refresh button in the top bar plus 30s auto-refresh on dashboard data.
+- Bell-icon `NotificationCenter` dropdown surfacing live system events.
+- Top-bar connectivity indicator on the JVM desktop binary (window title +
+  status dot).
+- Dark mode toggle with persisted theme preference.
+
+### Customer journey (buyonline)
+- 5-stage `StepIndicator` rendered across the 22-screen journey.
+- Save+resume via `?session=` URL token (server-side `BuyOnlineSessionRepository`).
+- Shareable quotes via `?quote=` (`SharedQuoteView`) for sending mid-funnel quotes
+  to a peer or device.
+- `ResumeBanner` + clipboard helper on every active screen.
+- Browser `beforeunload` guard so customers don't lose progress on accidental
+  tab close.
+
+### Data + analytics
+- `HomeSurface` KPI sparklines, tooltips, and live activity feed.
+- Reports surface with time-bucket aggregations (day / week / month),
+  distributions, customer-journey funnel, and completion stats.
+- Date-range filter on Reports.
+- Quote-total histogram on Reports.
+- Per-section CSV export plus an "Export all" bundle.
+- Plan duplicate action (next-id heuristic) on Plan Configurator.
+
+### Audit + compliance
+- `GET /api/audit/events` list endpoint backing the Aegis Audit surface.
+- `GET /api/audit/verify` chain-integrity check with a dedicated Aegis card.
+- `GET /api/audit/idempotency` cache diagnostic for replay troubleshooting.
+- `GET /api/audit/stream` Server-Sent Events feed (consumed by `NotificationCenter`
+  and the live activity feed).
+- Plan diff capture (old → new field set) with colour-coded render in the audit
+  drawer.
+- Resource-id deep-links from audit rows into the originating surface.
+- Search box + action and actor filter chips on the Audit surface; `?actor=` query
+  honoured.
+- "Copy event JSON" action on the audit drawer.
+- IRDAI Prospectus HTML endpoint plus its Compose surface.
+- PII redaction applied to `/api/buy-online/sessions` responses.
+- "My audit trail" panel embedded in the Settings surface.
+
+### Server platform
+- Operators allowlist at `~/.aegis/operators.json` driving Phase-1 RBAC (5 scopes).
+- `X-Aegis-Actor` header pass-through, written into `audit_event` rows for
+  attribution.
+- Idempotency-replay metrics (`otp_sent_total`, `idempotent_replay_total`, etc.).
+- `Plan.lifecycle` field on the domain `Plan` plus V4 migration.
+- `BuyOnlineSessionRepository` plus V5 migration backing customer save+resume.
+- Settings-driven runtime so feature toggles flow from Settings into live behaviour.
+
+### Build / ops
+- `scripts/smoke.sh` smoke-test script hitting 27 endpoints.
+- Aegis shield favicon shipped on the WASM bundle.
+- `README.md` refresh (162 → 341 lines): surface inventory, endpoint tables, RBAC
+  scopes section, runbook catalogue references.
+
+### Refactoring
+- `ApiClient` / `rememberApiClient` extracted as the single Aegis-wide HTTP entry
+  point; legacy per-surface clients removed.
+- WASM-portability fixes in `commonMain` (no `java.*` types leaking through).
+- 10-runbook catalogue completed (RB-13 sms-gateway-degraded was the closer).
+
+## [0.1.0] - 2026-05-22
+
 ### Changed — Platform unification (Aegis is everything)
 
 - **One module to rule them all**: the customer buyonline journey and the operator
@@ -104,5 +176,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.0.1] — 2026-04-?? — first commit
 - Initial KMP scaffolding, pricing engine, server, desktop, buy-online journey.
 
-[Unreleased]: https://example.com/compare/v0.0.1...HEAD
+[Unreleased]: https://example.com/compare/v0.1.0...HEAD
+[0.1.0]: https://example.com/compare/v0.0.1...v0.1.0
 [0.0.1]: https://example.com/releases/tag/v0.0.1

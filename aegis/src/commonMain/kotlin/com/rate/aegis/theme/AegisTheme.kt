@@ -6,6 +6,8 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import com.rate.aegis.i18n.AegisLocale
+import com.rate.aegis.i18n.LocalAegisLocale
 import com.rate.aegis.settings.AegisSettingsStore
 
 /**
@@ -31,11 +33,13 @@ import com.rate.aegis.settings.AegisSettingsStore
  */
 @Composable
 fun AegisTheme(content: @Composable () -> Unit) {
-    val themeName = runCatching { AegisSettingsStore.load().theme }
-        .getOrNull()
-        ?.lowercase()
-        ?: "light"
+    // Single store read covers both theme + locale so we don't pay the I/O
+    // twice on each recomposition. Null on failure (no settings file yet, parse
+    // error) — both readers fall back to their defaults.
+    val settings = runCatching { AegisSettingsStore.load() }.getOrNull()
+    val themeName = settings?.theme?.lowercase() ?: "light"
     val palette = if (themeName == "dark") DarkColors else LightColors
+    val locale = AegisLocale.fromCode(settings?.locale)
 
     val colorScheme = lightColorScheme(
         primary = palette.brand,
@@ -62,7 +66,10 @@ fun AegisTheme(content: @Composable () -> Unit) {
         onErrorContainer = palette.danger700,
     )
 
-    CompositionLocalProvider(LocalAegisColors provides palette) {
+    CompositionLocalProvider(
+        LocalAegisColors provides palette,
+        LocalAegisLocale provides locale,
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = AegisTypography.material,

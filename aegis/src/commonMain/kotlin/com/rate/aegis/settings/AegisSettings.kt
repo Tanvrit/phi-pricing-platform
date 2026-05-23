@@ -30,6 +30,10 @@ import kotlinx.serialization.json.Json
  *                    falls back to `AuditActor.unknown()`. This is a
  *                    trust-the-header pass-through; real auth (Phase 2) will
  *                    replace it with a verified JWT subject.
+ *   locale         — language code for the customer-journey strings (buyonline).
+ *                    Currently recognised: "en" (default) and "hi". Anything
+ *                    else falls back to English. Operator surfaces stay
+ *                    English-only — see `com.rate.aegis.i18n.Strings`.
  *
  * The settings record is intentionally narrow.
  */
@@ -39,6 +43,7 @@ data class AegisSettings(
     val defaultRole: String = "BUSINESS",
     val theme: String = "light",
     val operatorIdentity: String = "",
+    val locale: String = "en",
 )
 
 /**
