@@ -300,7 +300,20 @@ private fun OperatorShell(
             AegisCommandPalette(
                 open = paletteOpen,
                 commands = commands,
-                onDismiss = { paletteOpen = false }
+                onDismiss = { paletteOpen = false },
+                recentIds = AegisSettingsStore.load().recentCommandIds,
+                onCommandInvoked = { cmd ->
+                    // Persist the just-invoked command id at the head of the
+                    // MRU list, cap at 5, and only write when the ordering
+                    // actually changed (avoids redundant disk/localStorage
+                    // hits when the operator re-picks the same row that's
+                    // already at the top).
+                    val current = AegisSettingsStore.load()
+                    val updated = (listOf(cmd.id) + current.recentCommandIds.filter { it != cmd.id }).take(5)
+                    if (updated != current.recentCommandIds) {
+                        AegisSettingsStore.save(current.copy(recentCommandIds = updated))
+                    }
+                },
             )
             NotificationDropdown(
                 open = bellOpen,

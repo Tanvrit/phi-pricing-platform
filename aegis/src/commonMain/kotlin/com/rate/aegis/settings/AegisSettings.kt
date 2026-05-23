@@ -59,6 +59,13 @@ import kotlinx.serialization.json.Json
  *                    so bumping the constant in `AegisVersion.kt` re-notifies
  *                    every operator on next Home load. Operator-only surface;
  *                    the customer journey never reads this.
+ *   recentCommandIds — most-recently-invoked command-palette ids (most recent
+ *                    first, capped at 5 by the caller). The palette surfaces
+ *                    these under a "Recent" section header when the search
+ *                    query is empty, then shows the rest of the catalog
+ *                    underneath. Strictly per-device — we deliberately don't
+ *                    roam this to the server; recents are a UI affordance,
+ *                    not part of the operator's identity.
  *
  * The settings record is intentionally narrow.
  */
@@ -72,6 +79,7 @@ data class AegisSettings(
     val mutedNotificationActions: Set<String> = emptySet(),
     val localeAutoSeeded: Boolean = false,
     val seenBuild: String = "",
+    val recentCommandIds: List<String> = emptyList(),
 )
 
 /**

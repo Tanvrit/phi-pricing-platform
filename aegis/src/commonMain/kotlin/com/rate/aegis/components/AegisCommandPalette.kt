@@ -40,6 +40,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisRadii
 import com.rate.aegis.theme.AegisSpacing
@@ -93,6 +94,8 @@ fun AegisCommandPalette(
     open: Boolean,
     commands: List<AegisCommand>,
     onDismiss: () -> Unit,
+    recentIds: List<String> = emptyList(),
+    onCommandInvoked: ((AegisCommand) -> Unit)? = null,
 ) {
     if (!open) return
 
@@ -110,23 +113,32 @@ fun AegisCommandPalette(
         runCatching { focusRequester.requestFocus() }
     }
 
-    val filtered = remember(query, commands) { matchCommands(query, commands) }
+    // `displayed` is the flat, ordered list backing both the LazyColumn rows and
+    // the keyboard highlight index. When the query is empty AND we have any
+    // recents, we splice the recents to the top and exclude them from the
+    // "All" tail — so each command appears exactly once in the visible list.
+    // (`sections` carries the section-header metadata for the renderer.)
+    val sectioned = remember(query, commands, recentIds) {
+        buildSections(query, commands, recentIds)
+    }
+    val displayed = sectioned.flatMap { it.commands }
 
     // If the result list shrinks, snap the highlight back into range.
-    LaunchedEffect(filtered.size) {
-        if (highlighted >= filtered.size) highlighted = 0
+    LaunchedEffect(displayed.size) {
+        if (highlighted >= displayed.size) highlighted = 0
     }
 
     // Keep the highlighted row scrolled into view.
-    LaunchedEffect(highlighted, filtered.size) {
-        if (filtered.isNotEmpty()) {
-            runCatching { listState.animateScrollToItem(highlighted.coerceIn(0, filtered.lastIndex)) }
+    LaunchedEffect(highlighted, displayed.size) {
+        if (displayed.isNotEmpty()) {
+            runCatching { listState.animateScrollToItem(highlighted.coerceIn(0, displayed.lastIndex)) }
         }
     }
 
     fun fire(index: Int) {
-        val target = filtered.getOrNull(index) ?: return
+        val target = displayed.getOrNull(index) ?: return
         onDismiss()
+        onCommandInvoked?.invoke(target)
         target.action()
     }
 
@@ -213,15 +225,15 @@ fun AegisCommandPalette(
                                             true
                                         }
                                         Key.DirectionDown -> {
-                                            if (filtered.isNotEmpty()) {
-                                                highlighted = (highlighted + 1) % filtered.size
+                                            if (displayed.isNotEmpty()) {
+                                                highlighted = (highlighted + 1) % displayed.size
                                             }
                                             true
                                         }
                                         Key.DirectionUp -> {
-                                            if (filtered.isNotEmpty()) {
+                                            if (displayed.isNotEmpty()) {
                                                 highlighted =
-                                                    if (highlighted <= 0) filtered.lastIndex
+                                                    if (highlighted <= 0) displayed.lastIndex
                                                     else highlighted - 1
                                             }
                                             true
@@ -252,7 +264,7 @@ fun AegisCommandPalette(
                     .fillMaxWidth()
                     .heightIn(min = 64.dp, max = (12 * 56).dp),
             ) {
-                if (filtered.isEmpty()) {
+                if (displayed.isEmpty()) {
                     Box(
                         Modifier.fillMaxWidth().padding(AegisSpacing.s5),
                         contentAlignment = Alignment.Center,
@@ -267,15 +279,28 @@ fun AegisCommandPalette(
                         state = listState,
                         modifier = Modifier.fillMaxWidth().padding(vertical = AegisSpacing.s2),
                     ) {
-                        items(filtered, key = { it.id }) { cmd ->
-                            val index = filtered.indexOf(cmd)
-                            val isActive = index == highlighted
-                            CommandRow(
-                                command = cmd,
-                                active = isActive,
-                                onClick = { fire(index) },
-                                onHover = { highlighted = index },
-                            )
+                        // Walk the sections, emitting a header row before each
+                        // labelled group. We track the running flat-index so
+                        // every CommandRow knows its position in `displayed`
+                        // for highlight / hover / Enter semantics.
+                        var flatIndex = 0
+                        sectioned.forEach { section ->
+                            if (section.title != null) {
+                                item(key = "section.${section.title}") {
+                                    SectionHeader(section.title)
+                                }
+                            }
+                            items(section.commands, key = { it.id }) { cmd ->
+                                val index = flatIndex + section.commands.indexOf(cmd)
+                                val isActive = index == highlighted
+                                CommandRow(
+                                    command = cmd,
+                                    active = isActive,
+                                    onClick = { fire(index) },
+                                    onHover = { highlighted = index },
+                                )
+                            }
+                            flatIndex += section.commands.size
                         }
                     }
                 }
@@ -403,4 +428,86 @@ internal fun matchCommands(query: String, commands: List<AegisCommand>): List<Ae
         .sortedWith(compareBy({ it.first }, { it.second }))
         .take(MAX_VISIBLE)
         .map { it.third }
+}
+
+/**
+ * A labelled slice of the visible palette. `title == null` means "no header"
+ * (used both for the no-recents single-section case and the trailing "All"
+ * bucket when we want to keep the visual cleaner).
+ */
+internal data class PaletteSection(
+    val title: String?,
+    val commands: List<AegisCommand>,
+)
+
+/**
+ * Splits [commands] into the sections the palette should render given the
+ * current [query] and persisted [recentIds].
+ *
+ *   - When [query] is non-empty: a single un-labelled "matches" section
+ *     produced by [matchCommands]. Recents are NOT surfaced — the operator
+ *     has indicated intent, ranking by relevance is the right thing.
+ *   - When [query] is empty AND [recentIds] is non-empty: a "Recent" section
+ *     with up to 5 entries in the order they appear in [recentIds], followed
+ *     by an "All" section containing the rest of the catalog (excluding the
+ *     ids already in Recent so each command appears exactly once).
+ *   - When [query] is empty AND [recentIds] is empty: a single un-labelled
+ *     section that matches the legacy empty-query behaviour ([matchCommands]
+ *     with an empty query returns the first MAX_VISIBLE commands).
+ *
+ * Commands referenced in [recentIds] but no longer present in [commands]
+ * (e.g. a deep-link to a quote that's since been deleted) are silently
+ * dropped — we never invent rows.
+ */
+internal fun buildSections(
+    query: String,
+    commands: List<AegisCommand>,
+    recentIds: List<String>,
+): List<PaletteSection> {
+    if (query.trim().isNotEmpty()) {
+        return listOf(PaletteSection(title = null, commands = matchCommands(query, commands)))
+    }
+    if (recentIds.isEmpty()) {
+        return listOf(PaletteSection(title = null, commands = matchCommands(query, commands)))
+    }
+    val byId = commands.associateBy { it.id }
+    val recent = recentIds.mapNotNull { byId[it] }.take(5)
+    if (recent.isEmpty()) {
+        return listOf(PaletteSection(title = null, commands = matchCommands(query, commands)))
+    }
+    val recentIdSet = recent.map { it.id }.toSet()
+    val tail = commands.filter { it.id !in recentIdSet }.take(MAX_VISIBLE)
+    return listOf(
+        PaletteSection(title = "Recent", commands = recent),
+        PaletteSection(title = "All", commands = tail),
+    )
+}
+
+/**
+ * Section header row — tiny uppercase mono label with horizontal padding that
+ * lines up with [CommandRow]'s text column. Non-interactive; the LazyColumn
+ * skips it in the highlight index because we render it via `item {}` rather
+ * than threading it into the [displayed] list the keyboard nav walks.
+ */
+@Composable
+private fun SectionHeader(title: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(
+                start = AegisSpacing.s5,
+                end = AegisSpacing.s4,
+                top = AegisSpacing.s2,
+                bottom = AegisSpacing.s1,
+            ),
+    ) {
+        Text(
+            text = title.uppercase(),
+            style = AegisTypography.small.copy(
+                color = AegisColors.textTertiary,
+                fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+                letterSpacing = 1.sp,
+            ),
+        )
+    }
 }

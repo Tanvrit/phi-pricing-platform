@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.AEGIS_VERSION
 import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.business.calculator.api.ServerConfigInfo
 import com.rate.aegis.components.*
@@ -22,6 +23,7 @@ import com.rate.aegis.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -137,6 +139,21 @@ fun ServerHealthSurface() {
             "Live readout of /health and /metrics. Auto-refreshes every 5s.",
             fontSize = 13.sp, color = AegisColors.textSecondary
         )
+
+        // ── 1. Build mismatch callout (top-of-surface) ──────────────────
+        // If the operator's local Aegis build doesn't match the server's
+        // reported version, surface this loudly above everything else —
+        // mismatched builds are a frequent root cause of "endpoint behaves
+        // differently than the code says it should" tickets.
+        val cfg = configInfo
+        if (cfg != null && cfg.version != AEGIS_VERSION) {
+            AegisCallout(
+                kind = CalloutKind.WARN,
+                title = "Build mismatch",
+                body = "Aegis $AEGIS_VERSION ↔ Server ${cfg.version}. " +
+                        "Restart the older component to align."
+            )
+        }
 
         // ── 2. Status card ──────────────────────────────────────────────
         AegisCard {
@@ -429,6 +446,33 @@ private fun MetricRow(name: String, value: Double) {
 }
 
 /**
+ * Format a server-uptime [kotlin.time.Duration] into a short human label.
+ *
+ * Buckets:
+ *   - days  > 0 → "2d 14h 22m"   (long-running production server)
+ *   - hours > 0 → "3h 07m"       (a fresh restart or QA box)
+ *   - mins  > 0 → "12m 30s"      (just after a crash-loop bounce)
+ *   - else      → "42s"          (literally just came up)
+ *
+ * No locale formatting, no `String.format` — both keep the helper safe on
+ * JVM, JS, and WASM. Negative durations (clock skew between operator laptop
+ * and server) are clamped to 0 so the UI never shows "-1d".
+ */
+internal fun formatUptime(d: kotlin.time.Duration): String {
+    val totalSeconds = d.inWholeSeconds.coerceAtLeast(0)
+    val days = totalSeconds / 86_400
+    val hours = (totalSeconds % 86_400) / 3_600
+    val minutes = (totalSeconds % 3_600) / 60
+    val seconds = totalSeconds % 60
+    return when {
+        days > 0 -> "${days}d ${hours}h ${minutes}m"
+        hours > 0 -> "${hours}h ${minutes}m"
+        minutes > 0 -> "${minutes}m ${seconds}s"
+        else -> "${seconds}s"
+    }
+}
+
+/**
  * Compact metric formatter — no `String.format` so we stay JVM-free.
  * Whole-number doubles render integer-style (`142`); fractional values render
  * via the JVM/JS default `toString` (matches Prometheus scrape output).
@@ -494,6 +538,24 @@ private fun ServerConfigCard(
                                  else info.corsOrigins.joinToString(", ")
                     if (joined.length <= 80) joined else joined.take(77) + "…"
                 }
+                // ── Uptime tick ────────────────────────────────────────
+                // The server config is fetched once per global refresh, but
+                // we still want the uptime row to advance every minute. A
+                // local 60s ticker just bumps a counter that the `remember`
+                // key reads — we never re-hit /api/admin/config.
+                var tick by remember { mutableStateOf(0) }
+                LaunchedEffect(Unit) {
+                    while (isActive) {
+                        delay(60_000L)
+                        tick++
+                    }
+                }
+                val uptimeText = remember(info.startedAtIso, tick) {
+                    val started = runCatching { Instant.parse(info.startedAtIso) }
+                        .getOrNull()
+                    if (started == null) "—"
+                    else formatUptime(Clock.System.now() - started)
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
                     val rows = listOf(
                         "Version" to info.version,
@@ -503,6 +565,7 @@ private fun ServerConfigCard(
                         "OTP TTL" to "${info.otpTtlSec}s",
                         "Idempotency TTL" to "${info.idempotencyTtlHours}h",
                         "Started at" to info.startedAtIso,
+                        "Uptime" to uptimeText,
                     )
                     rows.forEachIndexed { idx, (label, value) ->
                         ServerConfigRow(label, value)
