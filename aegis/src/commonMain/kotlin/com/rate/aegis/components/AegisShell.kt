@@ -25,6 +25,7 @@ import androidx.compose.material.icons.filled.Discount
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.PlaylistAddCheck
 import androidx.compose.material.icons.filled.Refresh
@@ -84,6 +85,8 @@ fun AegisShell(
     user: AegisUser,
     modifier: Modifier = Modifier,
     onRefresh: (() -> Unit)? = null,
+    unreadCount: Int = 0,
+    onBellClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Box(modifier.fillMaxSize().background(AegisColors.canvas)) {
@@ -91,7 +94,13 @@ fun AegisShell(
             ShellRail(activeSurface = activeSurface, onSurfaceChange = onSurfaceChange)
             AegisVDivider()
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                ShellTopBar(activeSurface = activeSurface, user = user, onRefresh = onRefresh)
+                ShellTopBar(
+                    activeSurface = activeSurface,
+                    user = user,
+                    onRefresh = onRefresh,
+                    unreadCount = unreadCount,
+                    onBellClick = onBellClick,
+                )
                 AegisHDivider()
                 Box(
                     Modifier
@@ -208,6 +217,8 @@ private fun ShellTopBar(
     activeSurface: AegisSurface,
     user: AegisUser,
     onRefresh: (() -> Unit)? = null,
+    unreadCount: Int = 0,
+    onBellClick: (() -> Unit)? = null,
 ) {
     Row(
         modifier = Modifier
@@ -242,6 +253,37 @@ private fun ShellTopBar(
             )
             Box(Modifier.width(4.dp))
             AegisKbd("⌘K")
+        }
+        if (onBellClick != null) {
+            Box(Modifier.width(AegisSpacing.s2))
+            // Bell + badge overlay. We use a Box stack rather than positioning
+            // the badge inside the IconButton so the badge can spill outside
+            // the 32dp hit-target without clipping.
+            Box(contentAlignment = Alignment.Center) {
+                IconButton(onClick = onBellClick, modifier = Modifier.size(32.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.Notifications,
+                        contentDescription = if (unreadCount > 0)
+                            "Notifications, $unreadCount recent events"
+                        else "Notifications",
+                        tint = AegisColors.iconMuted,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                if (unreadCount > 0) {
+                    Box(
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(top = 2.dp, end = 2.dp),
+                    ) {
+                        AegisBadge(
+                            count = unreadCount,
+                            tone = AegisBadgeTone.Brand,
+                            semanticLabel = "$unreadCount recent events",
+                        )
+                    }
+                }
+            }
         }
         if (onRefresh != null) {
             Box(Modifier.width(AegisSpacing.s2))

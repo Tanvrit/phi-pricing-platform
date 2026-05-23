@@ -7,6 +7,7 @@ import io.ktor.client.call.*
 import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
@@ -250,10 +251,36 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
     suspend fun getDiscounts(): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/discounts").body()
 
-    // ── Import (seed only — file upload is JVM-side, see jvmMain extension) ──
+    // ── Import (seed + multipart file upload) ─────────────────────────────
 
     suspend fun seedBuiltinData(): Map<String, JsonElement> =
         http.post("$baseUrl/api/import/seed").body()
+
+    /**
+     * Multipart upload of an Excel rate workbook by raw bytes + filename.
+     *
+     * Sibling to the JVM-only `uploadExcel(File)` extension in `:aegis/jvmMain`
+     * — that one still exists for the legacy ImportScreen, but the new Aegis
+     * operator-shell Import surface (commonMain) routes through here so the
+     * same code path drives both the desktop FileDialog flow and the WASM
+     * `<input type="file">` flow. Ktor's `MultiPartFormDataContent` +
+     * `formData { append(name, ByteArray, headers) }` is multiplatform — no
+     * `java.io.File` reach — so we can live in commonMain.
+     *
+     * The Content-Type is `application/vnd.ms-excel` to match the legacy
+     * extension; the server's POI parser doesn't actually check it, but
+     * keeping the byte-level request identical avoids surprise if a future
+     * server build does start gating on MIME.
+     */
+    suspend fun uploadExcelBytes(bytes: ByteArray, filename: String): Map<String, JsonElement> =
+        http.post("$baseUrl/api/import/upload") {
+            setBody(MultiPartFormDataContent(formData {
+                append("file", bytes, Headers.build {
+                    append(HttpHeaders.ContentDisposition, "filename=\"$filename\"")
+                    append(HttpHeaders.ContentType, "application/vnd.ms-excel")
+                })
+            }))
+        }.body()
 
     // ── Server health & Prometheus metrics ────────────────────────────────
 

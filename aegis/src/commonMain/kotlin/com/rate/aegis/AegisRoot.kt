@@ -31,6 +31,7 @@ import com.rate.aegis.components.AegisShell
 import com.rate.aegis.components.AegisSurface
 import com.rate.aegis.components.AegisUser
 import com.rate.aegis.components.CalloutKind
+import com.rate.aegis.components.NotificationDropdown
 import com.rate.aegis.customer.buyonline.BuyOnlineApp
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.data.rememberDashboardData
@@ -40,6 +41,7 @@ import com.rate.aegis.surfaces.covers.CoverCatalogSurface
 import com.rate.aegis.surfaces.discounts.DiscountsSurface
 import com.rate.aegis.surfaces.health.ServerHealthSurface
 import com.rate.aegis.surfaces.home.HomeSurface
+import com.rate.aegis.surfaces.imports.ImportSurface
 import com.rate.aegis.surfaces.plans.PlanConfiguratorSurface
 import com.rate.aegis.surfaces.products.ProductCatalogSurface
 import com.rate.aegis.surfaces.prospectus.ProspectusSurface
@@ -91,6 +93,7 @@ private val OPERATOR_SURFACES: List<AegisSurface> = listOf(
     AegisSurface.UW_QUEUE,
     AegisSurface.AUDIT,
     AegisSurface.RATE_TABLES,
+    AegisSurface.IMPORT,
     AegisSurface.SETTINGS,
 )
 
@@ -118,6 +121,12 @@ private fun OperatorShell(
     onSurfaceChange: (AegisSurface) -> Unit,
 ) {
     var paletteOpen by remember { mutableStateOf(false) }
+    var bellOpen by remember { mutableStateOf(false) }
+
+    // Recent server events for the top-bar bell. Lives at OperatorShell scope so
+    // the count survives surface navigation and the SSE/initial fetch is shared
+    // across the dropdown and the bell badge (one consumer, per the brief).
+    val notifications by rememberNotifications()
 
     // Cross-surface targeting: palette commands set this; the destination surface
     // reads it on first composition and clears it.
@@ -231,6 +240,8 @@ private fun OperatorShell(
                 onSurfaceChange = onSurfaceChange,
                 user = user,
                 onRefresh = { refreshTicker.value += 1 },
+                unreadCount = notifications.size,
+                onBellClick = { bellOpen = !bellOpen },
             ) {
                 when (active) {
                     AegisSurface.HOME              -> HomeSurface()
@@ -245,6 +256,7 @@ private fun OperatorShell(
                     AegisSurface.UW_QUEUE          -> UwQueueSurface()
                     AegisSurface.AUDIT             -> AuditEventsSurface()
                     AegisSurface.RATE_TABLES       -> ServerHealthSurface()
+                    AegisSurface.IMPORT            -> ImportSurface()
                     AegisSurface.SETTINGS          -> SettingsSurface()
                     else -> SurfaceTodo(active)
                 }
@@ -253,6 +265,34 @@ private fun OperatorShell(
                 open = paletteOpen,
                 commands = commands,
                 onDismiss = { paletteOpen = false }
+            )
+            NotificationDropdown(
+                open = bellOpen,
+                notifications = notifications,
+                onDismiss = { bellOpen = false },
+                onJumpToEvent = { n ->
+                    bellOpen = false
+                    // Reuse the existing deep-link plumbing: resourceType drives
+                    // which surface to open; resourceId becomes the typed id.
+                    // Unsupported types just route to the Audit surface so the
+                    // operator still gets context.
+                    when (n.resourceType.lowercase()) {
+                        "plan" -> {
+                            if (!n.resourceId.isNullOrBlank()) {
+                                deepLink.value = DeepLink(planId = n.resourceId)
+                            }
+                            onSurfaceChange(AegisSurface.PLAN_CONFIGURATOR)
+                        }
+                        "quote" -> {
+                            if (!n.resourceId.isNullOrBlank()) {
+                                deepLink.value = DeepLink(quoteId = n.resourceId)
+                            }
+                            onSurfaceChange(AegisSurface.QUOTES)
+                        }
+                        else -> onSurfaceChange(AegisSurface.AUDIT)
+                    }
+                },
+                onViewAll = { onSurfaceChange(AegisSurface.AUDIT) },
             )
         }
     }

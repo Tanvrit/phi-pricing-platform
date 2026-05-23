@@ -118,6 +118,13 @@ docker compose up --build
 # postgres    → localhost:5432
 ```
 
+### Smoke test
+
+Once the server is up, run `scripts/smoke.sh` to verify every documented endpoint
+responds with the expected status. Default host is `http://localhost:9090`; pass
+a different one as the first arg, e.g. `scripts/smoke.sh https://staging.example`.
+The script exits non-zero if any check fails — handy as a 30-second post-deploy gate.
+
 ---
 
 ## Operator surfaces inventory
