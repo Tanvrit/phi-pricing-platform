@@ -59,6 +59,15 @@ fun ProductCatalogSurface() {
     val draftCount = plans.count { it.lifecycle == PlanLifecycle.DRAFT }
     val retiredCount = plans.count { it.lifecycle == PlanLifecycle.RETIRED }
 
+    // Single-select lifecycle filter. `null` means "All"; otherwise the chosen
+    // lifecycle scopes the family sections (and hides any whose count drops
+    // to 0 under the filter).
+    var lifecycleFilter by remember { mutableStateOf<PlanLifecycle?>(null) }
+    val filteredPlans = remember(plans, lifecycleFilter) {
+        val f = lifecycleFilter ?: return@remember plans
+        plans.filter { it.lifecycle == f }
+    }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -130,10 +139,47 @@ fun ProductCatalogSurface() {
             )
         }
 
+        // Lifecycle filter chips ────────────────────────────────────────────
+        // Matches the Aegis chrome convention used elsewhere in this surface
+        // (drawer, family table cells) — AegisChip with single-select semantics.
+        // Counts are over the *unfiltered* plan list so the operator sees the
+        // full distribution while drilling.
+        if (loaded && plans.isNotEmpty()) {
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2),
+                verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2),
+            ) {
+                AegisChip(
+                    label = "All (${plans.size})",
+                    selected = lifecycleFilter == null,
+                    onClick = { lifecycleFilter = null },
+                )
+                AegisChip(
+                    label = "LIVE ($liveCount)",
+                    selected = lifecycleFilter == PlanLifecycle.LIVE,
+                    onClick = { lifecycleFilter = PlanLifecycle.LIVE },
+                )
+                AegisChip(
+                    label = "DRAFT ($draftCount)",
+                    selected = lifecycleFilter == PlanLifecycle.DRAFT,
+                    onClick = { lifecycleFilter = PlanLifecycle.DRAFT },
+                )
+                AegisChip(
+                    label = "RETIRED ($retiredCount)",
+                    selected = lifecycleFilter == PlanLifecycle.RETIRED,
+                    onClick = { lifecycleFilter = PlanLifecycle.RETIRED },
+                )
+            }
+        }
+
         // Family sections ───────────────────────────────────────────────────
         if (loaded && plans.isNotEmpty()) {
+            // Sections render against `filteredPlans` so an empty bucket (e.g.
+            // no DRAFT plans in a family) collapses entirely — preserves the
+            // existing "hide empty family" UX.
             PRODUCT_FAMILY_ORDER.forEach { family ->
-                val familyPlans = plans.filter { it.planType == family }
+                val familyPlans = filteredPlans.filter { it.planType == family }
                 if (familyPlans.isNotEmpty()) {
                     FamilySection(
                         family = family,
@@ -146,13 +192,29 @@ fun ProductCatalogSurface() {
             // Catch any plans whose `planType` isn't in the declared ordering —
             // makes new enum values visible instead of silently dropped.
             val orderedSet = PRODUCT_FAMILY_ORDER.toSet()
-            val orphanFamilies = plans.map { it.planType }.distinct().filter { it !in orderedSet }
+            val orphanFamilies = filteredPlans.map { it.planType }.distinct().filter { it !in orderedSet }
             orphanFamilies.forEach { family ->
-                FamilySection(
-                    family = family,
-                    plans = plans.filter { it.planType == family },
-                    onRowClick = { selected = it },
-                )
+                val orphanPlans = filteredPlans.filter { it.planType == family }
+                if (orphanPlans.isNotEmpty()) {
+                    FamilySection(
+                        family = family,
+                        plans = orphanPlans,
+                        onRowClick = { selected = it },
+                    )
+                }
+            }
+
+            // If the filter zeroed every family, render an explicit empty card
+            // instead of a blank surface so the operator knows the filter (not
+            // the data) is at fault.
+            if (lifecycleFilter != null && filteredPlans.isEmpty()) {
+                AegisCard {
+                    AegisEmptyState(
+                        title = "No ${lifecycleFilter!!.name} plans",
+                        helper = "No plans match the current lifecycle filter. " +
+                                "Clear the filter to see the full catalogue.",
+                    )
+                }
             }
         } else if (loaded && plans.isEmpty()) {
             AegisCard {

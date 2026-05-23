@@ -16,16 +16,22 @@ import androidx.compose.material3.TooltipDefaults
 import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.AEGIS_VERSION
+import com.rate.aegis.AEGIS_RELEASE_NOTES
 import com.rate.aegis.components.*
 import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
 import com.rate.aegis.data.rememberDashboardData
+import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.theme.*
 import com.rate.domain.money.formatRupees
 import kotlin.math.roundToInt
@@ -49,6 +55,41 @@ fun HomeSurface() {
         verticalArrangement = Arrangement.spacedBy(AegisSpacing.s5)
     ) {
         Text("Home", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
+
+        // "What's new" callout — one-shot, dismiss-by-button. Visible only when
+        // the operator's persisted seenBuild differs from the current
+        // AEGIS_VERSION. We snapshot the persisted record once via `remember`
+        // (no key) so the row doesn't flicker mid-recomposition while the
+        // store round-trip is in flight; the local `dismissed` flag carries
+        // the click decision until the next page open re-loads from disk.
+        // Operator-only — HomeSurface is never mounted in the customer journey.
+        val persisted = remember { AegisSettingsStore.load() }
+        var dismissed by remember { mutableStateOf(false) }
+        val showWhatsNew = !dismissed && persisted.seenBuild != AEGIS_VERSION
+        if (showWhatsNew) {
+            AegisCard(
+                title = "What's new in Aegis $AEGIS_VERSION",
+                subtitle = "Recent highlights since you last opened the operator shell.",
+                action = {
+                    AegisButton(
+                        label = "Got it",
+                        onClick = {
+                            AegisSettingsStore.save(persisted.copy(seenBuild = AEGIS_VERSION))
+                            dismissed = true
+                        },
+                        variant = AegisButtonVariant.Primary,
+                        size = AegisButtonSize.Sm,
+                    )
+                },
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                    AEGIS_RELEASE_NOTES.forEach {
+                        Text("• $it", fontSize = 13.sp, color = AegisColors.textBody)
+                    }
+                }
+            }
+        }
+
         DashboardSourceBanner(dashboard.source, dashboard.fallbackReason, dashboard.refreshedAt)
 
         // Sparklines (last 7 daily buckets). `createdAt` is a YYYY-MM-DD prefix

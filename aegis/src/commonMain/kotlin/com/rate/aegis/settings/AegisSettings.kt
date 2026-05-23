@@ -51,6 +51,14 @@ import kotlinx.serialization.json.Json
  *                    intentionally single-purpose; the cost is one boolean in
  *                    the persisted JSON, and the alternative (skip-on-later)
  *                    would silently regress any future Hindi-speaking customer.
+ *   seenBuild      — the most recent `AEGIS_VERSION` the operator has
+ *                    acknowledged via the "Got it" button on the Home surface's
+ *                    "What's new" callout. Empty string ("") means "never seen
+ *                    anything" — every fresh install shows the callout once.
+ *                    When `seenBuild != AEGIS_VERSION` the callout reappears,
+ *                    so bumping the constant in `AegisVersion.kt` re-notifies
+ *                    every operator on next Home load. Operator-only surface;
+ *                    the customer journey never reads this.
  *
  * The settings record is intentionally narrow.
  */
@@ -63,6 +71,7 @@ data class AegisSettings(
     val locale: String = "en",
     val mutedNotificationActions: Set<String> = emptySet(),
     val localeAutoSeeded: Boolean = false,
+    val seenBuild: String = "",
 )
 
 /**

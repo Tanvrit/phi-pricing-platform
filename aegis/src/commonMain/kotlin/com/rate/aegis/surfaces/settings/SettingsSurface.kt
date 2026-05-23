@@ -23,6 +23,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.AEGIS_VERSION
 import com.rate.aegis.components.AegisButton
 import com.rate.aegis.components.AegisButtonSize
 import com.rate.aegis.components.AegisButtonVariant
@@ -561,11 +562,10 @@ private fun ManageOperatorsCard() {
 // because they're literally the data it renders — no need to spread them
 // across the file.
 
-/**
- * Aegis build tag. Hardcoded YYYY.MM.dev for now — once a real release pipeline
- * lands (changelog + tag), this gets replaced by a generated `BuildConfig.kt`.
- */
-private const val AEGIS_VERSION = "2026.05.dev"
+// AEGIS_VERSION is now defined at the top-level in com.rate.aegis.AegisVersion
+// (imported above) so it can be referenced from HomeSurface's "What's new"
+// callout without exporting the SettingsSurface internals. This file still
+// reads it through that single source of truth.
 
 /**
  * Library versions we surface in the card. Kept as plain strings instead of

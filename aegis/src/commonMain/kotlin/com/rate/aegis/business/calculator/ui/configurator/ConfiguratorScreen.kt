@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Compare
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
@@ -103,6 +104,12 @@ private val FILTER_DOMESTIC    = "Domestic"
 private val FILTER_GLOBAL      = "Global"
 private val FILTER_GLOBAL_PLUS = "Global Plus"
 
+// Lifecycle filter — single-select drill-down over PlanLifecycle. "All" is the
+// neutral default; the other entries match `PlanLifecycle.name` exactly so we
+// can compare via string without re-encoding the enum.
+private val LIFECYCLE_FILTER_ALL     = "All"
+private val LIFECYCLE_FILTER_OPTIONS = listOf("All", "LIVE", "DRAFT", "RETIRED")
+
 // ── Main Screen ───────────────────────────────────────────────────────────
 
 @Composable
@@ -128,8 +135,20 @@ fun ConfiguratorBody(client: ApiClient) {
     var loading      by remember { mutableStateOf(false) }
     var error        by remember { mutableStateOf<String?>(null) }
     var filter       by remember { mutableStateOf(FILTER_ALL) }
+    // Lifecycle drill-down (All / LIVE / DRAFT / RETIRED). Independent of the
+    // family filter — both pipe into `displayed` below.
+    var lifecycleFilter by remember { mutableStateOf(LIFECYCLE_FILTER_ALL) }
     var editPlan     by remember { mutableStateOf<Plan?>(null) }
     var showDialog   by remember { mutableStateOf(false) }
+
+    // ── Compare-two-plans state ──────────────────────────────────────────────
+    // `showComparePicker` opens the AlertDialog where the operator picks A & B.
+    // Once `comparison` is non-null, the grid is hidden and an inline diff
+    // table is shown until the operator clicks "Dismiss comparison".
+    var showComparePicker by remember { mutableStateOf(false) }
+    var compareSelectionA by remember { mutableStateOf<Plan?>(null) }
+    var compareSelectionB by remember { mutableStateOf<Plan?>(null) }
+    var comparison        by remember { mutableStateOf<Pair<Plan, Plan>?>(null) }
 
     suspend fun refresh() {
         loading = true; error = null
@@ -156,14 +175,22 @@ fun ConfiguratorBody(client: ApiClient) {
         }
     }
 
-    // Filtered view
-    val displayed = remember(plans, filter) {
-        when (filter) {
-            FILTER_DOMESTIC    -> plans.filter { it.planType.name.startsWith("DOMESTIC") }
-            FILTER_GLOBAL      -> plans.filter { it.planType == PlanType.GLOBAL }
-            FILTER_GLOBAL_PLUS -> plans.filter { it.planType == PlanType.GLOBAL_PLUS }
-            else               -> plans
-        }
+    // Filtered view — family chip first, then lifecycle chip. Comparing on
+    // `lifecycle.name` keeps the chip-row labels and enum tied together with
+    // zero allocation per item.
+    val displayed = remember(plans, filter, lifecycleFilter) {
+        plans
+            .filter { p ->
+                when (filter) {
+                    FILTER_DOMESTIC    -> p.planType.name.startsWith("DOMESTIC")
+                    FILTER_GLOBAL      -> p.planType == PlanType.GLOBAL
+                    FILTER_GLOBAL_PLUS -> p.planType == PlanType.GLOBAL_PLUS
+                    else               -> true
+                }
+            }
+            .filter { p ->
+                lifecycleFilter == LIFECYCLE_FILTER_ALL || p.lifecycle.name == lifecycleFilter
+            }
     }
 
     // Stats
@@ -229,6 +256,21 @@ fun ConfiguratorBody(client: ApiClient) {
                         Text("Export CSV")
                     }
                     OutlinedButton(
+                        onClick = {
+                            // Seed dropdowns with the first two plans (or null
+                            // if the list is too short — the Compare button
+                            // inside the dialog is disabled until both are set).
+                            compareSelectionA = plans.getOrNull(0)
+                            compareSelectionB = plans.getOrNull(1)
+                            showComparePicker = true
+                        },
+                        enabled = plans.size >= 2
+                    ) {
+                        Icon(Icons.Default.Compare, "Compare", Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Compare 2 plans")
+                    }
+                    OutlinedButton(
                         onClick = { scope.launch { refresh() } },
                         enabled = !loading
                     ) {
@@ -267,14 +309,45 @@ fun ConfiguratorBody(client: ApiClient) {
                         )
                     }
                 }
+
+                // ── Lifecycle chips ──────────────────────────────────────────
+                // Second chip row, same Material3 FilterChip styling as above so
+                // both rows read as a single drill-down control. Counts are over
+                // the *full* plan list (not the family-filtered subset) so the
+                // operator sees the global lifecycle distribution at all times.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    LIFECYCLE_FILTER_OPTIONS.forEach { label ->
+                        val count = if (label == LIFECYCLE_FILTER_ALL) {
+                            plans.size
+                        } else {
+                            plans.count { it.lifecycle.name == label }
+                        }
+                        FilterChip(
+                            selected = lifecycleFilter == label,
+                            onClick  = { lifecycleFilter = label },
+                            label    = { Text("$label ($count)") }
+                        )
+                    }
+                }
             }
 
             // ── Empty states ────────────────────────────────────────────────
-            if (!loading && plans.isEmpty() && error == null) {
+            val currentComparison = comparison
+            if (currentComparison != null) {
+                // Inline comparison view replaces the grid until dismissed.
+                PlanComparisonView(
+                    planA     = currentComparison.first,
+                    planB     = currentComparison.second,
+                    onDismiss = { comparison = null }
+                )
+            } else if (!loading && plans.isEmpty() && error == null) {
                 EmptyState()
             } else if (displayed.isEmpty() && plans.isNotEmpty()) {
                 Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-                    Text("No plans in this category", color = MaterialTheme.colorScheme.outline)
+                    Text(
+                        "No plans match the current filters",
+                        color = MaterialTheme.colorScheme.outline
+                    )
                 }
             } else {
                 // ── Plan grid ────────────────────────────────────────────────
@@ -326,6 +399,26 @@ fun ConfiguratorBody(client: ApiClient) {
                     }
                 },
                 onDismiss = { showDialog = false }
+            )
+        }
+
+        // ── Compare-2-plans picker dialog ────────────────────────────────────
+        if (showComparePicker) {
+            ComparePickerDialog(
+                plans              = plans,
+                selectionA         = compareSelectionA,
+                selectionB         = compareSelectionB,
+                onSelectionAChange = { compareSelectionA = it },
+                onSelectionBChange = { compareSelectionB = it },
+                onCompare          = {
+                    val a = compareSelectionA
+                    val b = compareSelectionB
+                    if (a != null && b != null) {
+                        comparison        = a to b
+                        showComparePicker = false
+                    }
+                },
+                onDismiss          = { showComparePicker = false }
             )
         }
 }
@@ -1104,6 +1197,264 @@ private fun RecentQuotesHistogram(rows: List<Map<String, JsonElement>>) {
                     modifier = Modifier.width(20.dp),
                     textAlign = TextAlign.End
                 )
+            }
+        }
+    }
+}
+
+// ── Compare-two-plans picker + diff view ──────────────────────────────────
+//
+// Pure client-side: the comparison runs over the already-loaded `plans`
+// list, never hits the server.
+
+/** Yellow background for rows where plan A and plan B differ. */
+private val COMPARE_DIFF_BG = Color(0xFFFFFBEA)
+
+/**
+ * Picker dialog: two ExposedDropdownMenu selectors over the loaded plan list.
+ * "Compare" is disabled until both selections are non-null. Picking the same
+ * plan twice is allowed — the diff view will simply highlight no rows, which
+ * is itself a useful signal.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ComparePickerDialog(
+    plans: List<Plan>,
+    selectionA: Plan?,
+    selectionB: Plan?,
+    onSelectionAChange: (Plan) -> Unit,
+    onSelectionBChange: (Plan) -> Unit,
+    onCompare: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier         = Modifier.width(480.dp),
+        title = {
+            Text("Compare two plans", style = MaterialTheme.typography.titleLarge)
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Pick two plans from the currently loaded list. " +
+                    "Comparison runs locally over what is already on screen.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                PlanPickerDropdown(
+                    label    = "Plan A",
+                    plans    = plans,
+                    selected = selectionA,
+                    onSelect = onSelectionAChange
+                )
+                PlanPickerDropdown(
+                    label    = "Plan B",
+                    plans    = plans,
+                    selected = selectionB,
+                    onSelect = onSelectionBChange
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onCompare,
+                enabled = selectionA != null && selectionB != null
+            ) { Text("Compare") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PlanPickerDropdown(
+    label: String,
+    plans: List<Plan>,
+    selected: Plan?,
+    onSelect: (Plan) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded         = expanded,
+        onExpandedChange = { expanded = it }
+    ) {
+        OutlinedTextField(
+            value         = selected?.let { "${it.name}  ·  ${it.id}" } ?: "",
+            onValueChange = {},
+            readOnly      = true,
+            label         = { Text(label) },
+            trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier      = Modifier.fillMaxWidth().menuAnchor()
+        )
+        ExposedDropdownMenu(
+            expanded         = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            plans.forEach { plan ->
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(plan.name, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "${plan.id}  ·  ${plan.planType.displayName}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                    },
+                    onClick = {
+                        onSelect(plan)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Inline side-by-side comparison table. Replaces the plan grid until the
+ * operator clicks "Dismiss comparison". Rows where the two values differ are
+ * highlighted in pale yellow ([COMPARE_DIFF_BG]); we intentionally avoid the
+ * red/green diff coloring used elsewhere because that semantic ("old vs new")
+ * doesn't apply here — both sides are equally authoritative.
+ */
+@Composable
+private fun PlanComparisonView(
+    planA: Plan,
+    planB: Plan,
+    onDismiss: () -> Unit
+) {
+    // Universe of selectable covers for the "N of M selected" denominator —
+    // matches the picker in PlanEditDialog (non-discount catalogue entries).
+    val coverPickerTotal = remember {
+        CoverCatalog.ALL.count { !it.isDiscount }
+    }
+
+    fun describeAllowed(set: Set<String>): String {
+        val filtered = set.count { id -> CoverCatalog.findById(id)?.isDiscount == false }
+        return "$filtered of $coverPickerTotal selected"
+    }
+
+    fun siBullets(list: List<Long>): String {
+        if (list.isEmpty()) return "0 · —"
+        val sorted = list.sorted()
+        return "${list.size} · ${formatRupees(sorted.first().toDouble())} → " +
+            formatRupees(sorted.last().toDouble())
+    }
+
+    fun truncate(s: String, n: Int = 60): String =
+        if (s.length <= n) s else s.take(n - 1) + "…"
+
+    val rows = listOf(
+        "id"                   to (planA.id                                  to planB.id),
+        "name"                 to (planA.name                                to planB.name),
+        "planType"             to (planA.planType.displayName                to planB.planType.displayName),
+        "lifecycle"            to (planA.lifecycle.name                      to planB.lifecycle.name),
+        "isActive"             to (planA.isActive.toString()                 to planB.isActive.toString()),
+        "description"          to (truncate(planA.description)               to truncate(planB.description)),
+        "minAge"               to (planA.minAge.toString()                   to planB.minAge.toString()),
+        "maxAge"               to (planA.maxAge.toString()                   to planB.maxAge.toString()),
+        "gstRate"              to ("${(planA.gstRate * 100).toInt()}%"       to "${(planB.gstRate * 100).toInt()}%"),
+        "maxDiscountCap"       to ("${(planA.maxDiscountCap * 100).toInt()}%" to "${(planB.maxDiscountCap * 100).toInt()}%"),
+        "availableSumInsureds" to (siBullets(planA.availableSumInsureds)     to siBullets(planB.availableSumInsureds)),
+        "availableZones"       to (planA.availableZones.joinToString(", ")   to planB.availableZones.joinToString(", ")),
+        "availableFamilyTypes" to (planA.availableFamilyTypes.joinToString(", ") to planB.availableFamilyTypes.joinToString(", ")),
+        "allowedCoverIds"      to (describeAllowed(planA.allowedCoverIds)    to describeAllowed(planB.allowedCoverIds))
+    )
+
+    Card(
+        modifier  = Modifier.fillMaxWidth(),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            Modifier.fillMaxWidth().padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+
+            // ── Header: titles + dismiss ────────────────────────────────────
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Comparison",
+                        style      = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        "${planA.name}  vs  ${planB.name}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
+                    )
+                }
+                OutlinedButton(onClick = onDismiss) { Text("Dismiss comparison") }
+            }
+
+            HorizontalDivider()
+
+            // ── Column headers ──────────────────────────────────────────────
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(
+                    "Field",
+                    modifier   = Modifier.width(140.dp),
+                    style      = MaterialTheme.typography.labelMedium,
+                    color      = MaterialTheme.colorScheme.outline,
+                    fontWeight = FontWeight.SemiBold,
+                    fontFamily = FontFamily.Monospace
+                )
+                Text(
+                    planA.id,
+                    modifier   = Modifier.weight(1f),
+                    style      = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    planB.id,
+                    modifier   = Modifier.weight(1f),
+                    style      = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+
+            HorizontalDivider()
+
+            // ── Data rows ───────────────────────────────────────────────────
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                rows.forEach { (field, values) ->
+                    val (a, b) = values
+                    val differs = a != b
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(if (differs) COMPARE_DIFF_BG else Color.Transparent)
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment     = Alignment.Top
+                    ) {
+                        Text(
+                            field,
+                            modifier   = Modifier.width(140.dp),
+                            style      = MaterialTheme.typography.bodySmall,
+                            color      = MaterialTheme.colorScheme.outline,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Text(
+                            a,
+                            modifier = Modifier.weight(1f),
+                            style    = MaterialTheme.typography.bodySmall
+                        )
+                        Text(
+                            b,
+                            modifier = Modifier.weight(1f),
+                            style    = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         }
     }
