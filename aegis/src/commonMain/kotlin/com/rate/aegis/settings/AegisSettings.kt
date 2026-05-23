@@ -34,6 +34,13 @@ import kotlinx.serialization.json.Json
  *                    Currently recognised: "en" (default) and "hi". Anything
  *                    else falls back to English. Operator surfaces stay
  *                    English-only — see `com.rate.aegis.i18n.Strings`.
+ *   mutedNotificationActions — set of audit `action` strings the operator has
+ *                    chosen to hide from the bell-icon NotificationCenter
+ *                    dropdown. ONLY affects that dropdown — the audit log
+ *                    surface, ActivityFeed, and the server-side audit chain
+ *                    are unaffected. Read once on first composition of the
+ *                    notification list (matches the theme/locale apply-on-
+ *                    next-open contract). Default empty = nothing muted.
  *
  * The settings record is intentionally narrow.
  */
@@ -44,6 +51,7 @@ data class AegisSettings(
     val theme: String = "light",
     val operatorIdentity: String = "",
     val locale: String = "en",
+    val mutedNotificationActions: Set<String> = emptySet(),
 )
 
 /**

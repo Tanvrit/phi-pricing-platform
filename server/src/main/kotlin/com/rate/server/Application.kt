@@ -45,6 +45,14 @@ fun Application.module() {
     val backgroundScope = CoroutineScope(SupervisorJob())
     idempotencyService.startCleanup(backgroundScope)
 
+    // Periodic server-side audit-chain integrity walker. Writes its result
+    // back into the chain so tamper / corruption shows up in the regular
+    // audit feed (audit.chain_verified / audit.chain_broken) even when
+    // nobody opens Aegis to click "Re-verify". Default 6h; override with
+    // AUDIT_VERIFY_INTERVAL_HOURS for staging / soak tests.
+    val verifyInterval = System.getenv("AUDIT_VERIFY_INTERVAL_HOURS")?.toIntOrNull() ?: 6
+    auditService.startPeriodicVerify(backgroundScope, intervalHours = verifyInterval)
+
     configureRouting(rateDataProvider, pricingEngine, otpService, auditService, idempotencyService, emailSender)
 
     // Graceful shutdown: stop background jobs + close DB pool when the JVM is asked to stop.

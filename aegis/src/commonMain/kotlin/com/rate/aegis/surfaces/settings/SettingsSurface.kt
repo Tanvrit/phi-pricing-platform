@@ -17,7 +17,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -71,6 +73,7 @@ fun SettingsSurface() {
     var theme by remember { mutableStateOf(normaliseTheme(persisted.theme)) }
     var operatorIdentity by remember { mutableStateOf(persisted.operatorIdentity) }
     var locale by remember { mutableStateOf(normaliseLocale(persisted.locale)) }
+    var muted by remember { mutableStateOf(persisted.mutedNotificationActions) }
     var saveBannerShown by remember { mutableStateOf(false) }
 
     // Auto-hide the SUCCESS callout a few seconds after it appears so the
@@ -87,7 +90,8 @@ fun SettingsSurface() {
             defaultRole != persisted.defaultRole ||
             theme != normaliseTheme(persisted.theme) ||
             operatorIdentity != persisted.operatorIdentity ||
-            locale != normaliseLocale(persisted.locale)
+            locale != normaliseLocale(persisted.locale) ||
+            muted != persisted.mutedNotificationActions
     val canSave = dirty && urlError == null
 
     Column(
@@ -240,6 +244,43 @@ fun SettingsSurface() {
             }
         }
 
+        // ── Notification preferences ─────────────────────────────────────
+        // Per-event-type mute list for the bell-icon NotificationCenter
+        // dropdown. The known-actions list is hardcoded (no polling) and the
+        // mute set is snapshotted on first composition of `rememberNotifications`
+        // — restart-or-recompose-to-apply, matching theme/locale. This card
+        // ONLY affects the dropdown; the audit log and ActivityFeed are
+        // untouched.
+        AegisCard(
+            title = "Notification preferences",
+            subtitle = "Hide specific event types from the bell-icon dropdown. Doesn't affect the audit log itself.",
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                KNOWN_NOTIFICATION_ACTIONS.forEach { action ->
+                    val isMuted = action in muted
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            action,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            color = AegisColors.textBody,
+                        )
+                        AegisChip(
+                            label = if (isMuted) "Muted" else "Show",
+                            selected = isMuted,
+                            onClick = {
+                                muted = if (isMuted) muted - action else muted + action
+                            },
+                        )
+                    }
+                }
+            }
+        }
+
         // ── Manage operators (admin-gated) ──────────────────────────────
         // Local visibility check only; server enforces real RBAC.
         if (defaultRole.uppercase() == "ADMIN") {
@@ -269,6 +310,7 @@ fun SettingsSurface() {
                         // header; a pure-whitespace input collapses to "" (= unknown).
                         operatorIdentity = operatorIdentity.trim(),
                         locale = locale,
+                        mutedNotificationActions = muted,
                     )
                     AegisSettingsStore.save(next)
                     // Refresh the "persisted" snapshot so `dirty` flips back to
@@ -290,6 +332,7 @@ fun SettingsSurface() {
                     theme = normaliseTheme(d.theme)
                     operatorIdentity = d.operatorIdentity
                     locale = normaliseLocale(d.locale)
+                    muted = d.mutedNotificationActions
                 },
                 variant = AegisButtonVariant.Ghost,
             )
@@ -320,6 +363,24 @@ private fun validateBaseUrl(value: String): String? {
 }
 
 private val ROLE_OPTIONS = listOf("CUSTOMER", "BUSINESS", "ADMIN")
+
+/**
+ * Known audit `action` strings the operator can mute from the NotificationCenter
+ * dropdown. Hardcoded by design — we don't poll the server for the live set, so
+ * shipping a new action type requires updating this list. Kept in roughly the
+ * same order operators see them in the audit log so the card scans naturally.
+ *
+ * Muting an action only hides it from the bell-icon dropdown; AuditEventsSurface
+ * and ActivityFeed still show every event regardless of this list.
+ */
+private val KNOWN_NOTIFICATION_ACTIONS = listOf(
+    "plan.upserted", "plan.deleted",
+    "quote.created", "quote.calculated",
+    "session.email_requested",
+    "outbox.purged",
+    "audit.chain_verified", "audit.chain_broken",
+    "import.uploaded",
+)
 
 /**
  * Theme options surfaced as chips. We keep the persisted id ("light"/"dark")

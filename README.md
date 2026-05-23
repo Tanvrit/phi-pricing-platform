@@ -145,7 +145,7 @@ Compose app and surface selection is in-process. "Source" is the primary data fe
 | Prospectus           | `surface://rules`   | IRDAI-style printable disclosure per plan (12-section, print-to-PDF)                          | `client.getPlans` + `/api/plans/{id}/prospectus.html` |
 | Reports              | `surface://reports` | Bucketed time series + distributions + buyonline funnel + CSV export                          | `rememberDashboardData` + redacted sessions     |
 | UW Queue             | `surface://uw`      | Quotes flagged for underwriter review (derived view, no separate persistence)                 | derived from `dashboard.quotes`                 |
-| Audit                | `surface://audit`   | Hash-chain audit log + integrity check + idempotency cache + SSE live stream                  | `/api/audit/events`, `/api/audit/stream`        |
+| Audit                | `surface://audit`   | Hash-chain audit log + integrity check + idempotency cache + SSE live stream. Auto-verified every 6h server-side. | `/api/audit/events`, `/api/audit/stream`        |
 | Server Health        | `surface://rates`*  | `/health` + `/metrics` + OTP + idempotency telemetry                                          | `/health`, `/metrics`                           |
 | Settings             | `surface://settings`| Server URL + role + theme + operator identity + RBAC + system info                            | `AegisSettingsStore` + `/api/operators`         |
 | Import               | `surface://import`  | Excel upload to repopulate rate tables (gated by `import.upload`)                             | `POST /api/import/upload`                       |

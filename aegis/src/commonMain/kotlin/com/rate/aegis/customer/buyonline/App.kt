@@ -1,7 +1,21 @@
 package com.rate.aegis.customer.buyonline
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -9,7 +23,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.rate.aegis.AegisLaunchContext
 import com.rate.aegis.customer.buyonline.api.BuyOnlineApiClient
 import com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen
@@ -38,7 +56,11 @@ import com.rate.aegis.customer.buyonline.ui.questionnaire.MedicalQuestionsScreen
 import com.rate.aegis.customer.buyonline.ui.quote.QuoteScreen
 import com.rate.aegis.customer.buyonline.ui.summary.PlanSummaryScreen
 import com.rate.aegis.customer.buyonline.ui.theme.PRUHealthTheme
+import com.rate.aegis.customer.buyonline.ui.theme.PruBackground
+import com.rate.aegis.customer.buyonline.ui.theme.PruRed
+import com.rate.aegis.customer.buyonline.ui.theme.PruText
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun BuyOnlineApp() {
@@ -90,6 +112,32 @@ fun BuyOnlineApp() {
     // customer; the VM mints a fresh hex id and stays quiet until they interact.
     LaunchedEffect(Unit) { vm.loadOrCreateSession(AegisLaunchContext.sessionId) }
 
+    // "Welcome back" affordance — only meaningful when the customer actually
+    // arrived via a `?session=<id>` link (i.e. AegisLaunchContext.sessionId
+    // was populated before composition). A brand-new session — where the VM
+    // mints its own id — leaves AegisLaunchContext.sessionId blank, so we
+    // skip the banner. Snapshot the launch value into `remember` so a later
+    // mutation of the global (e.g. `quoteId` clearing pattern) doesn't
+    // retroactively change our verdict.
+    val resumed = remember { !AegisLaunchContext.sessionId.isNullOrBlank() }
+    var welcomeBackShown by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (resumed) {
+            // Give the VM a moment to actually restore the state before
+            // showing the banner — otherwise we'd announce "picked up where
+            // you left off" while still parked on Landing.
+            delay(800)
+            welcomeBackShown = true
+        }
+    }
+    // Auto-hide the banner after 6 seconds so it doesn't clutter the form.
+    LaunchedEffect(welcomeBackShown) {
+        if (welcomeBackShown) {
+            delay(6_000)
+            welcomeBackShown = false
+        }
+    }
+
     // Browser back-button guard. Once the customer has a session AND is past
     // the marketing Landing but not yet on a terminal screen, we hook
     // `window.onbeforeunload` so the browser shows its native "Leave site?"
@@ -128,9 +176,20 @@ fun BuyOnlineApp() {
             else -> true
         }
 
+        // Only show the welcome-back callout once we're off Landing — the
+        // banner only makes sense when actual restored state is on display.
+        // (The 800ms delay above usually means the VM has already navigated
+        // past Landing by the time we flip the flag, but on a slow restore
+        // we suppress here as a safety net.)
+        val showWelcomeBack = welcomeBackShown &&
+                vm.currentScreen !is BuyOnlineScreen.Landing
+
         Column(Modifier.fillMaxSize()) {
             if (showBanner) {
                 ResumeBanner(sessionId = vm.sessionId)
+            }
+            if (showWelcomeBack) {
+                WelcomeBackCallout(label = screenLabel(vm.currentScreen))
             }
             if (showSteps) {
                 StepIndicator(currentScreen = vm.currentScreen)
@@ -166,4 +225,89 @@ fun BuyOnlineApp() {
             }
         }
     }
+}
+
+/**
+ * Small inline "Welcome back" callout used when the customer arrived via a
+ * `?session=` resume URL. Visually we use the PRUHealth chrome (PruRed accent
+ * on the existing PruBackground card surface) rather than the Aegis callout
+ * chrome so the banner reads as part of the customer journey rather than the
+ * operator console.
+ *
+ * Sits between [ResumeBanner] and [StepIndicator] in the buyonline shell. The
+ * caller is responsible for auto-hiding after a few seconds — this composable
+ * is intentionally stateless.
+ */
+@Composable
+private fun WelcomeBackCallout(label: String, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(8.dp)
+    Box(
+        modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .background(PruBackground, shape)
+                .border(1.dp, PruRed, shape)
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = null,
+                tint = PruRed,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Column(Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Welcome back",
+                    color = PruRed,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Text(
+                    text = "We picked up where you left off. Continue from $label.",
+                    color = PruText,
+                    fontSize = 12.sp,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Hand-written label mapping for [BuyOnlineScreen] used by the "Welcome back"
+ * callout. The StepIndicator's `stageFor` collapses 22 screens into 5 phases,
+ * which is too coarse here — the customer wants to see the specific screen
+ * they're resuming on, not "Plan" for everything from PlanLoading through
+ * PlanSummary. Exhaustive `when` on the sealed class so the compiler flags
+ * any future screens that need a friendly label.
+ */
+private fun screenLabel(screen: BuyOnlineScreen): String = when (screen) {
+    is BuyOnlineScreen.Landing             -> "the start"
+    is BuyOnlineScreen.Otp                 -> "OTP verification"
+    is BuyOnlineScreen.GetStarted          -> "Get started"
+    is BuyOnlineScreen.PreExistingDisease  -> "Pre-existing conditions"
+    is BuyOnlineScreen.CriticalIllness     -> "Critical illness"
+    is BuyOnlineScreen.PlanLoading         -> "Loading plans"
+    is BuyOnlineScreen.Eligibility         -> "Eligibility"
+    is BuyOnlineScreen.Quote               -> "Quote"
+    is BuyOnlineScreen.AddOns              -> "Add-ons"
+    is BuyOnlineScreen.PlanSummary         -> "Plan summary"
+    is BuyOnlineScreen.PersonalDetails     -> "Personal details"
+    is BuyOnlineScreen.LifestyleQuestions  -> "Lifestyle questions"
+    is BuyOnlineScreen.MedicalQuestions    -> "Medical questions"
+    is BuyOnlineScreen.Payment             -> "Payment"
+    is BuyOnlineScreen.PaymentSuccess      -> "Payment confirmation"
+    is BuyOnlineScreen.KycMethod           -> "KYC method"
+    is BuyOnlineScreen.KycDetails          -> "KYC details"
+    is BuyOnlineScreen.KycOtp              -> "KYC OTP"
+    is BuyOnlineScreen.BankDetails         -> "Bank details"
+    is BuyOnlineScreen.KycSubmitted        -> "KYC submitted"
+    is BuyOnlineScreen.ApplicationComplete -> "Application complete"
+    is BuyOnlineScreen.Satisfaction        -> "Satisfaction"
 }

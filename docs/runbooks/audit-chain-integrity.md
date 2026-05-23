@@ -16,6 +16,12 @@ rate, discount, or rule edit can be approved or published.
 
 ## Detection
 - Cron job runs every hour: `GET /api/audit/verify`.
+- **Server-side periodic walker** runs every 6 hours (override with
+  `AUDIT_VERIFY_INTERVAL_HOURS`) and writes its result back into the chain as
+  an `audit.chain_verified` or `audit.chain_broken` event. This means tamper
+  surfaces in `GET /api/audit/events` (and the SSE stream) even when no
+  operator clicks "Re-verify" in Aegis. Filter the feed for
+  `action = audit.chain_broken` to spot historical breaks.
 - Prometheus alert fires when the response payload's `ok` field is `false`.
 - Sec team also receives an email from the daily integrity report.
 

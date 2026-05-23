@@ -1,9 +1,13 @@
 package com.rate.server.audit
 
 import com.rate.server.database.tables.AuditEventTable
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
@@ -271,6 +275,53 @@ class AuditEventService {
             }
             VerifyResult(ok = true, rowsChecked = checked)
         }
+
+    /**
+     * Launches a background coroutine that walks the chain every [intervalHours]
+     * hours and persists the result back into the chain as either an
+     * `audit.chain_verified` (ok) or `audit.chain_broken` (tamper/corruption)
+     * audit row. This means integrity issues surface in the regular audit feed
+     * even when nobody clicks "Re-verify" in the operator UI.
+     *
+     * The verifier row itself becomes the next row to verify on the following
+     * pass; integrity propagates forward by design.
+     *
+     * Errors during the walk are swallowed and logged — the loop must keep
+     * running even if a single iteration trips (e.g. transient DB hiccup).
+     *
+     * Floor of 5 minutes on the interval because the verify walk reads every
+     * row in `audit_event`, and we don't want a misconfigured env var to turn
+     * that into a hot loop at scale.
+     */
+    fun startPeriodicVerify(scope: CoroutineScope, intervalHours: Int = 6) {
+        val safeIntervalMs = maxOf(intervalHours, 1) * 3_600_000L
+        val finalIntervalMs = maxOf(safeIntervalMs, 5 * 60 * 1000L)
+        scope.launch {
+            while (isActive) {
+                try {
+                    delay(finalIntervalMs)
+                    val result = verifyChain()
+                    record(
+                        action = if (result.ok) "audit.chain_verified" else "audit.chain_broken",
+                        resourceType = "audit_chain",
+                        resourceId = null,
+                        payload = JsonObject(mapOf(
+                            "ok" to JsonPrimitive(result.ok),
+                            "rowsChecked" to JsonPrimitive(result.rowsChecked),
+                            "breakAtId" to (result.breakAtId?.let { JsonPrimitive(it) } ?: JsonNull),
+                            "reason" to (result.reason?.let { JsonPrimitive(it) } ?: JsonNull)
+                        )),
+                        actor = AuditActor(subject = "system.scheduler", role = "system")
+                    )
+                    if (!result.ok) {
+                        log.error("audit.chain_broken at id={} reason={}", result.breakAtId, result.reason)
+                    }
+                } catch (t: Throwable) {
+                    log.warn("audit.periodic_verify_failed: {}", t.message)
+                }
+            }
+        }
+    }
 
     companion object {
         const val GENESIS: String = "GENESIS"

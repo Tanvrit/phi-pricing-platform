@@ -8,6 +8,7 @@ import androidx.compose.runtime.remember
 import com.rate.aegis.data.AuditEventDto
 import com.rate.aegis.data.openAuditStream
 import com.rate.aegis.data.rememberApiClient
+import com.rate.aegis.settings.AegisSettingsStore
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -48,14 +49,21 @@ data class Notification(
 @Composable
 fun rememberNotifications(maxRetained: Int = 20): State<List<Notification>> {
     val client = rememberApiClient()
+    // Snapshot the mute set once at first composition — matches theme/locale's
+    // apply-on-next-open contract. Toggling a chip in Settings doesn't retro-
+    // actively unhide entries that already streamed past; the next page open
+    // (or recomposition that re-keys this composable) picks up the new value.
+    val muted = remember { AegisSettingsStore.load().mutedNotificationActions }
     val state = remember { mutableStateOf<List<Notification>>(emptyList()) }
     LaunchedEffect(client) {
         val initial = runCatching { client.getAuditEvents(limit = maxRetained) }
             .getOrElse { emptyList() }
         state.value = initial.mapNotNull { it.toNotification() }
+            .filter { it.action !in muted }
         val stream = openAuditStream(client.baseUrl) ?: return@LaunchedEffect
         stream.collect { dto ->
             val incoming = dto.toNotification()
+            if (incoming.action in muted) return@collect
             // De-dupe against any row already retained (e.g. SSE races initial fetch).
             val merged = (listOf(incoming) + state.value.filterNot { it.id == incoming.id })
                 .take(maxRetained)
