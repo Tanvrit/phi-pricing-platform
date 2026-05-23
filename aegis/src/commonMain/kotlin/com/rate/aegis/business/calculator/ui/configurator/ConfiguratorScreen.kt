@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
@@ -71,6 +72,24 @@ private fun planBadgeColor(type: PlanType): Color = when (type) {
     PlanType.DOMESTIC_POSP        -> Color(0xFFE0F2F1)
     PlanType.GLOBAL               -> Color(0xFFE3F2FD)
     PlanType.GLOBAL_PLUS          -> Color(0xFFEDE7F6)
+}
+
+/**
+ * Pick the next unused plan id when duplicating [baseId].
+ *
+ * Strips trailing digits from [baseId] to find a stem, then bumps the trailing
+ * number until the id is free. e.g. `PHI_FLAGSHIP1` → `PHI_FLAGSHIP2`, and if
+ * `PHI_FLAGSHIP2` already exists, it keeps walking forward. Ids with no
+ * trailing digit ([PHI_GLOBAL_EXCL]) start from `2` so the original `1` slot
+ * is reserved for the source plan.
+ */
+private fun nextAvailableId(baseId: String, existing: List<Plan>): String {
+    val existingIds = existing.map { it.id }.toSet()
+    val stem = baseId.trimEnd { it.isDigit() }
+    val startNum = baseId.removePrefix(stem).toIntOrNull() ?: 1
+    var n = startNum + 1
+    while ("$stem$n" in existingIds) n++
+    return "$stem$n"
 }
 
 private val FILTER_ALL         = "All"
@@ -269,6 +288,19 @@ fun ConfiguratorBody(client: ApiClient) {
                                         refresh()
                                     } catch (e: Exception) { error = e.message }
                                 }
+                            },
+                            onDuplicate    = {
+                                // Pre-fill the dialog with a clone of the source plan.
+                                // The new id is collision-checked against the full plan
+                                // list (not just the filtered view) so we never collide
+                                // with a hidden plan. Lifecycle is forced to DRAFT so a
+                                // duplicate never auto-goes-live, regardless of source.
+                                editPlan = plan.copy(
+                                    id        = nextAvailableId(plan.id, plans),
+                                    name      = "${plan.name} (copy)",
+                                    lifecycle = PlanLifecycle.DRAFT
+                                )
+                                showDialog = true
                             }
                         )
                     }
@@ -333,7 +365,12 @@ private fun StatDivider() {
 // ── Plan Card ─────────────────────────────────────────────────────────────
 
 @Composable
-private fun PlanCard(plan: Plan, onEdit: () -> Unit, onToggleActive: () -> Unit) {
+private fun PlanCard(
+    plan: Plan,
+    onEdit: () -> Unit,
+    onToggleActive: () -> Unit,
+    onDuplicate: () -> Unit
+) {
     val accent = planAccentColor(plan.planType)
     val siMin  = plan.availableSumInsureds.minOrNull()
     val siMax  = plan.availableSumInsureds.maxOrNull()
@@ -423,8 +460,15 @@ private fun PlanCard(plan: Plan, onEdit: () -> Unit, onToggleActive: () -> Unit)
                     MetricItem("Max Discount", "${(plan.maxDiscountCap * 100).toInt()}%", Modifier.weight(1f))
                 }
 
-                // ── Edit button ──────────────────────────────────────────────
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                // ── Action buttons ───────────────────────────────────────────
+                // Edit (primary) + Duplicate (secondary) sit on the right edge
+                // of the card. The active-toggle Switch already lives in the
+                // header row above, so logically Duplicate is sandwiched
+                // between Edit and the Switch as the prompt requested.
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End)
+                ) {
                     OutlinedButton(
                         onClick  = onEdit,
                         modifier = Modifier.height(32.dp),
@@ -433,6 +477,15 @@ private fun PlanCard(plan: Plan, onEdit: () -> Unit, onToggleActive: () -> Unit)
                         Icon(Icons.Default.Edit, "Edit", Modifier.size(14.dp))
                         Spacer(Modifier.width(4.dp))
                         Text("Edit", style = MaterialTheme.typography.labelMedium)
+                    }
+                    OutlinedButton(
+                        onClick  = onDuplicate,
+                        modifier = Modifier.height(32.dp),
+                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    ) {
+                        Icon(Icons.Default.ContentCopy, "Duplicate", Modifier.size(14.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Duplicate", style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }

@@ -11,6 +11,7 @@ import com.rate.server.audit.AuditActor
 import com.rate.server.audit.AuditEventService
 import com.rate.server.auth.requireScope
 import com.rate.server.database.repositories.BuyOnlineSessionRepository
+import com.rate.server.database.repositories.SessionWithTimestamps
 import com.rate.server.metrics.Metrics
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
 import com.rate.server.plugins.REQUEST_ID_KEY
@@ -120,26 +121,35 @@ data class RedactedSession(
     val selectedSumInsured: Long,
     val selectedTenure: Int,
     val selectedAddOnIds: List<String>,
+    // DB-side timestamps used by Reports to compute time-to-completion.
+    // `updatedAtIso` here is the server's `updated_at` column (NOT the
+    // client-saved `state.updatedAtIso`), so funnel math sees a consistent
+    // timeline even when client clocks drift.
+    val createdAtIso: String,
     val updatedAtIso: String
 )
 
-private fun BuyOnlineSessionState.redact(): RedactedSession = RedactedSession(
-    sessionId = sessionId.take(8) + (if (sessionId.length > 8) "…" else ""),
-    currentScreen = currentScreen,
-    mobileMasked = if (mobile.length >= 4) "X".repeat(mobile.length - 4) + mobile.takeLast(4) else "XXXX",
-    pincodePrefix = if (pincode.length >= 3) pincode.take(3) + "XXX" else "XXX",
-    eldestAge = eldestAge,
-    kidsCount = kidsCount,
-    hasPED = hasPED,
-    hasCriticalIllness = hasCriticalIllness,
-    pedMemberCount = pedMembers.size,
-    criticalIllnessMemberCount = criticalIllnessMembers.size,
-    selectedTier = selectedTier,
-    selectedSumInsured = selectedSumInsured,
-    selectedTenure = selectedTenure,
-    selectedAddOnIds = selectedAddOnIds,
-    updatedAtIso = updatedAtIso
-)
+private fun SessionWithTimestamps.redact(): RedactedSession {
+    val s = state
+    return RedactedSession(
+        sessionId = s.sessionId.take(8) + (if (s.sessionId.length > 8) "…" else ""),
+        currentScreen = s.currentScreen,
+        mobileMasked = if (s.mobile.length >= 4) "X".repeat(s.mobile.length - 4) + s.mobile.takeLast(4) else "XXXX",
+        pincodePrefix = if (s.pincode.length >= 3) s.pincode.take(3) + "XXX" else "XXX",
+        eldestAge = s.eldestAge,
+        kidsCount = s.kidsCount,
+        hasPED = s.hasPED,
+        hasCriticalIllness = s.hasCriticalIllness,
+        pedMemberCount = s.pedMembers.size,
+        criticalIllnessMemberCount = s.criticalIllnessMembers.size,
+        selectedTier = s.selectedTier,
+        selectedSumInsured = s.selectedSumInsured,
+        selectedTenure = s.selectedTenure,
+        selectedAddOnIds = s.selectedAddOnIds,
+        createdAtIso = createdAt,
+        updatedAtIso = updatedAt,
+    )
+}
 
 // ── Route definitions ─────────────────────────────────────────────────────────
 

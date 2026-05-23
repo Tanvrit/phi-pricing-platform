@@ -48,6 +48,10 @@ data class RedactedSession(
     val selectedSumInsured: Long = 0L,
     val selectedTenure: Int = 0,
     val selectedAddOnIds: List<String> = emptyList(),
+    // Server-side DB timestamps (`buyonline_session.created_at` / `updated_at`)
+    // used to compute time-to-completion in the Reports funnel surface. Defaults
+    // to empty so older cached/persisted blobs without the fields still hydrate.
+    val createdAtIso: String = "",
     val updatedAtIso: String = ""
 )
 

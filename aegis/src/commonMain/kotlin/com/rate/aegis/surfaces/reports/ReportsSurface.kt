@@ -47,6 +47,7 @@ import com.rate.aegis.util.saveCsv
 import com.rate.aegis.util.todayIsoDate
 import com.rate.domain.money.formatRupees
 import kotlinx.datetime.DayOfWeek
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlin.math.roundToInt
@@ -75,13 +76,125 @@ fun ReportsSurface() {
     val validCount = quotes.count { it.isValid }
     val invalidCount = quotes.size - validCount
 
+    // Funnel data is fetched here at the parent scope so the top-level
+    // "Export all" button can read the same per-screen counts the funnel
+    // card renders. The funnel section composable receives these as params.
+    val client = rememberApiClient()
+    var funnelSessions by remember { mutableStateOf<List<RedactedSession>>(emptyList()) }
+    var funnelLoading by remember { mutableStateOf(false) }
+    var funnelError by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(client) {
+        funnelLoading = true; funnelError = null
+        runCatching { client.listBuyOnlineSessions(limit = 500) }
+            .onSuccess { funnelSessions = it }
+            .onFailure { funnelError = it.message ?: it::class.simpleName ?: "Unknown error" }
+        funnelLoading = false
+    }
+    val funnelRows: List<FunnelRow> = if (funnelSessions.isEmpty()) emptyList() else {
+        val perScreen = funnelSessions.groupBy { it.currentScreen }.mapValues { it.value.size }
+        BUYONLINE_SCREEN_ORDER.map { name -> FunnelRow(label = name, count = perScreen[name] ?: 0) }
+    }
+
     Column(
         Modifier.fillMaxSize().background(AegisColors.canvas)
             .verticalScroll(rememberScrollState()).padding(AegisSpacing.s6),
         verticalArrangement = Arrangement.spacedBy(AegisSpacing.s5)
     ) {
-        // ── Title + helper ────────────────────────────────────────────────
-        Text("Reports", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
+        // ── Title + helper + Export-all ───────────────────────────────────
+        Row(
+            Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text("Reports", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
+            val anyData = series.isNotEmpty() || planDist.isNotEmpty() ||
+                    ageDist.any { it.count > 0 } || siDist.any { it.count > 0 } ||
+                    quotes.isNotEmpty() || funnelRows.isNotEmpty()
+            AegisButton(
+                label = "Export all (7 sections)",
+                variant = AegisButtonVariant.Primary,
+                size = AegisButtonSize.Sm,
+                enabled = anyData,
+                onClick = {
+                    val sb = StringBuilder()
+                    sb.append("# aegis reports bundle · generated ").append(todayIsoDate()).append('\n')
+
+                    fun section(title: String, headers: List<String>, rows: List<List<Any?>>) {
+                        sb.append("# ").append(title).append('\n')
+                        sb.append(buildCsv(headers, rows))
+                        sb.append('\n')
+                    }
+
+                    // 1) Quotes per bucket
+                    section(
+                        "Quotes per ${bucket.singular}",
+                        listOf(bucket.label, "Count"),
+                        series.map { listOf(it.label, it.count) }
+                    )
+                    // 2) GWP per bucket
+                    section(
+                        "GWP per ${bucket.singular}",
+                        listOf(bucket.label, "GWP (incl. GST)"),
+                        series.map { listOf(it.label, it.gwp) }
+                    )
+                    // 3) Plan distribution
+                    val planTotal = planDist.sumOf { it.count }
+                    section(
+                        "Plan distribution",
+                        listOf("Plan", "Count", "Share %"),
+                        planDist.map { p ->
+                            val sharePct = if (planTotal > 0) (p.count * 100.0 / planTotal) else 0.0
+                            listOf(p.label, p.count, sharePct)
+                        }
+                    )
+                    // 4) Age distribution
+                    val ageTotal = ageDist.sumOf { it.count }
+                    section(
+                        "Age distribution",
+                        listOf("Age band", "Count", "Share %"),
+                        ageDist.map { r ->
+                            val sharePct = if (ageTotal > 0) (r.count * 100.0 / ageTotal) else 0.0
+                            listOf(r.label, r.count, sharePct)
+                        }
+                    )
+                    // 5) Sum-insured distribution
+                    val siTotal = siDist.sumOf { it.count }
+                    section(
+                        "Sum-insured distribution",
+                        listOf("SI band", "Count", "Share %"),
+                        siDist.map { r ->
+                            val sharePct = if (siTotal > 0) (r.count * 100.0 / siTotal) else 0.0
+                            listOf(r.label, r.count, sharePct)
+                        }
+                    )
+                    // 6) Validity
+                    val total = quotes.size
+                    val validPct = if (total > 0) (validCount * 100.0 / total) else 0.0
+                    val invalidPct = if (total > 0) (invalidCount * 100.0 / total) else 0.0
+                    section(
+                        "Validity",
+                        listOf("Status", "Count", "Share %"),
+                        listOf(
+                            listOf("Valid", validCount, validPct),
+                            listOf("Invalid", invalidCount, invalidPct),
+                        )
+                    )
+                    // 7) Customer journey funnel
+                    val sessionsTotal = funnelSessions.size
+                    section(
+                        "Customer journey funnel",
+                        listOf("Stage order", "Screen", "Sessions", "Share %"),
+                        funnelRows.mapIndexed { idx, row ->
+                            val sharePct = if (sessionsTotal > 0)
+                                (row.count * 100.0 / sessionsTotal) else 0.0
+                            listOf(idx + 1, row.label, row.count, sharePct)
+                        }
+                    )
+
+                    saveCsv("aegis-reports-all-${todayIsoDate()}.csv", sb.toString())
+                }
+            )
+        }
         Text(
             "Time-bucketed analytics over the live quote stream — volume, GWP, " +
                     "plan mix, age + sum-insured distribution, and validity ratio.",
@@ -361,7 +474,12 @@ fun ReportsSurface() {
         }
 
         // ── Customer journey funnel ──────────────────────────────────────
-        CustomerJourneyFunnelSection()
+        CustomerJourneyFunnelSection(
+            sessions = funnelSessions,
+            loading = funnelLoading,
+            error = funnelError,
+            funnelRows = funnelRows,
+        )
 
         // ── Footer ───────────────────────────────────────────────────────
         AegisHDivider()
@@ -385,28 +503,12 @@ fun ReportsSurface() {
  * funnel groupBy, so the redaction is fully transparent to the visualisation.
  */
 @Composable
-private fun CustomerJourneyFunnelSection() {
-    val client = rememberApiClient()
-    var sessions by remember { mutableStateOf<List<RedactedSession>>(emptyList()) }
-    var loading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(client) {
-        loading = true; error = null
-        runCatching { client.listBuyOnlineSessions(limit = 500) }
-            .onSuccess { sessions = it }
-            .onFailure { error = it.message ?: it::class.simpleName ?: "Unknown error" }
-        loading = false
-    }
-
-    // Compute funnel rows at the card scope so the export-CSV action sees the
-    // same per-screen counts the bars render. Pre-population (empty sessions)
-    // collapses to an empty list so the button can disable itself.
-    val funnelRows: List<FunnelRow> = if (sessions.isEmpty()) emptyList() else {
-        val perScreen = sessions.groupBy { it.currentScreen }.mapValues { it.value.size }
-        BUYONLINE_SCREEN_ORDER.map { name -> FunnelRow(label = name, count = perScreen[name] ?: 0) }
-    }
-
+private fun CustomerJourneyFunnelSection(
+    sessions: List<RedactedSession>,
+    loading: Boolean,
+    error: String?,
+    funnelRows: List<FunnelRow>,
+) {
     AegisCard(
         title = "Customer journey funnel",
         subtitle = "Where buyonline sessions sit today, and where they drop off.",
@@ -449,6 +551,10 @@ private fun CustomerJourneyFunnelSection() {
                 // Largest consecutive drop in the canonical order — that's the
                 // "worst" leak in the funnel from the operator's POV.
                 val biggestDrop = computeBiggestDrop(rows)
+                // Time-to-completion stat over sessions that reached a terminal
+                // screen. Computed at composition time off the loaded sessions
+                // list — see [computeCompletionStats] for the duration math.
+                val completion = computeCompletionStats(sessions)
 
                 Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
                     Text(
@@ -461,6 +567,7 @@ private fun CustomerJourneyFunnelSection() {
                         fontSize = 13.sp,
                         color = AegisColors.textSecondary
                     )
+                    CompletionStatsRow(completion)
                     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         rows.forEach { row ->
                             FunnelBarRow(
@@ -487,6 +594,107 @@ private val BUYONLINE_SCREEN_ORDER: List<String> = listOf(
 
 private data class FunnelRow(val label: String, val count: Int)
 private data class FunnelDrop(val fromLabel: String, val toLabel: String, val lostCount: Int)
+
+/** Canonical terminal screens. A session reaching either one is "completed". */
+private val BUYONLINE_TERMINAL_SCREENS = setOf("ApplicationComplete", "Satisfaction")
+
+/**
+ * Aggregate time-to-completion for sessions that reached a terminal screen.
+ * [completedCount] is the count regardless of whether timestamps parsed; the
+ * [avgMillis] / [medianMillis] are computed only over sessions whose
+ * `createdAtIso` and `updatedAtIso` both parse via [Instant.parse]. If no
+ * durations could be computed, both are null.
+ */
+private data class CompletionStats(
+    val completedCount: Int,
+    val avgMillis: Long?,
+    val medianMillis: Long?,
+)
+
+/**
+ * Compute time-to-completion stats. A session counts as completed when its
+ * `currentScreen` is in [BUYONLINE_TERMINAL_SCREENS]. We pull duration from
+ * `updatedAtIso - createdAtIso` over completed sessions only — drop-outs would
+ * skew the average toward "stuck halfway through" forever. Sessions with
+ * unparseable or missing timestamps are silently excluded from the avg/median
+ * math (but still counted in [completedCount]); negative durations (clock
+ * skew, replayed migrations) are also dropped.
+ */
+private fun computeCompletionStats(sessions: List<RedactedSession>): CompletionStats {
+    val completed = sessions.filter { it.currentScreen in BUYONLINE_TERMINAL_SCREENS }
+    val durations: List<Long> = completed.mapNotNull { s ->
+        val start = runCatching { Instant.parse(s.createdAtIso) }.getOrNull()
+        val end = runCatching { Instant.parse(s.updatedAtIso) }.getOrNull()
+        if (start == null || end == null) return@mapNotNull null
+        val delta = end.toEpochMilliseconds() - start.toEpochMilliseconds()
+        if (delta < 0L) null else delta
+    }
+    if (durations.isEmpty()) {
+        return CompletionStats(completedCount = completed.size, avgMillis = null, medianMillis = null)
+    }
+    val avg = durations.sum() / durations.size
+    val sorted = durations.sorted()
+    val median = if (sorted.size % 2 == 1) {
+        sorted[sorted.size / 2]
+    } else {
+        // Even length — average the two middle elements. Integer division is
+        // fine here; we only render minutes anyway.
+        (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2
+    }
+    return CompletionStats(completedCount = completed.size, avgMillis = avg, medianMillis = median)
+}
+
+/**
+ * Format a millisecond duration as `HH:MM`. Hours can exceed 99 — long-running
+ * sessions are normal in this funnel (customers walk away and resume). For
+ * durations under a minute we still surface `00:00` rather than rounding to
+ * something misleading; the "Sessions completed" pill makes the existence of
+ * the sample obvious so this is unambiguous in context.
+ */
+private fun formatHoursMinutes(millis: Long): String {
+    val totalMinutes = millis / 60_000L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+    val hh = if (hours < 10L) "0$hours" else hours.toString()
+    val mm = if (minutes < 10L) "0$minutes" else minutes.toString()
+    return "$hh:$mm"
+}
+
+@Composable
+private fun CompletionStatsRow(stats: CompletionStats) {
+    if (stats.completedCount == 0) {
+        Text(
+            "No completed sessions yet — averages appear once customers reach the end of the journey.",
+            fontSize = 12.sp,
+            color = AegisColors.textSecondary
+        )
+        return
+    }
+    val avgText = stats.avgMillis?.let { formatHoursMinutes(it) } ?: "—"
+    val medianText = stats.medianMillis?.let { formatHoursMinutes(it) } ?: "—"
+    Row(
+        Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        StatPill(label = "Sessions completed", value = stats.completedCount.toString())
+        StatPill(label = "Avg time-to-completion", value = avgText)
+        StatPill(label = "Median", value = medianText)
+    }
+}
+
+@Composable
+private fun StatPill(label: String, value: String) {
+    Column(
+        Modifier
+            .background(AegisColors.slate2, RoundedCornerShape(8.dp))
+            .padding(horizontal = AegisSpacing.s3, vertical = AegisSpacing.s2),
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        Text(label, fontSize = 11.sp, color = AegisColors.textSecondary)
+        Text(value, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
+    }
+}
 
 /**
  * Largest consecutive drop in declaration order. Counts are stage-occupancy

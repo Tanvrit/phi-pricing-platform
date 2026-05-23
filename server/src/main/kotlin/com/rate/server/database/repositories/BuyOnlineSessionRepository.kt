@@ -13,6 +13,21 @@ import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransacti
 import org.jetbrains.exposed.sql.update
 
 /**
+ * Server-internal projection of a persisted buyonline session row, carrying both
+ * the deserialised [BuyOnlineSessionState] and the DB-side [createdAt]/[updatedAt]
+ * ISO-8601 timestamps. We keep this DTO server-only (not in :shared) because the
+ * client never needs the raw state — the route layer redacts to the wire DTO
+ * before responding. Timestamps are ISO strings rather than `Instant` so the
+ * route layer can drop them straight into the redacted DTO with no extra
+ * formatting.
+ */
+data class SessionWithTimestamps(
+    val state: BuyOnlineSessionState,
+    val createdAt: String,
+    val updatedAt: String,
+)
+
+/**
  * Persists [BuyOnlineSessionState] for the customer save+resume flow. The client
  * holds the session id (passed via `?session=` URL parameter); the server only
  * stores the latest snapshot and returns it on demand. We upsert by trying an
@@ -51,16 +66,27 @@ class BuyOnlineSessionRepository {
 
     /**
      * Returns up to [limit] most-recently-updated session snapshots for operator
-     * analytics (funnel + drop-off). No filter / projection — callers aggregate
-     * client-side. The recent-N window is fine for analytics scale today; if it
-     * stops being so we'd add a `(updated_at)` index and a date-range filter.
+     * analytics (funnel + drop-off). The projection includes BOTH the DB-side
+     * `created_at` and `updated_at` timestamps so callers can compute
+     * time-to-completion stats — the embedded [BuyOnlineSessionState] only
+     * carries the client's last-saved `updatedAtIso`, which can drift from the
+     * server's view of "first seen" / "last touched".
+     *
+     * The recent-N window is fine for analytics scale today; if it stops being
+     * so we'd add a `(updated_at)` index and a date-range filter.
      */
-    suspend fun listSessions(limit: Int = 500): List<BuyOnlineSessionState> =
+    suspend fun listSessions(limit: Int = 500): List<SessionWithTimestamps> =
         newSuspendedTransaction {
             BuyOnlineSessionTable
                 .selectAll()
                 .orderBy(BuyOnlineSessionTable.updatedAt, SortOrder.DESC)
                 .limit(limit)
-                .map { json.decodeFromString<BuyOnlineSessionState>(it[BuyOnlineSessionTable.stateJson]) }
+                .map {
+                    SessionWithTimestamps(
+                        state = json.decodeFromString<BuyOnlineSessionState>(it[BuyOnlineSessionTable.stateJson]),
+                        createdAt = it[BuyOnlineSessionTable.createdAt].toString(),
+                        updatedAt = it[BuyOnlineSessionTable.updatedAt].toString(),
+                    )
+                }
         }
 }
