@@ -3,6 +3,7 @@ package com.rate.aegis.customer.buyonline
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -45,6 +46,21 @@ fun BuyOnlineApp() {
     // platform `main` (wasmJs URL query / jvm -D property). Null = brand-new
     // customer; the VM mints a fresh hex id and stays quiet until they interact.
     LaunchedEffect(Unit) { vm.loadOrCreateSession(AegisLaunchContext.sessionId) }
+
+    // Browser back-button guard. Once the customer has a session AND is past
+    // the marketing Landing but not yet on a terminal screen, we hook
+    // `window.onbeforeunload` so the browser shows its native "Leave site?"
+    // prompt. JVM is a no-op (no browser back button). The 1.5s-debounced
+    // server save catches anything that *did* land before they confirmed
+    // leaving; this dialog just prevents accidental ejection mid-form.
+    val shouldGuard = vm.sessionId.isNotBlank() &&
+            vm.currentScreen !is BuyOnlineScreen.Landing &&
+            vm.currentScreen !is BuyOnlineScreen.ApplicationComplete &&
+            vm.currentScreen !is BuyOnlineScreen.Satisfaction
+    DisposableEffect(shouldGuard) {
+        setBeforeLeaveHandler(shouldGuard)
+        onDispose { setBeforeLeaveHandler(false) }
+    }
 
     PRUHealthTheme {
         // The ResumeBanner is suppressed on Landing (no session yet to brag

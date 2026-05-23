@@ -1,5 +1,6 @@
 package com.rate.server.plugins
 
+import com.rate.server.metrics.Metrics
 import com.rate.server.security.IdempotencyOutcome
 import com.rate.server.security.IdempotencyService
 import io.ktor.http.*
@@ -49,6 +50,7 @@ suspend fun RoutingContext.withIdempotency(
     val requestHash = IdempotencyService.hashRequest(raw)
     when (val outcome = service.check(key, routeKey, requestHash)) {
         is IdempotencyOutcome.Replay -> {
+            Metrics.recordIdempotentReplay()
             call.response.header("Idempotency-Replayed", "true")
             call.respondText(
                 outcome.hit.body ?: "",
@@ -57,9 +59,11 @@ suspend fun RoutingContext.withIdempotency(
             )
         }
         IdempotencyOutcome.Conflict -> {
+            Metrics.recordIdempotentConflict()
             call.respond(HttpStatusCode.Conflict, IdempotencyConflictResponse())
         }
         IdempotencyOutcome.Fresh -> {
+            Metrics.recordIdempotentNew()
             val (status, body) = handler(raw)
             service.store(key, routeKey, requestHash, status.value, body)
             call.respondText(body, contentType = ContentType.Application.Json, status = status)

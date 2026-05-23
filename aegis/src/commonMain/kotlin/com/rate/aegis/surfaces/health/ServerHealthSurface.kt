@@ -176,6 +176,26 @@ fun ServerHealthSurface() {
             }
         }
 
+        // ── 3c. Idempotency activity card ───────────────────────────────
+        // Mirrors the OTP card above. Useful for diagnosing client retry
+        // storms — a high `idempotent_replay_total` relative to
+        // `idempotent_new_total` means clients are aggressively retrying
+        // POSTs, and a non-zero `idempotent_conflict_total` means a client
+        // is reusing keys with mutated bodies (almost always a bug).
+        AegisCard(
+            title = "Idempotency activity",
+            subtitle = "Idempotency-Key replay vs. fresh request counters",
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+            ) {
+                OtpTile("New", "idempotent_new_total", metricsMap, Modifier.weight(1f))
+                OtpTile("Replay", "idempotent_replay_total", metricsMap, Modifier.weight(1f))
+                OtpTile("Conflict", "idempotent_conflict_total", metricsMap, Modifier.weight(1f))
+            }
+        }
+
         // ── 4. Metrics card ─────────────────────────────────────────────
         AegisCard(
             title = "Prometheus metrics",

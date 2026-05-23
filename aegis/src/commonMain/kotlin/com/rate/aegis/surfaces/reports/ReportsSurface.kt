@@ -27,6 +27,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.components.AegisButton
+import com.rate.aegis.components.AegisButtonSize
+import com.rate.aegis.components.AegisButtonVariant
 import com.rate.aegis.components.AegisCallout
 import com.rate.aegis.components.AegisCard
 import com.rate.aegis.components.AegisChip
@@ -39,6 +42,9 @@ import com.rate.aegis.data.rememberDashboardData
 import com.rate.aegis.business.calculator.api.RedactedSession
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
+import com.rate.aegis.util.buildCsv
+import com.rate.aegis.util.saveCsv
+import com.rate.aegis.util.todayIsoDate
 import com.rate.domain.money.formatRupees
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -111,7 +117,22 @@ fun ReportsSurface() {
             subtitle = if (series.isEmpty())
                 "No quotes in the current dataset."
             else
-                "${series.size} ${bucket.label.lowercase()} buckets, ${quotes.size} quotes."
+                "${series.size} ${bucket.label.lowercase()} buckets, ${quotes.size} quotes.",
+            action = {
+                AegisButton(
+                    label = "Export CSV",
+                    variant = AegisButtonVariant.Ghost,
+                    size = AegisButtonSize.Sm,
+                    enabled = series.isNotEmpty(),
+                    onClick = {
+                        val csv = buildCsv(
+                            headers = listOf(bucket.label, "Count"),
+                            rows = series.map { listOf(it.label, it.count) }
+                        )
+                        saveCsv("aegis-reports-quotes-per-bucket-${todayIsoDate()}.csv", csv)
+                    }
+                )
+            }
         ) {
             if (series.isEmpty()) {
                 EmptyHint("Waiting on quotes from the server.")
@@ -133,7 +154,23 @@ fun ReportsSurface() {
         // ── GWP-per-bucket ────────────────────────────────────────────────
         AegisCard(
             title = "GWP per ${bucket.singular}",
-            subtitle = "Sum of total (incl. GST) for valid quotes only."
+            subtitle = "Sum of total (incl. GST) for valid quotes only.",
+            action = {
+                val hasGwp = series.any { it.gwp > 0.0 }
+                AegisButton(
+                    label = "Export CSV",
+                    variant = AegisButtonVariant.Ghost,
+                    size = AegisButtonSize.Sm,
+                    enabled = hasGwp,
+                    onClick = {
+                        val csv = buildCsv(
+                            headers = listOf(bucket.label, "GWP (incl. GST)"),
+                            rows = series.map { listOf(it.label, it.gwp) }
+                        )
+                        saveCsv("aegis-reports-gwp-per-bucket-${todayIsoDate()}.csv", csv)
+                    }
+                )
+            }
         ) {
             if (series.isEmpty() || series.all { it.gwp == 0.0 }) {
                 EmptyHint("No GWP to chart — either no quotes, or none are valid.")
@@ -155,7 +192,26 @@ fun ReportsSurface() {
         // ── Plan distribution ────────────────────────────────────────────
         AegisCard(
             title = "Plan distribution",
-            subtitle = "Share of quotes per plan, sorted by volume."
+            subtitle = "Share of quotes per plan, sorted by volume.",
+            action = {
+                AegisButton(
+                    label = "Export CSV",
+                    variant = AegisButtonVariant.Ghost,
+                    size = AegisButtonSize.Sm,
+                    enabled = planDist.isNotEmpty(),
+                    onClick = {
+                        val total = planDist.sumOf { it.count }
+                        val csv = buildCsv(
+                            headers = listOf("Plan", "Count", "Share %"),
+                            rows = planDist.map { p ->
+                                val sharePct = if (total > 0) (p.count * 100.0 / total) else 0.0
+                                listOf(p.label, p.count, sharePct)
+                            }
+                        )
+                        saveCsv("aegis-reports-plan-distribution-${todayIsoDate()}.csv", csv)
+                    }
+                )
+            }
         ) {
             if (planDist.isEmpty()) {
                 EmptyHint("No plans to chart yet.")
@@ -178,7 +234,26 @@ fun ReportsSurface() {
         // ── Age distribution ─────────────────────────────────────────────
         AegisCard(
             title = "Age distribution",
-            subtitle = "Primary-life age bands across all quotes."
+            subtitle = "Primary-life age bands across all quotes.",
+            action = {
+                val ageTotal = ageDist.sumOf { it.count }
+                AegisButton(
+                    label = "Export CSV",
+                    variant = AegisButtonVariant.Ghost,
+                    size = AegisButtonSize.Sm,
+                    enabled = ageTotal > 0,
+                    onClick = {
+                        val csv = buildCsv(
+                            headers = listOf("Age band", "Count", "Share %"),
+                            rows = ageDist.map { r ->
+                                val sharePct = if (ageTotal > 0) (r.count * 100.0 / ageTotal) else 0.0
+                                listOf(r.label, r.count, sharePct)
+                            }
+                        )
+                        saveCsv("aegis-reports-age-distribution-${todayIsoDate()}.csv", csv)
+                    }
+                )
+            }
         ) {
             DistributionList(ageDist, AegisColors.info500)
         }
@@ -186,7 +261,26 @@ fun ReportsSurface() {
         // ── SI distribution ──────────────────────────────────────────────
         AegisCard(
             title = "Sum-insured distribution",
-            subtitle = "Cover amount bucketed across the quote ledger."
+            subtitle = "Cover amount bucketed across the quote ledger.",
+            action = {
+                val siTotal = siDist.sumOf { it.count }
+                AegisButton(
+                    label = "Export CSV",
+                    variant = AegisButtonVariant.Ghost,
+                    size = AegisButtonSize.Sm,
+                    enabled = siTotal > 0,
+                    onClick = {
+                        val csv = buildCsv(
+                            headers = listOf("SI band", "Count", "Share %"),
+                            rows = siDist.map { r ->
+                                val sharePct = if (siTotal > 0) (r.count * 100.0 / siTotal) else 0.0
+                                listOf(r.label, r.count, sharePct)
+                            }
+                        )
+                        saveCsv("aegis-reports-si-distribution-${todayIsoDate()}.csv", csv)
+                    }
+                )
+            }
         ) {
             DistributionList(siDist, AegisColors.success500)
         }
@@ -194,7 +288,28 @@ fun ReportsSurface() {
         // ── Validity ratio ───────────────────────────────────────────────
         AegisCard(
             title = "Validity",
-            subtitle = "Engine-accepted quotes vs invalid ones."
+            subtitle = "Engine-accepted quotes vs invalid ones.",
+            action = {
+                AegisButton(
+                    label = "Export CSV",
+                    variant = AegisButtonVariant.Ghost,
+                    size = AegisButtonSize.Sm,
+                    enabled = quotes.isNotEmpty(),
+                    onClick = {
+                        val total = quotes.size
+                        val validPct = if (total > 0) (validCount * 100.0 / total) else 0.0
+                        val invalidPct = if (total > 0) (invalidCount * 100.0 / total) else 0.0
+                        val csv = buildCsv(
+                            headers = listOf("Status", "Count", "Share %"),
+                            rows = listOf(
+                                listOf("Valid", validCount, validPct),
+                                listOf("Invalid", invalidCount, invalidPct),
+                            )
+                        )
+                        saveCsv("aegis-reports-validity-${todayIsoDate()}.csv", csv)
+                    }
+                )
+            }
         ) {
             val total = quotes.size
             if (total == 0) {
@@ -284,9 +399,37 @@ private fun CustomerJourneyFunnelSection() {
         loading = false
     }
 
+    // Compute funnel rows at the card scope so the export-CSV action sees the
+    // same per-screen counts the bars render. Pre-population (empty sessions)
+    // collapses to an empty list so the button can disable itself.
+    val funnelRows: List<FunnelRow> = if (sessions.isEmpty()) emptyList() else {
+        val perScreen = sessions.groupBy { it.currentScreen }.mapValues { it.value.size }
+        BUYONLINE_SCREEN_ORDER.map { name -> FunnelRow(label = name, count = perScreen[name] ?: 0) }
+    }
+
     AegisCard(
         title = "Customer journey funnel",
-        subtitle = "Where buyonline sessions sit today, and where they drop off."
+        subtitle = "Where buyonline sessions sit today, and where they drop off.",
+        action = {
+            val sessionsTotal = sessions.size
+            AegisButton(
+                label = "Export CSV",
+                variant = AegisButtonVariant.Ghost,
+                size = AegisButtonSize.Sm,
+                enabled = funnelRows.isNotEmpty(),
+                onClick = {
+                    val csv = buildCsv(
+                        headers = listOf("Stage order", "Screen", "Sessions", "Share %"),
+                        rows = funnelRows.mapIndexed { idx, row ->
+                            val sharePct = if (sessionsTotal > 0)
+                                (row.count * 100.0 / sessionsTotal) else 0.0
+                            listOf(idx + 1, row.label, row.count, sharePct)
+                        }
+                    )
+                    saveCsv("aegis-reports-customer-journey-funnel-${todayIsoDate()}.csv", csv)
+                }
+            )
+        }
     ) {
         when {
             loading -> EmptyHint("Loading buyonline sessions…")
@@ -301,11 +444,7 @@ private fun CustomerJourneyFunnelSection() {
                 body = "The funnel populates once customers begin the buyonline journey."
             )
             else -> {
-                val perScreen = sessions.groupBy { it.currentScreen }
-                    .mapValues { it.value.size }
-                val rows = BUYONLINE_SCREEN_ORDER.map { name ->
-                    FunnelRow(label = name, count = perScreen[name] ?: 0)
-                }
+                val rows = funnelRows
                 val maxCount = rows.maxOfOrNull { it.count } ?: 0
                 // Largest consecutive drop in the canonical order — that's the
                 // "worst" leak in the funnel from the operator's POV.

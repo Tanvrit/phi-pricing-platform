@@ -38,6 +38,15 @@ object Metrics {
     private val otpVerifyFailureCounter  = AtomicLong(0)
     private val otpRateLimitedCounter    = AtomicLong(0)
 
+    // ── Aegis-surface no-label idempotency counters ───────────────────────────
+    // Mirror the OTP pattern above — flat totals the Aegis Server Health surface
+    // can pin without parsing label sets. Incremented from the Idempotency
+    // plugin wrapper (the request-handling boundary where each outcome maps
+    // 1:1 to "new request handled" / "cached response replayed" / "409 sent").
+    private val idemNewCounter      = AtomicLong(0)
+    private val idemReplayCounter   = AtomicLong(0)
+    private val idemConflictCounter = AtomicLong(0)
+
     // ── Histogram (rate_http_request_duration_seconds) ────────────────────────
     private val httpDurationBuckets = ConcurrentHashMap<List<String>, HistogramState>()
     /** Buckets (in seconds) chosen for typical HTTP latency distributions. */
@@ -82,6 +91,10 @@ object Metrics {
     fun recordOtpVerifyFailure() { otpVerifyFailureCounter.incrementAndGet() }
     fun recordOtpRateLimited() { otpRateLimitedCounter.incrementAndGet() }
 
+    fun recordIdempotentNew()      { idemNewCounter.incrementAndGet() }
+    fun recordIdempotentReplay()   { idemReplayCounter.incrementAndGet() }
+    fun recordIdempotentConflict() { idemConflictCounter.incrementAndGet() }
+
     /**
      * Clears all accumulators. Intended for unit tests only — production code never
      * resets metrics (Prometheus expects monotonic counters).
@@ -96,6 +109,9 @@ object Metrics {
         otpVerifySuccessCounter.set(0)
         otpVerifyFailureCounter.set(0)
         otpRateLimitedCounter.set(0)
+        idemNewCounter.set(0)
+        idemReplayCounter.set(0)
+        idemConflictCounter.set(0)
     }
 
     /**
@@ -163,6 +179,18 @@ object Metrics {
         sb.append("# HELP otp_rate_limited_total OTP requests rejected by per-mobile rate limit\n")
         sb.append("# TYPE otp_rate_limited_total counter\n")
         sb.append("otp_rate_limited_total ").append(otpRateLimitedCounter.get()).append('\n')
+
+        sb.append("# HELP idempotent_new_total New requests handled (cache miss)\n")
+        sb.append("# TYPE idempotent_new_total counter\n")
+        sb.append("idempotent_new_total ").append(idemNewCounter.get()).append('\n')
+
+        sb.append("# HELP idempotent_replay_total Cache hits — handler skipped, cached response returned\n")
+        sb.append("# TYPE idempotent_replay_total counter\n")
+        sb.append("idempotent_replay_total ").append(idemReplayCounter.get()).append('\n')
+
+        sb.append("# HELP idempotent_conflict_total Idempotency-Key reused with a different request body\n")
+        sb.append("# TYPE idempotent_conflict_total counter\n")
+        sb.append("idempotent_conflict_total ").append(idemConflictCounter.get()).append('\n')
 
         // HikariCP gauges
         hikari?.hikariPoolMXBean?.let { pool ->
