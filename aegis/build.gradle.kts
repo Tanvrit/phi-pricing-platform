@@ -59,3 +59,39 @@ compose.desktop {
         }
     }
 }
+
+// Post-process the Compose-WASM distribution to wire in the Aegis shield favicon.
+// The Kotlin/Wasm webpack pipeline generates index.html itself (no source template
+// is available to edit at build time), so we copy the SVG into the dist directory
+// and rewrite the placeholder `<link rel="icon" href="data:,">` after distribution.
+val injectAegisFavicon = tasks.register("injectAegisFavicon") {
+    val distDir = layout.buildDirectory.dir("dist/wasmJs/productionExecutable")
+    val svgSource = file("src/wasmJsMain/resources/aegis-icon.svg")
+    inputs.file(svgSource)
+    outputs.dir(distDir)
+    doLast {
+        val outDir = distDir.get().asFile
+        if (!outDir.exists()) return@doLast
+        // Copy the shield icon next to index.html so the favicon ref resolves.
+        svgSource.copyTo(outDir.resolve("aegis-icon.svg"), overwrite = true)
+        val indexHtml = outDir.resolve("index.html")
+        if (indexHtml.exists()) {
+            val original = indexHtml.readText()
+            val faviconLink = "<link rel=\"icon\" type=\"image/svg+xml\" href=\"aegis-icon.svg\">"
+            val updated = when {
+                original.contains(faviconLink) -> original
+                original.contains("<link rel=\"icon\" href=\"data:,\">") ->
+                    original.replace("<link rel=\"icon\" href=\"data:,\">", faviconLink)
+                original.contains("</head>") ->
+                    original.replace("</head>", "    $faviconLink\n</head>")
+                else -> original
+            }
+            if (updated != original) {
+                indexHtml.writeText(updated)
+            }
+        }
+    }
+}
+
+tasks.matching { it.name == "wasmJsBrowserDistribution" || it.name == "wasmJsBrowserProductionWebpack" }
+    .configureEach { finalizedBy(injectAegisFavicon) }

@@ -33,6 +33,7 @@ import com.rate.aegis.business.calculator.api.ApiOperator
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.settings.AegisSettings
 import com.rate.aegis.settings.AegisSettingsStore
+import com.rate.aegis.surfaces.audit.MyAuditEvents
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
 import com.rate.aegis.util.copyToClipboard
@@ -179,6 +180,12 @@ fun SettingsSurface() {
                 )
             }
         }
+
+        // ── Your audit trail ─────────────────────────────────────────────
+        // MyAuditEvents() already renders its own AegisCard (title
+        // "My audit trail"), so we call it directly here rather than nest
+        // cards. It self-handles the blank-identity case with an INFO callout.
+        MyAuditEvents()
 
         // ── Theme ───────────────────────────────────────────────────────
         AegisCard(

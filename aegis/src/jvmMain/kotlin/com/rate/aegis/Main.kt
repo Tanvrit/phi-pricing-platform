@@ -1,10 +1,17 @@
 package com.rate.aegis
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.settings.AegisSettingsStore
+import kotlinx.coroutines.delay
 
 /**
  * Aegis desktop entry. Defaults to BUSINESS role — the role can be overridden
@@ -33,16 +40,36 @@ fun main() {
     // view from the JVM build before sending the link out.
     AegisLaunchContext.quoteId = System.getProperty("aegis.quote")?.trim()?.takeIf { it.isNotEmpty() }
 
-    val title = when (role) {
+    val baseTitle = when (role) {
         AegisRole.CUSTOMER -> "Aegis — Buy Online (preview)"
         AegisRole.BUSINESS -> "Aegis — Operator Console"
         AegisRole.ADMIN    -> "Aegis — Admin Console"
     }
 
     application {
+        // Window title connectivity indicator. The indicator is driven by a
+        // tiny dedicated /health poll rather than the in-Compose dashboard
+        // state because the Window() title is read at the application{} scope,
+        // outside the AegisRoot composition where rememberDashboardData lives.
+        // Keeping the poll out here avoids touching AegisRoot's API and adds
+        // exactly one HTTP hit every 15 s — well under any reasonable noise
+        // floor. Emoji indicators render cleanly on macOS/modern Linux title
+        // bars, which is the supported desktop matrix; Windows title rendering
+        // is fine on Win10+ which is the only Windows the operator binaries
+        // target.
+        var connectivity by remember { mutableStateOf("🟡 reconnecting…") }
+        LaunchedEffect(Unit) {
+            val client = ApiClient(AegisSettingsStore.load().serverBaseUrl)
+            while (true) {
+                runCatching { client.health() }
+                    .onSuccess { connectivity = "🟢 connected" }
+                    .onFailure { connectivity = "🔴 offline" }
+                delay(15_000)
+            }
+        }
         Window(
             onCloseRequest = ::exitApplication,
-            title = title,
+            title = "$baseTitle · $connectivity",
             state = rememberWindowState(width = 1440.dp, height = 900.dp)
         ) {
             AegisRoot(role)

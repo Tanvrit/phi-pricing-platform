@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4F46E5"/>
+      <stop offset="1" stop-color="#3730A3"/>
+    </linearGradient>
+  </defs>
+  <path d="M32 4 L56 14 V32 C56 46 44 56 32 60 C20 56 8 46 8 32 V14 Z"
+        fill="url(#g)" stroke="#312E81" stroke-width="1.5"/>
+  <path d="M32 18 L46 24 V34 C46 42 39 49 32 51 C25 49 18 42 18 34 V24 Z"
+        fill="#FFFFFF" opacity="0.15"/>
+  <text x="32" y="40" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, sans-serif"
+        font-size="22" font-weight="700" fill="white">A</text>
+</svg>
