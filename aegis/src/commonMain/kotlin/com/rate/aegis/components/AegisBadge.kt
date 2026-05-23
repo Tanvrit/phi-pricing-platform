@@ -19,6 +19,7 @@ import com.rate.aegis.theme.AegisTypography
 
 enum class AegisBadgeTone { Neutral, Brand, Success, Warn, Danger, Info }
 
+@Composable
 private fun bgFor(tone: AegisBadgeTone): Color = when (tone) {
     AegisBadgeTone.Neutral -> AegisColors.slate3
     AegisBadgeTone.Brand -> AegisColors.indigo100
@@ -28,6 +29,7 @@ private fun bgFor(tone: AegisBadgeTone): Color = when (tone) {
     AegisBadgeTone.Info -> AegisColors.info100
 }
 
+@Composable
 private fun fgFor(tone: AegisBadgeTone): Color = when (tone) {
     AegisBadgeTone.Neutral -> AegisColors.slate10
     AegisBadgeTone.Brand -> AegisColors.indigo700

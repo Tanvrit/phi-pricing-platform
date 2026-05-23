@@ -2,7 +2,10 @@ package com.rate.aegis.business.calculator.ui.configurator
 
 import com.rate.domain.money.formatRupees
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -16,12 +19,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.business.calculator.navigation.Screen
 import com.rate.aegis.business.calculator.ui.components.*
+import com.rate.domain.data.CoverCatalog
 import com.rate.domain.model.*
 import kotlinx.coroutines.launch
 
@@ -443,6 +448,13 @@ private fun PlanEditDialog(initial: Plan?, onSave: (Plan) -> Unit, onDismiss: ()
     var maxAge      by remember { mutableStateOf(initial?.maxAge?.toString() ?: "99") }
     var maxDiscount by remember { mutableStateOf(((initial?.maxDiscountCap ?: 0.30) * 100).toInt().toString()) }
     var isActive    by remember { mutableStateOf(initial?.isActive ?: true) }
+    var allowedCovers by remember(initial) { mutableStateOf(initial?.allowedCoverIds ?: emptySet()) }
+
+    // Covers shown in the picker — all non-discount entries, sorted by name.
+    val coverPickerItems = remember {
+        CoverCatalog.ALL.filter { !it.isDiscount }.sortedBy { it.name }
+    }
+    val coverPickerIds = remember(coverPickerItems) { coverPickerItems.map { it.id }.toSet() }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -567,6 +579,101 @@ private fun PlanEditDialog(initial: Plan?, onSave: (Plan) -> Unit, onDismiss: ()
                     )
                 }
 
+                // ── Allowed covers ────────────────────────────────────────────
+                HorizontalDivider()
+
+                val selectedCount = allowedCovers.count { it in coverPickerIds }
+                val allSelected   = selectedCount == coverPickerItems.size && coverPickerItems.isNotEmpty()
+
+                Row(
+                    Modifier.fillMaxWidth(),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            "Allowed covers  ·  $selectedCount of ${coverPickerItems.size} selected",
+                            style     = MaterialTheme.typography.labelLarge,
+                            color     = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Text(
+                            "Searches the cover catalogue (${coverPickerItems.size} entries).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+                    TextButton(
+                        onClick = {
+                            allowedCovers = if (allSelected) {
+                                // Clear all picker covers (preserve any unrelated ids that might exist)
+                                allowedCovers - coverPickerIds
+                            } else {
+                                allowedCovers + coverPickerIds
+                            }
+                        },
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                    ) {
+                        Text(
+                            if (allSelected) "Clear all" else "Select all",
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+
+                Card(
+                    modifier  = Modifier.fillMaxWidth(),
+                    colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    LazyColumn(
+                        modifier            = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .padding(vertical = 4.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp)
+                    ) {
+                        items(coverPickerItems, key = { it.id }) { cover ->
+                            val checked = cover.id in allowedCovers
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        allowedCovers =
+                                            if (checked) allowedCovers - cover.id
+                                            else allowedCovers + cover.id
+                                    }
+                                    .padding(horizontal = 8.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked         = checked,
+                                    onCheckedChange = { isChecked ->
+                                        allowedCovers =
+                                            if (isChecked) allowedCovers + cover.id
+                                            else allowedCovers - cover.id
+                                    }
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        cover.name,
+                                        style      = MaterialTheme.typography.bodyMedium,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                    Text(
+                                        cover.id,
+                                        style      = MaterialTheme.typography.labelSmall,
+                                        color      = MaterialTheme.colorScheme.outline,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize   = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // ── New plan: technical fields ────────────────────────────────
                 if (initial == null) {
                     HorizontalDivider()
@@ -586,7 +693,8 @@ private fun PlanEditDialog(initial: Plan?, onSave: (Plan) -> Unit, onDismiss: ()
                         minAge        = minAge.toIntOrNull() ?: initial.minAge,
                         maxAge        = maxAge.toIntOrNull() ?: initial.maxAge,
                         maxDiscountCap = (maxDiscount.toIntOrNull() ?: (initial.maxDiscountCap * 100).toInt()) / 100.0,
-                        isActive      = isActive
+                        isActive      = isActive,
+                        allowedCoverIds = allowedCovers
                     ) ?: Plan(
                         id                   = name.trim().uppercase().replace(" ", "_"),
                         name                 = name.trim(),
@@ -604,7 +712,8 @@ private fun PlanEditDialog(initial: Plan?, onSave: (Plan) -> Unit, onDismiss: ()
                         rateTableId          = "",
                         minAge               = minAge.toIntOrNull() ?: 5,
                         maxAge               = maxAge.toIntOrNull() ?: 99,
-                        isActive             = isActive
+                        isActive             = isActive,
+                        allowedCoverIds      = allowedCovers
                     )
                     onSave(plan)
                 }

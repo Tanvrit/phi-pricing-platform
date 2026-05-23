@@ -11,8 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.components.*
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -32,15 +32,15 @@ import kotlinx.serialization.json.longOrNull
  * to confirm chain integrity.
  */
 @Composable
-fun AuditEventsSurface(baseUrl: String = "http://localhost:9090") {
+fun AuditEventsSurface() {
+    val client = rememberApiClient()
     var rows by remember { mutableStateOf<List<AuditRow>>(emptyList()) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var resourceFilter by remember { mutableStateOf("All") }
     var selected by remember { mutableStateOf<AuditRow?>(null) }
 
-    LaunchedEffect(baseUrl) {
-        val client = ApiClient(baseUrl)
+    LaunchedEffect(client) {
         while (coroutineContext.isActive) {
             runCatching { client.getAuditEvents(limit = 200) }
                 .onSuccess { raw ->

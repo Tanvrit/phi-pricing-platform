@@ -51,6 +51,7 @@ private data class PillTokens(
     val icon: ImageVector,
 )
 
+@Composable
 private fun tokens(s: AegisStatus): PillTokens = when (s) {
     AegisStatus.Draft -> PillTokens(
         bg = AegisColors.slate2,

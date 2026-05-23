@@ -6,51 +6,72 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
+import com.rate.aegis.settings.AegisSettingsStore
 
 /**
- * Root Aegis theme. Light only. Wraps Material3 so any composable inside is
- * styled correctly when it reaches for MaterialTheme.colorScheme.
+ * Root Aegis theme. Wraps Material3 so any composable inside is styled correctly
+ * when it reaches for MaterialTheme.colorScheme.
  *
- * Aegis components prefer the explicit `AegisColors` object over the MaterialTheme
- * accessors (they're typed, not nullable, and the contrast contract is enforced at
- * the token level), but plain Material3 widgets (DropdownMenu, ModalBottomSheet
- * placeholders) inherit reasonable defaults via this scheme.
+ * Aegis components prefer the explicit `AegisColors` accessor over MaterialTheme
+ * (typed, not nullable, contrast contract enforced at the token level), but plain
+ * Material3 widgets (DropdownMenu, ModalBottomSheet placeholders) inherit
+ * reasonable defaults via this scheme.
+ *
+ * Dark mode: [AegisSettingsStore.load] is read on every composition; if the
+ * persisted `theme` is "dark" (case-insensitive) we provide [DarkColors] via
+ * [LocalAegisColors]. Anything else falls back to [LightColors]. Reading the
+ * store on every recomposition rather than once is intentional — flips happen
+ * the next time anything composing under this theme recomposes, which is the
+ * "apply on next page open" contract the Settings surface advertises.
+ *
+ * The Material3 [lightColorScheme] is rebuilt against whichever palette is
+ * active so chrome bits (DropdownMenu surface, etc.) follow along. We keep
+ * `lightColorScheme` even for dark — Material's dark scheme has its own opinions
+ * about contrast that fight ours; we'd rather thread our tokens directly.
  */
-private val AegisColorScheme = lightColorScheme(
-    primary = AegisColors.brand,
-    onPrimary = Color.White,
-    primaryContainer = AegisColors.indigo100,
-    onPrimaryContainer = AegisColors.indigo700,
-    secondary = AegisColors.slate9,
-    onSecondary = Color.White,
-    secondaryContainer = AegisColors.slate3,
-    onSecondaryContainer = AegisColors.slate10,
-    tertiary = AegisColors.premium500,
-    onTertiary = Color.White,
-    background = AegisColors.canvas,
-    onBackground = AegisColors.textBody,
-    surface = AegisColors.surface,
-    onSurface = AegisColors.textBody,
-    surfaceVariant = AegisColors.surfaceMuted,
-    onSurfaceVariant = AegisColors.textSecondary,
-    outline = AegisColors.border,
-    outlineVariant = AegisColors.borderStrong,
-    error = AegisColors.danger500,
-    onError = Color.White,
-    errorContainer = AegisColors.danger50,
-    onErrorContainer = AegisColors.danger700,
-)
-
 @Composable
 fun AegisTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = AegisColorScheme,
-        typography = AegisTypography.material,
-    ) {
-        CompositionLocalProvider(
-            LocalContentColor provides AegisColors.textBody,
+    val themeName = runCatching { AegisSettingsStore.load().theme }
+        .getOrNull()
+        ?.lowercase()
+        ?: "light"
+    val palette = if (themeName == "dark") DarkColors else LightColors
+
+    val colorScheme = lightColorScheme(
+        primary = palette.brand,
+        onPrimary = Color.White,
+        primaryContainer = palette.indigo100,
+        onPrimaryContainer = palette.indigo700,
+        secondary = palette.slate9,
+        onSecondary = Color.White,
+        secondaryContainer = palette.slate3,
+        onSecondaryContainer = palette.slate10,
+        tertiary = palette.premium500,
+        onTertiary = Color.White,
+        background = palette.canvas,
+        onBackground = palette.textBody,
+        surface = palette.surface,
+        onSurface = palette.textBody,
+        surfaceVariant = palette.surfaceMuted,
+        onSurfaceVariant = palette.textSecondary,
+        outline = palette.border,
+        outlineVariant = palette.borderStrong,
+        error = palette.danger500,
+        onError = Color.White,
+        errorContainer = palette.danger50,
+        onErrorContainer = palette.danger700,
+    )
+
+    CompositionLocalProvider(LocalAegisColors provides palette) {
+        MaterialTheme(
+            colorScheme = colorScheme,
+            typography = AegisTypography.material,
         ) {
-            content()
+            CompositionLocalProvider(
+                LocalContentColor provides palette.textBody,
+            ) {
+                content()
+            }
         }
     }
 }

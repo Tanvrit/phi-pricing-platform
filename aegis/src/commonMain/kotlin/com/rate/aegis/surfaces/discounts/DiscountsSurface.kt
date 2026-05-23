@@ -11,8 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.components.*
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.contentOrNull
@@ -33,14 +33,14 @@ import kotlinx.serialization.json.jsonPrimitive
  * fires for the initial fetch and stays put afterwards.
  */
 @Composable
-fun DiscountsSurface(baseUrl: String = "http://localhost:9090") {
+fun DiscountsSurface() {
+    val client = rememberApiClient()
     var rows by remember { mutableStateOf<List<DiscountRow>>(emptyList()) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<DiscountRow?>(null) }
 
-    LaunchedEffect(baseUrl) {
-        val client = ApiClient(baseUrl)
+    LaunchedEffect(client) {
         runCatching { client.getDiscounts() }
             .onSuccess { raw ->
                 rows = raw.mapNotNull { it.toDiscountRow() }

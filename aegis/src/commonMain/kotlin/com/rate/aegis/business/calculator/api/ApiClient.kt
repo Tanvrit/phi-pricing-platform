@@ -5,6 +5,7 @@ import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.json.*
@@ -88,6 +89,15 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun getAuditEvents(limit: Int = 100): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/audit/events?limit=$limit").body()
+
+    /**
+     * Server-rendered IRDAI prospectus for [planId] as a self-contained HTML
+     * document. Same 12-section structure as the Compose ProspectusSurface,
+     * usable by external integrations (regulatory portal, agent CRM) and
+     * print-friendly via the browser (File → Print → Save as PDF).
+     */
+    suspend fun getProspectusHtml(planId: String): String =
+        http.get("$baseUrl/api/plans/$planId/prospectus.html").bodyAsText()
 
     // ── Discounts ─────────────────────────────────────────────────────────
 

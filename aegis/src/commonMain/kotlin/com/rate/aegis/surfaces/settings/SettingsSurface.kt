@@ -58,6 +58,7 @@ fun SettingsSurface() {
 
     var serverBaseUrl by remember { mutableStateOf(persisted.serverBaseUrl) }
     var defaultRole by remember { mutableStateOf(persisted.defaultRole) }
+    var theme by remember { mutableStateOf(normaliseTheme(persisted.theme)) }
     var saveBannerShown by remember { mutableStateOf(false) }
 
     // Auto-hide the SUCCESS callout a few seconds after it appears so the
@@ -71,7 +72,8 @@ fun SettingsSurface() {
 
     val urlError: String? = validateBaseUrl(serverBaseUrl)
     val dirty = serverBaseUrl != persisted.serverBaseUrl ||
-            defaultRole != persisted.defaultRole
+            defaultRole != persisted.defaultRole ||
+            theme != normaliseTheme(persisted.theme)
     val canSave = dirty && urlError == null
 
     Column(
@@ -138,6 +140,29 @@ fun SettingsSurface() {
             }
         }
 
+        // ── Theme ───────────────────────────────────────────────────────
+        AegisCard(
+            title = "Theme",
+            subtitle = "Palette used by the operator surfaces (Home, Quotes, Plans, …).",
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                    THEME_OPTIONS.forEach { (id, label) ->
+                        AegisChip(
+                            label = label,
+                            selected = theme == id,
+                            onClick = { theme = id },
+                        )
+                    }
+                }
+                AegisCallout(
+                    kind = CalloutKind.INFO,
+                    title = "Heads up",
+                    body = "Theme changes apply on next page open.",
+                )
+            }
+        }
+
         // ── Action footer ────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -149,6 +174,7 @@ fun SettingsSurface() {
                     val next = AegisSettings(
                         serverBaseUrl = serverBaseUrl,
                         defaultRole = defaultRole,
+                        theme = theme,
                     )
                     AegisSettingsStore.save(next)
                     // Refresh the "persisted" snapshot so `dirty` flips back to
@@ -167,6 +193,7 @@ fun SettingsSurface() {
                     val d = AegisSettings()
                     serverBaseUrl = d.serverBaseUrl
                     defaultRole = d.defaultRole
+                    theme = normaliseTheme(d.theme)
                 },
                 variant = AegisButtonVariant.Ghost,
             )
@@ -197,3 +224,23 @@ private fun validateBaseUrl(value: String): String? {
 }
 
 private val ROLE_OPTIONS = listOf("CUSTOMER", "BUSINESS", "ADMIN")
+
+/**
+ * Theme options surfaced as chips. We keep the persisted id ("light"/"dark")
+ * separate from the chip label so the JSON stays human-grep-friendly and so a
+ * future "dim" / "high-contrast" entry slots in without breaking older saves.
+ */
+private val THEME_OPTIONS: List<Pair<String, String>> = listOf(
+    "light" to "Light",
+    "dark" to "Dark",
+)
+
+/**
+ * Normalises a persisted theme id to one of the known [THEME_OPTIONS] keys.
+ * Anything unrecognised falls back to "light" — matches the resolver in
+ * [com.rate.aegis.theme.AegisTheme].
+ */
+private fun normaliseTheme(raw: String): String {
+    val v = raw.lowercase()
+    return if (THEME_OPTIONS.any { it.first == v }) v else "light"
+}

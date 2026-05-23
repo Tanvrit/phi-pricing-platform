@@ -7,12 +7,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.business.calculator.ui.configurator.ConfiguratorBody
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
 
@@ -26,7 +25,7 @@ import com.rate.aegis.theme.AegisSpacing
  */
 @Composable
 fun PlanConfiguratorSurface() {
-    val client = remember { ApiClient() }
+    val client = rememberApiClient()
     Column(
         Modifier.fillMaxSize().background(AegisColors.canvas).padding(AegisSpacing.s6),
         verticalArrangement = Arrangement.spacedBy(AegisSpacing.s4)

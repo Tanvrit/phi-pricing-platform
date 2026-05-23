@@ -71,6 +71,7 @@ private fun iconFor(kind: CalloutKind): ImageVector = when (kind) {
     CalloutKind.DANGER -> Icons.Filled.Error
 }
 
+@Composable
 private fun tintFor(kind: CalloutKind): Color = when (kind) {
     CalloutKind.INFO -> AegisColors.info500
     CalloutKind.SUCCESS -> AegisColors.success500

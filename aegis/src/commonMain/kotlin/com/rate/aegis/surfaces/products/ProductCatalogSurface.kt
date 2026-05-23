@@ -12,8 +12,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.components.*
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
 import com.rate.domain.model.Plan
 import com.rate.domain.model.PlanLifecycle
@@ -25,23 +25,18 @@ import com.rate.domain.money.formatRupees
  *
  * Read-only, executive-level overview of every plan the pricing engine knows
  * about, grouped by product family ([PlanType]). For editing, operators jump to
- * the Plan Configurator. Single fetch on mount via [ApiClient.getPlans] — the
+ * the Plan Configurator. Single fetch on mount via `client.getPlans()` — the
  * catalogue doesn't churn, so we skip the auto-refresh loop the dashboard uses.
- *
- * TODO(next-iteration): swap the hardcoded `ApiClient(...)` instantiation for
- * `rememberApiClient()` once the settings-driven server URL lands.
  */
 @Composable
 fun ProductCatalogSurface() {
+    val client = rememberApiClient()
     var plans by remember { mutableStateOf<List<Plan>>(emptyList()) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Plan?>(null) }
 
-    LaunchedEffect(Unit) {
-        // TODO(next-iteration): replace with `rememberApiClient()` once the
-        // settings-driven server URL is plumbed through the shell.
-        val client = ApiClient(baseUrl = "http://localhost:9090")
+    LaunchedEffect(client) {
         runCatching { client.getPlans() }
             .onSuccess {
                 plans = it

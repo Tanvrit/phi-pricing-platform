@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,7 +29,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.rate.aegis.business.calculator.api.ApiClient
+import com.rate.aegis.components.AegisButton
+import com.rate.aegis.components.AegisButtonVariant
 import com.rate.aegis.components.AegisCallout
 import com.rate.aegis.components.AegisCard
 import com.rate.aegis.components.AegisChip
@@ -40,6 +42,7 @@ import com.rate.aegis.components.AegisStatusPill
 import com.rate.aegis.components.CalloutKind
 import com.rate.aegis.data.FakeAegisRepo
 import com.rate.aegis.data.PlanMeta
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisRadii
 import com.rate.aegis.theme.AegisSpacing
@@ -47,6 +50,8 @@ import com.rate.domain.data.CoverCatalog
 import com.rate.domain.model.Plan
 import com.rate.domain.model.PlanLifecycle
 import com.rate.domain.money.formatRupees
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 
 /**
@@ -64,7 +69,7 @@ import kotlinx.datetime.Clock
  * it into a Word doc for IRDAI filing.
  *
  * Data sources
- *  - [ApiClient.getPlans] — live plan envelope (fields, eligibility, covers).
+ *  - `ApiClient.getPlans` — live plan envelope (fields, eligibility, covers).
  *  - [FakeAegisRepo.metaFor] — UIN + lifecycle metadata, until those fields
  *    move onto the domain `Plan`. Plans missing from the meta map show "UIN
  *    pending registration".
@@ -78,14 +83,33 @@ import kotlinx.datetime.Clock
  */
 @Composable
 fun ProspectusSurface() {
+    val client = rememberApiClient()
+    val scope = rememberCoroutineScope()
     var plans by remember { mutableStateOf<List<Plan>>(emptyList()) }
     var loadError by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var selectedId by remember { mutableStateOf<String?>(null) }
     var searchQuery by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
-        val client = ApiClient(baseUrl = "http://localhost:9090")
+    // Server-rendered HTML download state. The Compose document below remains
+    // the primary view; this is a secondary path for sharing/email/PDF-print.
+    @Suppress("UNUSED_VARIABLE")
+    var htmlState by remember { mutableStateOf<String?>(null) }
+    var downloading by remember { mutableStateOf(false) }
+    var downloadSuccess by remember { mutableStateOf<String?>(null) }
+    var downloadError by remember { mutableStateOf<String?>(null) }
+
+    // Auto-dismiss the success/error toast after a few seconds so the document
+    // chrome doesn't accumulate banners as the operator clicks around.
+    LaunchedEffect(downloadSuccess, downloadError) {
+        if (downloadSuccess != null || downloadError != null) {
+            delay(3500)
+            downloadSuccess = null
+            downloadError = null
+        }
+    }
+
+    LaunchedEffect(client) {
         runCatching { client.getPlans() }
             .onSuccess {
                 plans = it
@@ -161,6 +185,47 @@ fun ProspectusSurface() {
             val uinMissing = meta.uin.contains("pending", ignoreCase = true)
 
             DocumentHeaderCard(plan = selectedPlan, meta = meta, uinMissing = uinMissing, docDate = docDate)
+
+            // ── Server-rendered HTML download row ───────────────────────────
+            // Sits next to the document chrome — same content, different
+            // delivery channel (regulator filing, email attachment, browser
+            // print-to-PDF). The in-Compose document above is still primary.
+            DownloadRow(
+                planId = selectedPlan.id,
+                downloading = downloading,
+                onDownload = {
+                    val pid = selectedPlan.id
+                    downloadSuccess = null
+                    downloadError = null
+                    scope.launch {
+                        downloading = true
+                        runCatching { client.getProspectusHtml(pid) }
+                            .onSuccess { html ->
+                                htmlState = html
+                                openOrSaveProspectus(pid, html)
+                                downloadSuccess = pid
+                            }
+                            .onFailure { t ->
+                                downloadError = t.message ?: t::class.simpleName ?: "unknown error"
+                            }
+                        downloading = false
+                    }
+                },
+            )
+            downloadSuccess?.let { pid ->
+                AegisCallout(
+                    kind = CalloutKind.SUCCESS,
+                    title = "Downloaded",
+                    body = "Saved as $pid-prospectus.html.",
+                )
+            }
+            downloadError?.let { msg ->
+                AegisCallout(
+                    kind = CalloutKind.DANGER,
+                    title = "Download failed",
+                    body = msg,
+                )
+            }
 
             if (selectedPlan.lifecycle == PlanLifecycle.DRAFT) {
                 AegisCallout(
@@ -318,6 +383,54 @@ private fun DocumentHeaderCard(plan: Plan, meta: PlanMeta, uinMissing: Boolean, 
             HeaderField("Document version", "v1.0 (Phase-1 internal)")
             HeaderField("Document date", docDate, mono = true)
             HeaderField("Last modified", "${meta.lastModifiedIso} by ${meta.lastModifiedBy}")
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Server-rendered HTML download row — secondary delivery channel for the
+// prospectus. Sits between the header card and the body so it reads as part
+// of the document chrome rather than a floating toolbar action.
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun DownloadRow(planId: String, downloading: Boolean, onDownload: () -> Unit) {
+    AegisCard {
+        Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Server-rendered HTML",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = AegisColors.textPrimary,
+                    )
+                    Text(
+                        "Browser-printable single-file document. Use File → Print → " +
+                                "Save as PDF for an IRDAI-style print.",
+                        fontSize = 12.sp,
+                        color = AegisColors.textSecondary,
+                    )
+                }
+                Box(Modifier.width(AegisSpacing.s3))
+                AegisButton(
+                    label = "Download server-rendered HTML",
+                    onClick = onDownload,
+                    variant = AegisButtonVariant.Secondary,
+                    enabled = planId.isNotBlank(),
+                    loading = downloading,
+                )
+            }
+            Text(
+                "Plan: $planId — file: $planId-prospectus.html",
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                color = AegisColors.textSecondary,
+            )
         }
     }
 }

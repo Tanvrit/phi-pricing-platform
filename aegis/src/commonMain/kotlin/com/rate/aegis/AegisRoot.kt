@@ -31,6 +31,7 @@ import com.rate.aegis.surfaces.prospectus.ProspectusSurface
 import com.rate.aegis.surfaces.quotes.QuoteExplorerSurface
 import com.rate.aegis.surfaces.reports.ReportsSurface
 import com.rate.aegis.surfaces.settings.SettingsSurface
+import com.rate.aegis.surfaces.uw.UwQueueSurface
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
 import com.rate.aegis.theme.AegisTheme
@@ -79,6 +80,7 @@ private fun BusinessRoot() {
             AegisSurface.DISCOUNTS         -> DiscountsSurface()
             AegisSurface.RULES             -> ProspectusSurface()
             AegisSurface.REPORTS           -> ReportsSurface()
+            AegisSurface.UW_QUEUE          -> UwQueueSurface()
             AegisSurface.AUDIT             -> AuditEventsSurface()
             AegisSurface.SETTINGS          -> SettingsSurface()
             else -> SurfaceTodo(active)
@@ -104,6 +106,7 @@ private fun AdminRoot() {
             AegisSurface.DISCOUNTS         -> DiscountsSurface()
             AegisSurface.RULES             -> ProspectusSurface()
             AegisSurface.REPORTS           -> ReportsSurface()
+            AegisSurface.UW_QUEUE          -> UwQueueSurface()
             AegisSurface.CALCULATOR        -> CalculatorSurface()
             AegisSurface.SETTINGS          -> SettingsSurface()
             else -> SurfaceTodo(active)

@@ -47,6 +47,7 @@ private data class CalloutPalette(
     val vector: ImageVector,
 )
 
+@Composable
 private fun paletteFor(kind: CalloutKind): CalloutPalette = when (kind) {
     CalloutKind.INFO -> CalloutPalette(
         AegisColors.info50, AegisColors.info100, AegisColors.info500,

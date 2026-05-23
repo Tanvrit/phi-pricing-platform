@@ -17,14 +17,19 @@ import kotlinx.serialization.json.Json
  *                    `-Daegis.role=...`, and the seed for the URL query param
  *                    on the web entry. Stored as the [com.rate.aegis.AegisRole]
  *                    enum name ("CUSTOMER" / "BUSINESS" / "ADMIN").
+ *   theme          — palette identifier the AegisTheme should provide. Free-form
+ *                    string so we can extend to "dim" / "high-contrast" later
+ *                    without a schema migration. Currently recognised values:
+ *                    "light" (default) and "dark". Anything else falls back to
+ *                    light at theme resolution time.
  *
- * The settings record is intentionally narrow: anything that wants to roam (e.g.
- * RBAC, theme prefs) belongs on the server, not here.
+ * The settings record is intentionally narrow.
  */
 @Serializable
 data class AegisSettings(
     val serverBaseUrl: String = "http://localhost:9090",
-    val defaultRole: String = "BUSINESS"
+    val defaultRole: String = "BUSINESS",
+    val theme: String = "light",
 )
 
 /**

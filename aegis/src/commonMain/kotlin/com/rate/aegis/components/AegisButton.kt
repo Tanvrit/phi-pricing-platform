@@ -48,6 +48,7 @@ private data class ButtonPalette(
     val borderHover: Color?,
 )
 
+@Composable
 private fun paletteFor(variant: AegisButtonVariant): ButtonPalette = when (variant) {
     AegisButtonVariant.Primary -> ButtonPalette(
         bg = AegisColors.brand,
