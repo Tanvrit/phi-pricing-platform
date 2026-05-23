@@ -45,9 +45,17 @@ import com.rate.domain.money.formatRupees
  * @param onContinue invoked when the customer taps "Continue to apply" — the
  *                  caller is expected to flip the SharedQuoteView off and
  *                  fall through to the normal buyonline journey.
+ * @param onContinueWithQuote optional hook fired on "Continue" if a quote has
+ *                  loaded — lets the host seed the buyonline VM from the
+ *                  shared quote so the journey starts at the Plan screen
+ *                  with the customer's inputs already filled in.
  */
 @Composable
-fun SharedQuoteView(quoteId: String, onContinue: () -> Unit) {
+fun SharedQuoteView(
+    quoteId: String,
+    onContinue: () -> Unit,
+    onContinueWithQuote: (QuoteDetailResponse) -> Unit = {}
+) {
     val client = remember { BuyOnlineApiClient() }
     var loading by remember { mutableStateOf(true) }
     var detail by remember { mutableStateOf<QuoteDetailResponse?>(null) }
@@ -82,7 +90,15 @@ fun SharedQuoteView(quoteId: String, onContinue: () -> Unit) {
 
             WhatsNextCard()
 
-            ContinueCta(onContinue)
+            // Wire both callbacks: seed the VM first (if we actually have a
+            // loaded quote), then flip the showSharedQuote flag in the host.
+            // Order matters — seeding sets the journey screen to Quote, then
+            // onContinue tears down this view, dropping the customer directly
+            // on the seeded Quote screen.
+            ContinueCta {
+                detail?.let { onContinueWithQuote(it) }
+                onContinue()
+            }
         }
     }
 }

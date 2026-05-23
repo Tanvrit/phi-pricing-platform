@@ -50,6 +50,12 @@ fun BuyOnlineApp() {
     // forcing a full page reload that would lose the rest of the app state).
     val sharedQuoteId = remember { AegisLaunchContext.quoteId }
     var showSharedQuote by remember { mutableStateOf(sharedQuoteId != null) }
+    // VM is built up-front (rather than after the shared-quote short-circuit)
+    // so the SharedQuoteView "Continue to apply" CTA has a target to seed.
+    // It stays parked on Landing until the customer either dismisses the
+    // shared-quote view normally or taps Continue, which seeds it onto Quote.
+    val client = remember { BuyOnlineApiClient() }
+    val vm     = remember { BuyOnlineViewModel(client) }
     if (showSharedQuote && sharedQuoteId != null) {
         PRUHealthTheme {
             SharedQuoteView(
@@ -65,14 +71,19 @@ fun BuyOnlineApp() {
                     // rewrites history; JVM is a no-op (no URL bar).
                     clearQuoteParam()
                     showSharedQuote = false
+                },
+                onContinueWithQuote = { detail ->
+                    // Pre-fill the journey from the shared quote and jump
+                    // straight to the Plan (Quote) screen — the customer has
+                    // already given their inputs to the advisor, no need to
+                    // re-collect them. They still confirm on Quote before
+                    // proceeding to add-ons / summary / KYC.
+                    vm.seedFromSharedQuote(detail)
                 }
             )
         }
         return
     }
-
-    val client = remember { BuyOnlineApiClient() }
-    val vm     = remember { BuyOnlineViewModel(client) }
 
     // Save+resume bootstrap. Reads the one-shot `session=` id stashed by the
     // platform `main` (wasmJs URL query / jvm -D property). Null = brand-new

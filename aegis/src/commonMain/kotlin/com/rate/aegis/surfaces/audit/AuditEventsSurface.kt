@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -33,6 +35,7 @@ import com.rate.aegis.theme.*
 import com.rate.aegis.util.copyToClipboard
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -95,6 +98,24 @@ fun AuditEventsSurface() {
     var outboxError by remember { mutableStateOf<String?>(null) }
     var outboxLoaded by remember { mutableStateOf(false) }
     var selectedOutbox by remember { mutableStateOf<OutboxEntry?>(null) }
+
+    // Outbox purge state — operator-initiated bulk-delete of stale .eml files.
+    // [purgeConfirmOpen] gates the confirm dialog, [purgeBusy] disables the
+    // trigger while the DELETE is in flight, and [purgeMessage] is the brief
+    // post-action "Purged X of Y emails" toast (cleared after ~4s). The
+    // refresh-ticker bump on success re-fires the list LaunchedEffect so the
+    // table reflects what just came off disk.
+    var purgeConfirmOpen by remember { mutableStateOf(false) }
+    var purgeBusy by remember { mutableStateOf(false) }
+    var purgeMessage by remember { mutableStateOf<String?>(null) }
+    val purgeScope = rememberCoroutineScope()
+    val refreshTickerHandle = LocalRefreshTicker.current
+    LaunchedEffect(purgeMessage) {
+        if (purgeMessage != null) {
+            delay(4_000L)
+            purgeMessage = null
+        }
+    }
 
     // Global refresh tick — re-runs the polling / one-shot effects below.
     // Intentionally NOT keyed into [verifyTrigger]'s effect: chain integrity
@@ -254,7 +275,65 @@ fun AuditEventsSurface() {
             error = outboxError,
             loaded = outboxLoaded,
             onRowClick = { selectedOutbox = it },
+            purgeBusy = purgeBusy,
+            purgeMessage = purgeMessage,
+            onPurgeRequest = { purgeConfirmOpen = true },
         )
+
+        // Confirm dialog for the "Purge >7 days" affordance. Material3
+        // [AlertDialog] was picked over an inline danger button because the
+        // action is destructive AND irreversible — operators get one clean
+        // confirmation step before files come off disk. The dialog body
+        // mentions the 7-day floor explicitly so there's no ambiguity about
+        // what's about to be deleted. The Aegis ApiClient (and server) clamp
+        // the value defensively.
+        if (purgeConfirmOpen) {
+            val candidateCount = outboxRows.size
+            AlertDialog(
+                onDismissRequest = { if (!purgeBusy) purgeConfirmOpen = false },
+                title = { Text("Purge emails older than 7 days?") },
+                text = {
+                    Text(
+                        "This deletes every .eml file in the server outbox whose " +
+                                "mtime is older than 7 days. Currently showing $candidateCount " +
+                                "of the most recent entries — the actual delete set may be larger. " +
+                                "This action is not reversible.",
+                        fontSize = 13.sp,
+                        color = AegisColors.textSecondary,
+                    )
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = !purgeBusy,
+                        onClick = {
+                            purgeBusy = true
+                            purgeScope.launch {
+                                runCatching { client.purgeOutbox(7) }
+                                    .onSuccess { res ->
+                                        purgeMessage = "Purged ${res.deleted} of ${res.requested} emails."
+                                        // Bump the global refresh ticker so the
+                                        // outbox list LaunchedEffect re-fires
+                                        // and the table reflects the new state.
+                                        refreshTickerHandle.value = refreshTickerHandle.value + 1
+                                    }
+                                    .onFailure { t ->
+                                        val msg = t.message ?: t::class.simpleName ?: "unknown error"
+                                        purgeMessage = "Purge failed: $msg"
+                                    }
+                                purgeBusy = false
+                                purgeConfirmOpen = false
+                            }
+                        },
+                    ) { Text(if (purgeBusy) "Purging…" else "Delete") }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !purgeBusy,
+                        onClick = { purgeConfirmOpen = false },
+                    ) { Text("Cancel") }
+                },
+            )
+        }
 
         AegisCard {
             Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
@@ -748,12 +827,42 @@ private fun EmailOutboxCard(
     error: String?,
     loaded: Boolean,
     onRowClick: (OutboxEntry) -> Unit,
+    purgeBusy: Boolean,
+    purgeMessage: String?,
+    onPurgeRequest: () -> Unit,
 ) {
     AegisCard(
         title = "Email outbox",
         subtitle = "Phase-1 filesystem outbox — most recent .eml files written by the server. " +
                 "Refreshes with the global ticker; click a row to inspect the preview body.",
+        action = {
+            // Secondary/Sm matches ChainIntegrityCard's "Re-verify" affordance —
+            // operators get a consistent visual weight for card-header buttons.
+            // The destructive intent is carried by the confirm dialog rather than
+            // a Danger variant here: a red button next to a passive listing would
+            // overstate the routineness of the action.
+            AegisButton(
+                label = if (purgeBusy) "Purging…" else "Purge >7 days",
+                onClick = onPurgeRequest,
+                variant = AegisButtonVariant.Secondary,
+                size = AegisButtonSize.Sm,
+                loading = purgeBusy,
+                enabled = !purgeBusy && error == null,
+            )
+        },
     ) {
+        // Brief post-action status — rendered above the table body so it sits
+        // adjacent to the trigger button without blocking the list. Cleared
+        // by the parent's LaunchedEffect after 4s.
+        if (purgeMessage != null) {
+            val isFailure = purgeMessage.startsWith("Purge failed", ignoreCase = true)
+            AegisCallout(
+                kind = if (isFailure) CalloutKind.DANGER else CalloutKind.SUCCESS,
+                title = if (isFailure) "Purge failed" else "Purge complete",
+                body = purgeMessage,
+            )
+            Spacer(Modifier.height(AegisSpacing.s2))
+        }
         when {
             !loaded -> Text(
                 "Loading email outbox snapshot…",

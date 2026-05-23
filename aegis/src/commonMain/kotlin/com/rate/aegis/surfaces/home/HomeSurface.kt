@@ -67,12 +67,18 @@ fun HomeSurface() {
                 .mapValues { it.value.size.toDouble() }
             sparkDays.map { byDay[it] ?: 0.0 }
         } else null
+        val quotesSparkLabels: List<String>? = if (showSparks && quotesSpark != null) {
+            sparkDays.mapIndexed { i, day -> "$day: ${quotesSpark[i].toInt()}" }
+        } else null
         val gwpSpark: List<Double>? = if (showSparks) {
             val byDay = dashboard.quotes
                 .filter { it.isValid }
                 .groupBy { it.createdAt }
                 .mapValues { entry -> entry.value.sumOf { it.totalIncludingGst } }
             sparkDays.map { byDay[it] ?: 0.0 }
+        } else null
+        val gwpSparkLabels: List<String>? = if (showSparks && gwpSpark != null) {
+            sparkDays.mapIndexed { i, day -> "$day: ${formatRupees(gwpSpark[i])}" }
         } else null
 
         // KPI tiles ─────────────────────────────────────────────────────────
@@ -83,6 +89,7 @@ fun HomeSurface() {
                 delta = "${signed(kpis.quotesToday - kpis.quotesYesterday)} vs yesterday",
                 deltaPositive = kpis.quotesToday >= kpis.quotesYesterday,
                 sparkline = quotesSpark,
+                sparklineLabels = quotesSparkLabels,
                 tooltip = "Number of quotes calculated today (any plan, valid or invalid).",
                 modifier = Modifier.weight(1f)
             )
@@ -92,6 +99,7 @@ fun HomeSurface() {
                 delta = "${pctSigned(kpis.gwpThisMonth, kpis.gwpLastMonth)} vs last month",
                 deltaPositive = kpis.gwpThisMonth >= kpis.gwpLastMonth,
                 sparkline = gwpSpark,
+                sparklineLabels = gwpSparkLabels,
                 tooltip = "Gross Written Premium — sum of total-including-GST for valid quotes saved this calendar month.",
                 modifier = Modifier.weight(1f)
             )
@@ -243,6 +251,7 @@ private fun KpiTile(
     deltaPositive: Boolean,
     modifier: Modifier = Modifier,
     sparkline: List<Double>? = null,
+    sparklineLabels: List<String>? = null,
     tooltip: String? = null,
 ) {
     val deltaColor = if (deltaPositive) AegisColors.success700 else AegisColors.danger700
@@ -270,6 +279,7 @@ private fun KpiTile(
                         values = sparkline,
                         accent = sparkColor,
                         modifier = Modifier.fillMaxWidth().height(28.dp),
+                        labels = sparklineLabels,
                     )
                 }
                 Text(delta, fontSize = 11.sp, color = deltaColor)

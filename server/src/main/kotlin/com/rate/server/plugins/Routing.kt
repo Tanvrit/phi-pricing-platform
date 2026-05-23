@@ -201,6 +201,6 @@ fun Application.configureRouting(
         // endpoint stays functional during the transition.
         val outboxDir: File = (emailSender as? FileSystemEmailSender)?.outboxDir
             ?: File(System.getProperty("user.home"), ".aegis/outbox")
-        adminRoutes(outboxDir)
+        adminRoutes(outboxDir, auditService)
     }
 }

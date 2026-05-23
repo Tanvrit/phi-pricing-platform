@@ -63,6 +63,15 @@ data class OutboxEntry(
 )
 
 /**
+ * Wire-only mirror of the server's `OutboxPurgeResponse`. `requested` is the
+ * number of `.eml` files matched by the cutoff; `deleted` is how many actually
+ * came off disk. Divergence between the two flags stuck files (vanished
+ * mid-call, permission flip) so the UI can show a partial-success message.
+ */
+@Serializable
+data class PurgeResult(val requested: Int, val deleted: Int)
+
+/**
  * Wire-only DTO mirror of the server's [com.rate.server.auth.Operator]. Lives in
  * the client file so :shared doesn't need to know about RBAC primitives.
  */
@@ -266,6 +275,24 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun listOutbox(limit: Int = 50): List<OutboxEntry> {
         val resp = http.get("$baseUrl/api/admin/outbox?limit=$limit")
+        if (!resp.status.isSuccess()) {
+            val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
+            error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
+        }
+        return resp.body()
+    }
+
+    /**
+     * Operator-initiated bulk-prune of the Phase-1 filesystem outbox. Deletes
+     * `.eml` files whose mtime is older than [olderThanDays] (server clamps to
+     * 0..365; 0 means everything, but callers should pass a positive value).
+     * Same 403-→-thrown-error contract as [listOutbox]; the surface catches
+     * and renders a WARN callout instead of a Ktor exception.
+     */
+    suspend fun purgeOutbox(olderThanDays: Int = 7): PurgeResult {
+        val resp = http.delete("$baseUrl/api/admin/outbox") {
+            url { parameters.append("olderThanDays", olderThanDays.toString()) }
+        }
         if (!resp.status.isSuccess()) {
             val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
             error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")

@@ -537,6 +537,65 @@ class BuyOnlineViewModel(
     }
 
     /**
+     * Seed the journey VM from a previously-saved shared quote (the operator-
+     * shared `?quote=<id>` link). The customer arrives on SharedQuoteView, sees
+     * the read-only summary, and taps "Continue to apply" — we replay the
+     * inputs (age, family, SI, tenure, tier, add-ons) into the VM and drop
+     * them on the Quote screen so they don't re-enter what the advisor
+     * already captured.
+     *
+     * We do NOT auto-advance past Quote — the customer should see the seeded
+     * inputs and confirm. We also fire [refreshPremium] so the rendered total
+     * comes from the live engine instead of stale `lastQuote = null`.
+     */
+    fun seedFromSharedQuote(detail: QuoteDetailResponse) {
+        val req = detail.request
+        eldestAge          = req.primaryAge.toString()
+        selectedSumInsured = req.sumInsured
+        selectedTenure     = req.tenure.years
+        selectedTier       = reverseMapTier(req.planId)
+        val (members, kids) = parseFamilyType(req.familyType)
+        selectedMembers = members
+        kidsCount       = kids
+        // Convert engine cover IDs back to BuyOnline add-on UI ids. Any cover
+        // not in the BuyOnline catalogue (the engine ships ~50, BuyOnline curates ~8)
+        // is silently dropped — the customer can re-add it on the AddOns screen.
+        val coverIds = req.selectedCovers.map { it.coverId }.toSet()
+        selectedAddOnIds = BUYONLINE_ADDONS
+            .filter { it.coverId in coverIds }
+            .map { it.id }
+            .toSet()
+        currentScreen = BuyOnlineScreen.Quote
+        backStack.clear() // No earlier screens in this entry path — back goes nowhere meaningful.
+        refreshPremium()
+        saveSoon()
+    }
+
+    /** Reverse the BuyOnlinePlanMapping.toPlanId() mapping. Unknown ids fall back to PREMIER. */
+    private fun reverseMapTier(planId: String): PlanTier = when (planId) {
+        "PHI_BASIC"     -> PlanTier.PREMIER
+        "PHI_FLAGSHIP1" -> PlanTier.SIGNATURE
+        "PHI_GLOBAL1"   -> PlanTier.GLOBAL
+        else            -> PlanTier.PREMIER
+    }
+
+    /**
+     * Inverse of [deriveFamilyTypeCode]. Codes follow the pattern `<n>A<m>C`
+     * where n=adults (1 or 2 today; 3 tolerated defensively) and m=kids.
+     * Returns the canonical UI selection (members + kid count). Unknown
+     * codes fall back to a SELF-only profile.
+     */
+    private fun parseFamilyType(code: String): Pair<Set<MemberType>, Int> {
+        val hasSpouse = code.startsWith("2A") || code.startsWith("3A")
+        val kidsCount = code.substringAfter("A", "").substringBefore("C").toIntOrNull() ?: 0
+        val members = buildSet {
+            add(MemberType.SELF)
+            if (hasSpouse) add(MemberType.SPOUSE)
+        }
+        return members to kidsCount
+    }
+
+    /**
      * Boot-time hook. If [maybeId] is non-null and the server has a snapshot
      * for it, we restore. Otherwise we generate a fresh hex id and keep it
      * stable for the rest of the session — but we don't save until the user
