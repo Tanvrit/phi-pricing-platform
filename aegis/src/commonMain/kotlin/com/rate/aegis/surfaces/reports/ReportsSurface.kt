@@ -35,6 +35,7 @@ import com.rate.aegis.components.AegisCard
 import com.rate.aegis.components.AegisChip
 import com.rate.aegis.components.AegisHDivider
 import com.rate.aegis.components.CalloutKind
+import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
 import com.rate.aegis.data.rememberApiClient
@@ -83,7 +84,8 @@ fun ReportsSurface() {
     var funnelSessions by remember { mutableStateOf<List<RedactedSession>>(emptyList()) }
     var funnelLoading by remember { mutableStateOf(false) }
     var funnelError by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(client) {
+    val refreshTick by LocalRefreshTicker.current
+    LaunchedEffect(client, refreshTick) {
         funnelLoading = true; funnelError = null
         runCatching { client.listBuyOnlineSessions(limit = 500) }
             .onSuccess { funnelSessions = it }

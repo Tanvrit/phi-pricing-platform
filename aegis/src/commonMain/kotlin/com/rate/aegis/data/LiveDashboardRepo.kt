@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.domain.model.Plan
@@ -233,7 +234,12 @@ fun rememberDashboardData(
             )
         )
     }
-    LaunchedEffect(baseUrl, refreshEverySeconds) {
+    // Read the global refresh tick — the LaunchedEffect re-runs (immediate
+    // refetch) whenever the operator hits the top-bar Refresh button. The
+    // 30s cadence still applies via the inner while-loop; the bump just
+    // forces an early loop restart.
+    val refreshTick = LocalRefreshTicker.current.value
+    LaunchedEffect(baseUrl, refreshEverySeconds, refreshTick) {
         val repo = LiveDashboardRepo(ApiClient(baseUrl))
         while (coroutineContext.isActive) {
             state.value = repo.load()

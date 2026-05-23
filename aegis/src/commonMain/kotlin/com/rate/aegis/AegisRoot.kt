@@ -123,6 +123,11 @@ private fun OperatorShell(
     // reads it on first composition and clears it.
     val deepLink = remember { mutableStateOf(DeepLink.NONE) }
 
+    // Global refresh signal — the top-bar Refresh button bumps this counter;
+    // every surface that includes [LocalRefreshTicker] in its LaunchedEffect
+    // keys refetches in lockstep. See [RefreshTicker.kt].
+    val refreshTicker = remember { mutableStateOf(0) }
+
     // Live data sources for searchable commands:
     //  - quotes piggyback on the dashboard cache (already polled for Home/Quotes/Reports/UW)
     //  - plans need a side-channel fetch; palette is opened on demand, so one-shot is fine
@@ -207,6 +212,7 @@ private fun OperatorShell(
     CompositionLocalProvider(
         LocalAegisDeepLink provides deepLink,
         LocalSurfaceRouter provides onSurfaceChange,
+        LocalRefreshTicker provides refreshTicker,
     ) {
         Box(
             Modifier
@@ -223,7 +229,8 @@ private fun OperatorShell(
             AegisShell(
                 activeSurface = active,
                 onSurfaceChange = onSurfaceChange,
-                user = user
+                user = user,
+                onRefresh = { refreshTicker.value += 1 },
             ) {
                 when (active) {
                     AegisSurface.HOME              -> HomeSurface()

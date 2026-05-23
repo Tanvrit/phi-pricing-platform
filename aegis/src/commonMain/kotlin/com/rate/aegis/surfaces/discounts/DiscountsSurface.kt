@@ -13,6 +13,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.DeepLink
 import com.rate.aegis.LocalAegisDeepLink
+import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -42,7 +43,8 @@ fun DiscountsSurface() {
     var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<DiscountRow?>(null) }
 
-    LaunchedEffect(client) {
+    val refreshTick by LocalRefreshTicker.current
+    LaunchedEffect(client, refreshTick) {
         runCatching { client.getDiscounts() }
             .onSuccess { raw ->
                 rows = raw.mapNotNull { it.toDiscountRow() }

@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -36,7 +37,8 @@ fun ProductCatalogSurface() {
     var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<Plan?>(null) }
 
-    LaunchedEffect(client) {
+    val refreshTick by LocalRefreshTicker.current
+    LaunchedEffect(client, refreshTick) {
         runCatching { client.getPlans() }
             .onSuccess {
                 plans = it

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.PieChart
 import androidx.compose.material.icons.filled.PlaylistAddCheck
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -34,6 +35,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.ViewModule
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -81,6 +83,7 @@ fun AegisShell(
     onSurfaceChange: (AegisSurface) -> Unit,
     user: AegisUser,
     modifier: Modifier = Modifier,
+    onRefresh: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Box(modifier.fillMaxSize().background(AegisColors.canvas)) {
@@ -88,7 +91,7 @@ fun AegisShell(
             ShellRail(activeSurface = activeSurface, onSurfaceChange = onSurfaceChange)
             AegisVDivider()
             Column(Modifier.weight(1f).fillMaxHeight()) {
-                ShellTopBar(activeSurface = activeSurface, user = user)
+                ShellTopBar(activeSurface = activeSurface, user = user, onRefresh = onRefresh)
                 AegisHDivider()
                 Box(
                     Modifier
@@ -201,7 +204,11 @@ private fun NavItem(
 }
 
 @Composable
-private fun ShellTopBar(activeSurface: AegisSurface, user: AegisUser) {
+private fun ShellTopBar(
+    activeSurface: AegisSurface,
+    user: AegisUser,
+    onRefresh: (() -> Unit)? = null,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -235,6 +242,17 @@ private fun ShellTopBar(activeSurface: AegisSurface, user: AegisUser) {
             )
             Box(Modifier.width(4.dp))
             AegisKbd("⌘K")
+        }
+        if (onRefresh != null) {
+            Box(Modifier.width(AegisSpacing.s2))
+            IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "Refresh all data",
+                    tint = AegisColors.iconMuted,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
         Box(Modifier.width(AegisSpacing.s4))
         Row(

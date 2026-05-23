@@ -14,6 +14,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -59,8 +60,10 @@ fun ServerHealthSurface() {
 
     var rawExpanded by remember { mutableStateOf(false) }
 
+    val refreshTick by LocalRefreshTicker.current
+
     // ── /health poller (5s) ──────────────────────────────────────────────
-    LaunchedEffect(client) {
+    LaunchedEffect(client, refreshTick) {
         while (coroutineContext.isActive) {
             val before = Clock.System.now()
             runCatching { client.health() }
@@ -82,7 +85,7 @@ fun ServerHealthSurface() {
     }
 
     // ── /metrics poller (10s) ────────────────────────────────────────────
-    LaunchedEffect(client) {
+    LaunchedEffect(client, refreshTick) {
         while (coroutineContext.isActive) {
             runCatching { client.metricsText() }
                 .onSuccess { text ->

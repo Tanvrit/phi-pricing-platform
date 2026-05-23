@@ -15,10 +15,13 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.DeepLink
 import com.rate.aegis.LocalAegisDeepLink
+import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.business.calculator.api.AuditVerify
 import com.rate.aegis.business.calculator.api.IdempotencyRow
 import com.rate.aegis.components.*
+import com.rate.aegis.data.AuditEventDto
+import com.rate.aegis.data.openAuditStream
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
 import kotlinx.coroutines.delay
@@ -68,6 +71,12 @@ fun AuditEventsSurface() {
     var idemError by remember { mutableStateOf<String?>(null) }
     var idemLoaded by remember { mutableStateOf(false) }
 
+    // Global refresh tick — re-runs the polling / one-shot effects below.
+    // Intentionally NOT keyed into [verifyTrigger]'s effect: chain integrity
+    // walks the whole ledger server-side and is too expensive to fire on a
+    // generic "refresh all" click. Operators must hit Re-verify deliberately.
+    val refreshTick by LocalRefreshTicker.current
+
     LaunchedEffect(client, verifyTrigger) {
         verifying = true
         runCatching { client.verifyAuditChain() }
@@ -82,7 +91,7 @@ fun AuditEventsSurface() {
         verifying = false
     }
 
-    LaunchedEffect(client) {
+    LaunchedEffect(client, refreshTick) {
         runCatching { client.listIdempotencyKeys(limit = 100) }
             .onSuccess { r ->
                 idemRows = r
@@ -95,7 +104,7 @@ fun AuditEventsSurface() {
             }
     }
 
-    LaunchedEffect(client) {
+    LaunchedEffect(client, refreshTick) {
         while (coroutineContext.isActive) {
             runCatching { client.getAuditEvents(limit = 200) }
                 .onSuccess { raw ->
@@ -108,6 +117,24 @@ fun AuditEventsSurface() {
                     loaded = true
                 }
             delay(30_000L)
+        }
+    }
+
+    // SSE live-stream upgrade. When the platform supports `EventSource`
+    // (WASM today) every newly-recorded audit row prepends to [rows]
+    // immediately — operators see writes within ~250 ms instead of waiting
+    // for the next 30 s poll. JVM falls through (factory returns null) and
+    // the polling LaunchedEffect above is the sole source. Polling stays
+    // active either way so a transient SSE drop is backfilled automatically.
+    LaunchedEffect(client) {
+        val stream = openAuditStream(client.baseUrl) ?: return@LaunchedEffect
+        stream.collect { dto ->
+            val row = dto.toAuditRow()
+            // De-duplicate against the polled snapshot — when polling and SSE
+            // race we don't want the same row appearing twice.
+            rows = (listOf(row) + rows.filterNot { it.id == row.id }).take(200)
+            loadError = null
+            loaded = true
         }
     }
 
@@ -554,6 +581,26 @@ private data class AuditRow(
     val payloadJson: String?,
     val prevHash: String?,
     val thisHash: String,
+)
+
+/**
+ * Adapter from the SSE-delivered [AuditEventDto] (typed via `@Serializable`)
+ * into the surface's internal [AuditRow]. Field-for-field — kept inline rather
+ * than reflected from a Map so the two paths produce structurally identical
+ * rows regardless of any future field-order drift.
+ */
+private fun AuditEventDto.toAuditRow(): AuditRow = AuditRow(
+    id = id,
+    eventAt = eventAt,
+    action = action,
+    resourceType = resourceType,
+    resourceId = resourceId,
+    actorSubject = actorSubject,
+    actorRole = actorRole,
+    requestId = requestId,
+    payloadJson = payloadJson,
+    prevHash = prevHash,
+    thisHash = thisHash,
 )
 
 private fun Map<String, JsonElement>.toAuditRow(): AuditRow? {

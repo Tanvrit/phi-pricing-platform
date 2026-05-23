@@ -191,24 +191,12 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
     suspend fun getAuditEvents(limit: Int = 100): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/audit/events?limit=$limit").body()
 
-    /**
-     * Server-Sent Events stream of audit events — placeholder.
-     *
-     * The server endpoint (`GET /api/audit/stream`) is live and testable via
-     * `curl -N`, but the Aegis surfaces (ActivityFeed + AuditEventsSurface)
-     * still use polling against [getAuditEvents]. Migrating them requires a
-     * proper EventSource bridge across all client targets (JVM via
-     * NIO/coroutines, browser via the native `EventSource` API in WASM/JS,
-     * iOS via NSURLSession with `text/event-stream` accept) — punted to the
-     * next iteration.
-     *
-     * Throws on call so nobody accidentally wires an incomplete consumer.
-     * Remove the throw and implement here when picking up the follow-up.
-     */
-    @Suppress("UnusedParameter")
-    suspend fun streamAuditEvents(): Nothing {
-        error("SSE consumer not yet implemented — see follow-up iteration")
-    }
+    // SSE consumer for `/api/audit/stream` lives in
+    // `com.rate.aegis.data.openAuditStream(baseUrl)` rather than on this client,
+    // because the implementation is platform-specific (WASM uses the browser
+    // `EventSource`; JVM stays on polling until we wire `ktor-client-sse`).
+    // ActivityFeed + AuditEventsSurface call that factory directly with this
+    // client's [baseUrl].
 
     /**
      * Walks the hash chain server-side and reports the result. Scope-gated

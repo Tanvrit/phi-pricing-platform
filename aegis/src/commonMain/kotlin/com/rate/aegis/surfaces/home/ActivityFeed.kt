@@ -26,15 +26,22 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.components.AegisCard
 import com.rate.aegis.components.AegisHDivider
+import com.rate.aegis.data.AuditEventDto
+import com.rate.aegis.data.openAuditStream
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.encodeToJsonElement
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.coroutines.coroutineContext
 
@@ -61,7 +68,8 @@ fun ActivityFeed(maxRows: Int = 6) {
     var events by remember { mutableStateOf<List<Map<String, JsonElement>>>(emptyList()) }
     var status by remember { mutableStateOf(FeedStatus.LOADING) }
 
-    LaunchedEffect(client) {
+    val refreshTick by LocalRefreshTicker.current
+    LaunchedEffect(client, refreshTick) {
         while (coroutineContext.isActive) {
             runCatching { client.getAuditEvents(limit = maxRows) }
                 .onSuccess {
@@ -72,6 +80,25 @@ fun ActivityFeed(maxRows: Int = 6) {
                     status = FeedStatus.OFFLINE
                 }
             delay(5_000L)
+        }
+    }
+
+    // Best-effort SSE upgrade. On platforms that can stream
+    // (WASM via the browser `EventSource`) this prepends each new audit row
+    // immediately, dropping the perceived latency from ≤5 s to near-zero.
+    // On JVM the factory returns null and we fall through — the polling
+    // LaunchedEffect above is the sole live source.
+    //
+    // We keep polling running even with SSE active so a transient disconnect
+    // is automatically backfilled on the next 5 s tick; no explicit reconnect
+    // wiring needed here.
+    LaunchedEffect(client) {
+        val stream = openAuditStream(client.baseUrl) ?: return@LaunchedEffect
+        stream.collect { dto ->
+            val incoming = dto.toEventMap()
+            events = (listOf(incoming) + events.filterNot { it.eventId() == dto.id })
+                .take(maxRows)
+            status = FeedStatus.LIVE
         }
     }
 
@@ -186,3 +213,18 @@ private fun sliceClock(iso: String): String {
 }
 
 private fun Map<String, JsonElement>.str(k: String) = get(k)?.jsonPrimitive?.contentOrNull
+
+/** Long id extracted from a wire row, used to de-duplicate when SSE racepoll. */
+private fun Map<String, JsonElement>.eventId(): Long? =
+    get("id")?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+
+/**
+ * Convert an SSE-delivered [AuditEventDto] into the same `Map<String, JsonElement>`
+ * shape the polling path produces, so the rendering code stays single-source.
+ * `Json.encodeToJsonElement` performs a deterministic round-trip via the DTO's
+ * `@Serializable` schema — no manual field-by-field mapping to drift.
+ */
+private val auditWireJson = Json { encodeDefaults = true }
+
+private fun AuditEventDto.toEventMap(): Map<String, JsonElement> =
+    (auditWireJson.encodeToJsonElement(AuditEventDto.serializer(), this) as JsonObject).toMap()
