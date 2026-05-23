@@ -21,14 +21,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.business.calculator.navigation.Screen
 import com.rate.aegis.business.calculator.ui.components.*
 import com.rate.domain.data.CoverCatalog
 import com.rate.domain.model.*
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonPrimitive
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -103,6 +111,22 @@ fun ConfiguratorBody(client: ApiClient) {
     }
 
     LaunchedEffect(Unit) { refresh() }
+
+    // Deep-link from command palette: open the edit dialog on a specific plan once
+    // the plan list has loaded. Keying on `plans` re-runs the effect when the
+    // server fetch lands so a late deep-link still resolves.
+    val deepLink = LocalAegisDeepLink.current
+    LaunchedEffect(deepLink.value.planId, plans) {
+        val target = deepLink.value.planId
+        if (target != null) {
+            val match = plans.firstOrNull { it.id == target }
+            if (match != null) {
+                editPlan = match
+                showDialog = true
+                deepLink.value = DeepLink.NONE
+            }
+        }
+    }
 
     // Filtered view
     val displayed = remember(plans, filter) {
@@ -225,6 +249,7 @@ fun ConfiguratorBody(client: ApiClient) {
         // ── Edit dialog ──────────────────────────────────────────────────────
         if (showDialog) {
             PlanEditDialog(
+                client    = client,
                 initial   = editPlan,
                 onSave    = { p ->
                     scope.launch {
@@ -441,7 +466,12 @@ private fun EmptyState() {
 // ── Edit Dialog ───────────────────────────────────────────────────────────
 
 @Composable
-private fun PlanEditDialog(initial: Plan?, onSave: (Plan) -> Unit, onDismiss: () -> Unit) {
+private fun PlanEditDialog(
+    client: ApiClient,
+    initial: Plan?,
+    onSave: (Plan) -> Unit,
+    onDismiss: () -> Unit
+) {
     var name        by remember { mutableStateOf(initial?.name ?: "") }
     var description by remember { mutableStateOf(initial?.description ?: "") }
     var minAge      by remember { mutableStateOf(initial?.minAge?.toString() ?: "5") }
@@ -667,6 +697,84 @@ private fun PlanEditDialog(initial: Plan?, onSave: (Plan) -> Unit, onDismiss: ()
                                         color      = MaterialTheme.colorScheme.outline,
                                         fontFamily = FontFamily.Monospace,
                                         fontSize   = 11.sp
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ── Recent quotes (read-only history under this plan) ─────────
+                // Only meaningful for existing plans — a brand-new (initial == null)
+                // dialog has no plan id to filter by.
+                if (initial != null) {
+                    var recentQuotes by remember(initial) {
+                        mutableStateOf<List<Map<String, JsonElement>>>(emptyList())
+                    }
+                    var loadingQuotes by remember(initial) { mutableStateOf(false) }
+                    LaunchedEffect(initial.id) {
+                        loadingQuotes = true
+                        recentQuotes = runCatching {
+                            client.getQuotesByPlan(initial.id, limit = 10)
+                        }.getOrElse { emptyList() }
+                        loadingQuotes = false
+                    }
+
+                    HorizontalDivider()
+                    Text(
+                        "Recent quotes priced under this plan",
+                        style      = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    when {
+                        loadingQuotes -> Text(
+                            "Loading…",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        recentQuotes.isEmpty() -> Text(
+                            "No quotes priced under this plan yet.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                        else -> Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                            modifier            = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 200.dp)
+                                .verticalScroll(rememberScrollState())
+                        ) {
+                            recentQuotes.forEach { row ->
+                                val id        = row["id"]?.jsonPrimitive?.contentOrNull ?: "—"
+                                val createdAt = row["createdAt"]?.jsonPrimitive?.contentOrNull
+                                    ?.take(16)?.replace('T', ' ') ?: "—"
+                                val age       = row["age"]?.jsonPrimitive?.intOrNull ?: 0
+                                val total     = row["totalIncludingGst"]?.jsonPrimitive?.doubleOrNull ?: 0.0
+                                Row(
+                                    modifier              = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Text(
+                                        id,
+                                        modifier   = Modifier.weight(1.4f),
+                                        fontSize   = 12.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                    Text(
+                                        createdAt,
+                                        modifier = Modifier.weight(1f),
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        "age $age",
+                                        modifier = Modifier.weight(0.6f),
+                                        fontSize = 12.sp
+                                    )
+                                    Text(
+                                        formatRupees(total),
+                                        modifier  = Modifier.weight(0.8f),
+                                        fontSize  = 12.sp,
+                                        textAlign = TextAlign.End
                                     )
                                 }
                             }

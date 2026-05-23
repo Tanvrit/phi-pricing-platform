@@ -12,6 +12,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.components.*
 import com.rate.aegis.theme.*
 import com.rate.domain.data.CoverCatalog
@@ -41,6 +43,21 @@ fun CoverCatalogSurface() {
     var search by remember { mutableStateOf("") }
     var groupFilter by remember { mutableStateOf(CoverGroupFilter.All) }
     var selected by remember { mutableStateOf<CoverMeta?>(null) }
+
+    // Deep-link from command palette: open the matching cover's drawer.
+    // `all` is built from static :shared catalogues so it's always populated;
+    // we still key on it for symmetry with the async surfaces.
+    val deepLink = LocalAegisDeepLink.current
+    LaunchedEffect(deepLink.value.coverId, all) {
+        val target = deepLink.value.coverId
+        if (target != null) {
+            val match = all.firstOrNull { it.id == target }
+            if (match != null) {
+                selected = match
+                deepLink.value = DeepLink.NONE
+            }
+        }
+    }
 
     val filtered = remember(search, groupFilter, all) {
         val q = search.trim()

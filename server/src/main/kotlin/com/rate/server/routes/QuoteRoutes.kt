@@ -58,6 +58,26 @@ fun Route.quoteRoutes(
             val request = call.receive<QuoteRequest>()
             val result  = engine.calculate(request)
             Metrics.recordQuoteCalculation(request.planId, result.isValid)
+            // Audit attribution for anonymous calculations — every calc shows up in
+            // the ledger even when not saved. auditService.record swallows its own
+            // errors so this never delays the response.
+            val rid = call.attributes.getOrNull(REQUEST_ID_KEY)
+            val actor = call.attributes.getOrNull(ACTOR_SUBJECT_KEY)
+                ?.let { AuditActor(subject = it) } ?: AuditActor.unknown()
+            auditService.record(
+                action = "quote.calculated",
+                resourceType = "quote",
+                resourceId = result.requestId,
+                payload = JsonObject(mapOf(
+                    "planId" to JsonPrimitive(request.planId),
+                    "primaryAge" to JsonPrimitive(request.primaryAge),
+                    "sumInsured" to JsonPrimitive(request.sumInsured),
+                    "isValid" to JsonPrimitive(result.isValid),
+                    "totalIncludingGst" to JsonPrimitive(result.totalIncludingGst)
+                )),
+                actor = actor,
+                requestId = rid
+            )
             call.respond(result)
         }
 
@@ -93,6 +113,31 @@ fun Route.quoteRoutes(
                     HttpStatusCode.UnprocessableEntity to routeJson.encodeToString(result)
                 }
             }
+        }
+
+        // Per-plan history (operator-side drill-down on the Configurator dialog).
+        // TODO(perf): push the planId filter into a parameterised DB query on
+        // QuotesTable; the in-memory filter over the recent 500 is adequate for
+        // current traffic but won't scale past 5–10× current quote volume.
+        get("/by-plan/{planId}") {
+            val planId = call.parameters["planId"] ?: throw IllegalArgumentException("Missing planId")
+            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 20).coerceIn(1, 100)
+            val all = quoteRepo.listQuoteSummaries(limit = 500)
+            val filtered = all.filter { it.request.planId == planId }.take(limit)
+            call.respond(filtered.map { summary ->
+                QuoteListItem(
+                    id                = summary.id,
+                    planId            = summary.request.planId,
+                    age               = summary.request.primaryAge,
+                    sumInsured        = summary.request.sumInsured,
+                    familyType        = summary.request.familyType,
+                    zone              = summary.request.zone,
+                    tenure            = summary.request.tenure.label,
+                    createdAt         = summary.createdAt.toString(),
+                    totalIncludingGst = summary.totalIncludingGst,
+                    isValid           = summary.isValid
+                )
+            })
         }
 
         get("/{id}") {

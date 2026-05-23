@@ -111,6 +111,14 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
     suspend fun listQuotes(limit: Int = 50): List<Map<String, JsonElement>> =
         http.get("$baseUrl/api/quotes?limit=$limit").body()
 
+    /**
+     * Recent saved quotes priced under [planId], newest first. Server caps the
+     * filter window to the most recent 500 quotes and the response to [limit]
+     * rows. Raw JSON shape matches [listQuotes] — same QuoteListItem fields.
+     */
+    suspend fun getQuotesByPlan(planId: String, limit: Int = 20): List<Map<String, JsonElement>> =
+        http.get("$baseUrl/api/quotes/by-plan/$planId?limit=$limit").body()
+
     // ── Audit ─────────────────────────────────────────────────────────────
 
     /**

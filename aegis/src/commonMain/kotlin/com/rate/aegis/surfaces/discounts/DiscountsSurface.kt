@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -51,6 +53,20 @@ fun DiscountsSurface() {
                 loadError = t.message ?: t::class.simpleName ?: "unknown error"
                 loaded = true
             }
+    }
+
+    // Deep-link from command palette: open the matching discount's drawer once
+    // the server fetch lands. Keying on `rows` re-runs after the async load.
+    val deepLink = LocalAegisDeepLink.current
+    LaunchedEffect(deepLink.value.discountId, rows) {
+        val target = deepLink.value.discountId
+        if (target != null) {
+            val match = rows.firstOrNull { it.id == target }
+            if (match != null) {
+                selected = match
+                deepLink.value = DeepLink.NONE
+            }
+        }
     }
 
     Column(

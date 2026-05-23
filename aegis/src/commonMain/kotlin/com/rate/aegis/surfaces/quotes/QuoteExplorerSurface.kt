@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.components.*
 import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
@@ -32,6 +34,21 @@ fun QuoteExplorerSurface() {
     var selected by remember { mutableStateOf<FakeAegisRepo.FakeQuote?>(null) }
     val dashboard by rememberDashboardData()
     val all = dashboard.quotes
+
+    // Deep-link: command palette pre-selects a quote → open its drawer once data lands.
+    // Keying on dashboard.quotes lets the effect re-run when the live cache fetches.
+    val deepLink = LocalAegisDeepLink.current
+    LaunchedEffect(deepLink.value.quoteId, dashboard.quotes) {
+        val target = deepLink.value.quoteId
+        if (target != null) {
+            val match = dashboard.quotes.firstOrNull { it.id == target }
+            if (match != null) {
+                selected = match
+                deepLink.value = DeepLink.NONE
+            }
+        }
+    }
+
     val filtered = remember(search, tierFilter, validityFilter) {
         all.filter { q ->
             val matchesSearch = search.isBlank() ||

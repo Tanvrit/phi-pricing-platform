@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -118,6 +119,10 @@ private fun OperatorShell(
 ) {
     var paletteOpen by remember { mutableStateOf(false) }
 
+    // Cross-surface targeting: palette commands set this; the destination surface
+    // reads it on first composition and clears it.
+    val deepLink = remember { mutableStateOf(DeepLink.NONE) }
+
     // Live data sources for searchable commands:
     //  - quotes piggyback on the dashboard cache (already polled for Home/Quotes/Reports/UW)
     //  - plans need a side-channel fetch; palette is opened on demand, so one-shot is fine
@@ -142,9 +147,8 @@ private fun OperatorShell(
                 }
             )
         }
-        // Deep-linking (e.g. clicking a quote → opening QuoteExplorer with that row
-        // preselected) is the next iteration. For v1 the palette only routes to the
-        // owning surface; the operator then picks the row themselves.
+        // Deep-link: the surface action sets a typed DeepLink so the destination
+        // surface auto-opens that row's drawer / selects it on first composition.
         val planCommands = plans.map { plan ->
             AegisCommand(
                 id = "plan.${plan.id}",
@@ -152,6 +156,7 @@ private fun OperatorShell(
                 subtitle = "${plan.planType.name} · ${plan.id}",
                 keywords = plan.id + " " + plan.lifecycle.name,
                 action = {
+                    deepLink.value = DeepLink(planId = plan.id)
                     onSurfaceChange(AegisSurface.PLAN_CONFIGURATOR)
                     paletteOpen = false
                 }
@@ -164,6 +169,7 @@ private fun OperatorShell(
                 subtitle = d.id,
                 keywords = d.id,
                 action = {
+                    deepLink.value = DeepLink(discountId = d.id)
                     onSurfaceChange(AegisSurface.DISCOUNTS)
                     paletteOpen = false
                 }
@@ -176,6 +182,7 @@ private fun OperatorShell(
                 subtitle = cover.id,
                 keywords = cover.id,
                 action = {
+                    deepLink.value = DeepLink(coverId = cover.id)
                     onSurfaceChange(AegisSurface.COVER_CATALOG)
                     paletteOpen = false
                 }
@@ -188,6 +195,7 @@ private fun OperatorShell(
                 subtitle = "${q.planName} · ${q.familyType} · age ${q.primaryAge}",
                 keywords = "${q.planId} ${q.zone} ${q.tenureLabel}",
                 action = {
+                    deepLink.value = DeepLink(quoteId = q.id)
                     onSurfaceChange(AegisSurface.QUOTES)
                     paletteOpen = false
                 }
@@ -196,45 +204,47 @@ private fun OperatorShell(
         surfaceCommands + planCommands + discountCommands + coverCommands + quoteCommands
     }
 
-    Box(
-        Modifier
-            .fillMaxSize()
-            .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-                val isMod = event.isMetaPressed || event.isCtrlPressed
-                if (isMod && event.key == Key.K) {
-                    paletteOpen = !paletteOpen
-                    true
-                } else false
-            }
-    ) {
-        AegisShell(
-            activeSurface = active,
-            onSurfaceChange = onSurfaceChange,
-            user = user
+    CompositionLocalProvider(LocalAegisDeepLink provides deepLink) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    val isMod = event.isMetaPressed || event.isCtrlPressed
+                    if (isMod && event.key == Key.K) {
+                        paletteOpen = !paletteOpen
+                        true
+                    } else false
+                }
         ) {
-            when (active) {
-                AegisSurface.HOME              -> HomeSurface()
-                AegisSurface.CALCULATOR        -> CalculatorSurface()
-                AegisSurface.QUOTES            -> QuoteExplorerSurface()
-                AegisSurface.PRODUCT_CATALOG   -> ProductCatalogSurface()
-                AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
-                AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
-                AegisSurface.DISCOUNTS         -> DiscountsSurface()
-                AegisSurface.RULES             -> ProspectusSurface()
-                AegisSurface.REPORTS           -> ReportsSurface()
-                AegisSurface.UW_QUEUE          -> UwQueueSurface()
-                AegisSurface.AUDIT             -> AuditEventsSurface()
-                AegisSurface.RATE_TABLES       -> ServerHealthSurface()
-                AegisSurface.SETTINGS          -> SettingsSurface()
-                else -> SurfaceTodo(active)
+            AegisShell(
+                activeSurface = active,
+                onSurfaceChange = onSurfaceChange,
+                user = user
+            ) {
+                when (active) {
+                    AegisSurface.HOME              -> HomeSurface()
+                    AegisSurface.CALCULATOR        -> CalculatorSurface()
+                    AegisSurface.QUOTES            -> QuoteExplorerSurface()
+                    AegisSurface.PRODUCT_CATALOG   -> ProductCatalogSurface()
+                    AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
+                    AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
+                    AegisSurface.DISCOUNTS         -> DiscountsSurface()
+                    AegisSurface.RULES             -> ProspectusSurface()
+                    AegisSurface.REPORTS           -> ReportsSurface()
+                    AegisSurface.UW_QUEUE          -> UwQueueSurface()
+                    AegisSurface.AUDIT             -> AuditEventsSurface()
+                    AegisSurface.RATE_TABLES       -> ServerHealthSurface()
+                    AegisSurface.SETTINGS          -> SettingsSurface()
+                    else -> SurfaceTodo(active)
+                }
             }
+            AegisCommandPalette(
+                open = paletteOpen,
+                commands = commands,
+                onDismiss = { paletteOpen = false }
+            )
         }
-        AegisCommandPalette(
-            open = paletteOpen,
-            commands = commands,
-            onDismiss = { paletteOpen = false }
-        )
     }
 }
 
