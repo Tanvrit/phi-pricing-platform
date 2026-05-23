@@ -13,6 +13,7 @@ import com.rate.aegis.customer.buyonline.ui.addons.AddOnsScreen
 import com.rate.aegis.customer.buyonline.ui.complete.ApplicationCompleteScreen
 import com.rate.aegis.customer.buyonline.ui.complete.SatisfactionScreen
 import com.rate.aegis.customer.buyonline.ui.components.ResumeBanner
+import com.rate.aegis.customer.buyonline.ui.components.StepIndicator
 import com.rate.aegis.customer.buyonline.ui.details.PersonalDetailsScreen
 import com.rate.aegis.customer.buyonline.ui.getstarted.GetStartedScreen
 import com.rate.aegis.customer.buyonline.ui.health.CriticalIllnessScreen
@@ -56,10 +57,24 @@ fun BuyOnlineApp() {
             is BuyOnlineScreen.Satisfaction -> false
             else -> true
         }
+        // Step indicator follows the same suppression rules: skipped on the
+        // marketing Landing page (no journey yet) and on the two terminal
+        // screens (ApplicationComplete + Satisfaction — the journey is done).
+        // Sits *below* the ResumeBanner so the slim banner stays the very top
+        // surface and the indicator anchors the journey content underneath.
+        val showSteps = when (vm.currentScreen) {
+            is BuyOnlineScreen.Landing,
+            is BuyOnlineScreen.ApplicationComplete,
+            is BuyOnlineScreen.Satisfaction -> false
+            else -> true
+        }
 
         Column(Modifier.fillMaxSize()) {
             if (showBanner) {
                 ResumeBanner(sessionId = vm.sessionId)
+            }
+            if (showSteps) {
+                StepIndicator(currentScreen = vm.currentScreen)
             }
             // The screen body takes the remaining vertical space. We rely on
             // each screen managing its own internal scroll — wrapping in

@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,9 +34,11 @@ import com.rate.aegis.components.AegisHDivider
 import com.rate.aegis.components.CalloutKind
 import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.data.rememberDashboardData
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
+import com.rate.domain.model.BuyOnlineSessionState
 import com.rate.domain.money.formatRupees
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -242,11 +245,172 @@ fun ReportsSurface() {
             }
         }
 
+        // ── Customer journey funnel ──────────────────────────────────────
+        CustomerJourneyFunnelSection()
+
         // ── Footer ───────────────────────────────────────────────────────
         AegisHDivider()
         Text(
             "Aggregates over the last ${quotes.size} quotes returned by the server (default 200).",
             fontSize = 12.sp, color = AegisColors.textSecondary
+        )
+    }
+}
+
+// ── Customer journey funnel ──────────────────────────────────────────────
+/**
+ * Renders the 22-screen buyonline funnel using `/api/buy-online/sessions`.
+ * One bar per screen; the bar's width tracks `count / maxCount` so the most
+ * popular stage anchors the visual scale. Drop-off between consecutive
+ * screens is computed in declaration order (Landing → … → Satisfaction).
+ *
+ * Privacy: the fetched sessions include PII (mobile, pincode, age) — see the
+ * server-side route comment for the Phase-2 redaction plan. This surface
+ * never RENDERS those fields, only counts, but they're in memory.
+ */
+@Composable
+private fun CustomerJourneyFunnelSection() {
+    val client = rememberApiClient()
+    var sessions by remember { mutableStateOf<List<BuyOnlineSessionState>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(client) {
+        loading = true; error = null
+        runCatching { client.listBuyOnlineSessions(limit = 500) }
+            .onSuccess { sessions = it }
+            .onFailure { error = it.message ?: it::class.simpleName ?: "Unknown error" }
+        loading = false
+    }
+
+    AegisCard(
+        title = "Customer journey funnel",
+        subtitle = "Where buyonline sessions sit today, and where they drop off."
+    ) {
+        when {
+            loading -> EmptyHint("Loading buyonline sessions…")
+            error != null -> AegisCallout(
+                kind = CalloutKind.WARN,
+                title = "Could not load sessions",
+                body = error ?: "Unknown error fetching /api/buy-online/sessions."
+            )
+            sessions.isEmpty() -> AegisCallout(
+                kind = CalloutKind.INFO,
+                title = "No sessions yet",
+                body = "The funnel populates once customers begin the buyonline journey."
+            )
+            else -> {
+                val perScreen = sessions.groupBy { it.currentScreen }
+                    .mapValues { it.value.size }
+                val rows = BUYONLINE_SCREEN_ORDER.map { name ->
+                    FunnelRow(label = name, count = perScreen[name] ?: 0)
+                }
+                val maxCount = rows.maxOfOrNull { it.count } ?: 0
+                // Largest consecutive drop in the canonical order — that's the
+                // "worst" leak in the funnel from the operator's POV.
+                val biggestDrop = computeBiggestDrop(rows)
+
+                Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+                    Text(
+                        buildString {
+                            append("${sessions.size} sessions tracked")
+                            if (biggestDrop != null) {
+                                append(" · ${biggestDrop.lostCount} dropped at ${biggestDrop.fromLabel} → ${biggestDrop.toLabel}")
+                            }
+                        },
+                        fontSize = 13.sp,
+                        color = AegisColors.textSecondary
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        rows.forEach { row ->
+                            FunnelBarRow(
+                                label = row.label,
+                                count = row.count,
+                                maxCount = maxCount
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** Canonical declaration order from BuyOnlineScreen sealed-class. */
+private val BUYONLINE_SCREEN_ORDER: List<String> = listOf(
+    "Landing", "Otp", "GetStarted", "PreExistingDisease", "CriticalIllness",
+    "PlanLoading", "Eligibility", "Quote", "AddOns", "PlanSummary",
+    "PersonalDetails", "LifestyleQuestions", "MedicalQuestions",
+    "Payment", "PaymentSuccess", "KycMethod", "KycDetails", "KycOtp",
+    "BankDetails", "KycSubmitted", "ApplicationComplete", "Satisfaction"
+)
+
+private data class FunnelRow(val label: String, val count: Int)
+private data class FunnelDrop(val fromLabel: String, val toLabel: String, val lostCount: Int)
+
+/**
+ * Largest consecutive drop in declaration order. Counts are stage-occupancy
+ * (where sessions currently sit) not cumulative reached-this-stage tallies,
+ * but the drop heuristic is still useful — a big negative delta between
+ * adjacent screens flags a stage where many sessions stall.
+ */
+private fun computeBiggestDrop(rows: List<FunnelRow>): FunnelDrop? {
+    if (rows.size < 2) return null
+    var best: FunnelDrop? = null
+    for (i in 0 until rows.size - 1) {
+        val lost = rows[i].count - rows[i + 1].count
+        if (lost <= 0) continue
+        val current = best
+        if (current == null || lost > current.lostCount) {
+            best = FunnelDrop(rows[i].label, rows[i + 1].label, lost)
+        }
+    }
+    return best
+}
+
+@Composable
+private fun FunnelBarRow(label: String, count: Int, maxCount: Int) {
+    val ratio: Float = when {
+        maxCount <= 0 -> 0f
+        count <= 0 -> 0f
+        else -> (count.toFloat() / maxCount.toFloat()).coerceIn(0f, 1f)
+    }
+    Row(
+        Modifier.fillMaxWidth().height(26.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3)
+    ) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            color = AegisColors.textBody,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(160.dp)
+        )
+        Box(
+            Modifier.weight(1f).height(14.dp)
+                .background(AegisColors.slate2, RoundedCornerShape(3.dp))
+        ) {
+            // Zero-count rows render a thin dim sliver so the rhythm holds.
+            if (count == 0) {
+                Box(
+                    Modifier.fillMaxWidth(0.01f).height(14.dp)
+                        .background(AegisColors.slate3, RoundedCornerShape(3.dp))
+                )
+            } else {
+                val widthFraction = if (ratio < 0.02f) 0.02f else ratio
+                Box(
+                    Modifier.fillMaxWidth(widthFraction).height(14.dp)
+                        .background(AegisColors.indigo500, RoundedCornerShape(3.dp))
+                )
+            }
+        }
+        Text(
+            count.toString(),
+            fontSize = 12.sp,
+            color = AegisColors.textBody,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.width(56.dp)
         )
     }
 }

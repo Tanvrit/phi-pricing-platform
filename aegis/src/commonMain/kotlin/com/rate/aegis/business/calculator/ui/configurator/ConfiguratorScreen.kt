@@ -741,9 +741,11 @@ private fun PlanEditDialog(
                             verticalArrangement = Arrangement.spacedBy(4.dp),
                             modifier            = Modifier
                                 .fillMaxWidth()
-                                .heightIn(max = 200.dp)
+                                .heightIn(max = 280.dp)
                                 .verticalScroll(rememberScrollState())
                         ) {
+                            // Histogram of totalIncludingGst across valid (non-INVALID) rows.
+                            RecentQuotesHistogram(recentQuotes)
                             recentQuotes.forEach { row ->
                                 val id        = row["id"]?.jsonPrimitive?.contentOrNull ?: "—"
                                 val createdAt = row["createdAt"]?.jsonPrimitive?.contentOrNull
@@ -850,5 +852,123 @@ private fun ReadOnlyRow(label: String, value: String) {
             style    = MaterialTheme.typography.bodySmall,
             modifier = Modifier.weight(1f)
         )
+    }
+}
+
+// ── Recent-quotes histogram ───────────────────────────────────────────────
+//
+// Tiny 10-bucket horizontal bar chart of totalIncludingGst over the rows
+// returned by `getQuotesByPlan`. Rows with totalIncludingGst == 0.0 are
+// skipped (INVALID quotes). Renders nothing when fewer than 2 valid points
+// remain — bucketing single observations is meaningless.
+
+private const val HISTOGRAM_BUCKET_COUNT = 10
+private const val HISTOGRAM_LABEL_ROUNDING = 10_000.0   // ₹10k granularity
+
+private fun roundForLabel(v: Double): Double {
+    if (v <= 0.0) return 0.0
+    val r = HISTOGRAM_LABEL_ROUNDING
+    // round to nearest ₹10k without String.format
+    return (kotlin.math.round(v / r)) * r
+}
+
+@Composable
+private fun RecentQuotesHistogram(rows: List<Map<String, JsonElement>>) {
+    val totals = rows
+        .mapNotNull { it["totalIncludingGst"]?.jsonPrimitive?.doubleOrNull }
+        .filter { it > 0.0 }
+
+    if (totals.size < 2) return   // silently omit — not enough data to bucket
+
+    val minV = totals.min()
+    val maxV = totals.max()
+    val avg  = totals.sum() / totals.size
+
+    // Degenerate spread (all identical premiums): show summary line only,
+    // skip the chart since 10 equal-width buckets would all be width 0.
+    val spread = maxV - minV
+    val showChart = spread > 0.0
+
+    val summary = buildString {
+        append(totals.size).append(" valid quotes · ")
+        append(formatRupees(minV)).append(" to ").append(formatRupees(maxV))
+        if (totals.size >= 3) {
+            append(" · avg ").append(formatRupees(avg))
+        }
+    }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+        modifier            = Modifier.fillMaxWidth().padding(bottom = 6.dp)
+    ) {
+        Text(
+            summary,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.outline
+        )
+
+        if (!showChart) return@Column
+
+        val bucketCount = HISTOGRAM_BUCKET_COUNT
+        val width = spread / bucketCount
+        val counts = IntArray(bucketCount)
+        totals.forEach { v ->
+            // last bucket is inclusive of max
+            val idx = if (v >= maxV) bucketCount - 1
+                      else ((v - minV) / width).toInt().coerceIn(0, bucketCount - 1)
+            counts[idx] = counts[idx] + 1
+        }
+        val peak = counts.max().coerceAtLeast(1)
+
+        for (i in 0 until bucketCount) {
+            val lo = minV + width * i
+            val hi = if (i == bucketCount - 1) maxV else minV + width * (i + 1)
+            val loLabel = roundForLabel(lo)
+            val hiLabel = roundForLabel(hi)
+            val label = "${formatRupees(loLabel)} – ${formatRupees(hiLabel)}"
+            val c = counts[i]
+            val frac = (c.toDouble() / peak.toDouble()).toFloat()
+            val isPeak = c == peak && c > 0
+            val barColor =
+                if (isPeak) MaterialTheme.colorScheme.primary
+                else        MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+
+            Row(
+                modifier              = Modifier.fillMaxWidth(),
+                verticalAlignment     = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(
+                    label,
+                    style    = MaterialTheme.typography.bodySmall,
+                    fontSize = 10.sp,
+                    color    = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.width(150.dp)
+                )
+                // fixed-width track; bar fills a fraction of it
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(8.dp)
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                ) {
+                    if (c > 0) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth(frac)
+                                .height(8.dp)
+                                .background(barColor)
+                        )
+                    }
+                }
+                Text(
+                    c.toString(),
+                    style    = MaterialTheme.typography.bodySmall,
+                    fontSize = 10.sp,
+                    modifier = Modifier.width(20.dp),
+                    textAlign = TextAlign.End
+                )
+            }
+        }
     }
 }

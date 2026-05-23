@@ -171,6 +171,17 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun metricsText(): String = http.get("$baseUrl/metrics").bodyAsText()
 
+    // ── Buy-online sessions (operator analytics) ──────────────────────────
+
+    /**
+     * Recent buy-online session snapshots for the Reports "Customer journey"
+     * funnel. Server caps at 2000; default 500. NOTE: response includes PII
+     * (mobile, pincode, age) today — see the server-side comment for the
+     * Phase-2 redaction plan.
+     */
+    suspend fun listBuyOnlineSessions(limit: Int = 500): List<BuyOnlineSessionState> =
+        http.get("$baseUrl/api/buy-online/sessions?limit=$limit").body()
+
     // ── Operators (Phase-1 RBAC allowlist) ────────────────────────────────
 
     suspend fun listOperators(): List<ApiOperator> =

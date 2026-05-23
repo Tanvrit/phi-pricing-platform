@@ -412,6 +412,24 @@ fun Route.buyOnlineRoutes(
             else call.respond(state)
         }
 
+        // ── Aggregated sessions list (operator analytics) ────────────────────
+        // Feeds the Aegis Reports "Customer journey" funnel. No scope gate yet —
+        // operator surfaces will read this aggregator; Phase 2 can layer
+        // `requireScope("sessions.read")` on top once the RBAC story tightens.
+        //
+        // PII NOTICE — Phase-2 redaction target:
+        //   BuyOnlineSessionState today carries raw `mobile`, `pincode`, and `eldestAge`.
+        //   Exposing these to operators is acceptable for Phase 1 (small operator set,
+        //   internal-only Aegis surface) but BEFORE this endpoint is reachable from a
+        //   broader audience we MUST either (a) hash `mobile` server-side here
+        //   (e.g. SHA-256 with a per-deployment salt before returning), (b) return a
+        //   projected DTO with PII fields stripped, or (c) require an explicit
+        //   `pii.read` scope. Pick one when the funnel ships externally.
+        get("/sessions") {
+            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 500).coerceIn(1, 2000)
+            call.respond(sessionRepo.listSessions(limit))
+        }
+
         // ── Track proposal ───────────────────────────────────────────────────
         get("/proposal/{proposalNumber}") {
             val num = call.parameters["proposalNumber"] ?: throw IllegalArgumentException("Missing proposal number")
