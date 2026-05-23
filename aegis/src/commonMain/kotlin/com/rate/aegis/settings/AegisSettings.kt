@@ -41,6 +41,16 @@ import kotlinx.serialization.json.Json
  *                    are unaffected. Read once on first composition of the
  *                    notification list (matches the theme/locale apply-on-
  *                    next-open contract). Default empty = nothing muted.
+ *   localeAutoSeeded — one-shot guard for the browser-locale auto-seed. The
+ *                    AegisRoot reads `navigator.language` (or JVM
+ *                    `Locale.getDefault()`) on first launch and, if it starts
+ *                    with "hi" AND this flag is still `false`, persists
+ *                    `locale = "hi", localeAutoSeeded = true`. Once flipped,
+ *                    we NEVER auto-seed again — even if the operator manually
+ *                    switches back to "en". That decision sticks. The flag is
+ *                    intentionally single-purpose; the cost is one boolean in
+ *                    the persisted JSON, and the alternative (skip-on-later)
+ *                    would silently regress any future Hindi-speaking customer.
  *
  * The settings record is intentionally narrow.
  */
@@ -52,6 +62,7 @@ data class AegisSettings(
     val operatorIdentity: String = "",
     val locale: String = "en",
     val mutedNotificationActions: Set<String> = emptySet(),
+    val localeAutoSeeded: Boolean = false,
 )
 
 /**

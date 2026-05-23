@@ -33,6 +33,7 @@ import com.rate.aegis.data.openAuditStream
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
 import com.rate.aegis.util.copyToClipboard
+import com.rate.domain.money.formatRupees
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -44,6 +45,8 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
@@ -528,33 +531,53 @@ fun AuditEventsSurface() {
                 AegisHDivider()
                 Text("Payload", fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
                     color = AegisColors.textSecondary)
-                if (row.action == "plan.upserted") {
-                    val parsed = remember(row.payloadJson) {
-                        row.payloadJson?.let {
-                            runCatching { Json.parseToJsonElement(it) }
-                                .getOrNull() as? JsonObject
+                // Parse once; the structured renderers all consume the same
+                // [JsonObject] and the prettify fallback re-uses the original
+                // raw string so a non-object payload still renders as text.
+                val parsedPayload = remember(row.payloadJson) {
+                    row.payloadJson?.let {
+                        runCatching { Json.parseToJsonElement(it) }
+                            .getOrNull() as? JsonObject
+                    }
+                }
+                when {
+                    row.action == "plan.upserted" -> {
+                        if (parsedPayload == null) {
+                            Text("(no payload)", fontSize = 13.sp,
+                                color = AegisColors.textSecondary)
+                        } else {
+                            val isCreate =
+                                parsedPayload["isCreate"]?.jsonPrimitive?.booleanOrNull ?: false
+                            val planId =
+                                parsedPayload["planId"]?.jsonPrimitive?.contentOrNull
+                            val changes = parsedPayload["changes"] as? JsonObject
+                            PlanDiffView(planId = planId, isCreate = isCreate, changes = changes)
                         }
                     }
-                    if (parsed == null) {
-                        Text("(no payload)", fontSize = 13.sp, color = AegisColors.textSecondary)
-                    } else {
-                        val isCreate =
-                            parsed["isCreate"]?.jsonPrimitive?.booleanOrNull ?: false
-                        val planId = parsed["planId"]?.jsonPrimitive?.contentOrNull
-                        val changes = parsed["changes"] as? JsonObject
-                        PlanDiffView(planId = planId, isCreate = isCreate, changes = changes)
-                    }
-                } else {
-                    val pretty = remember(row.payloadJson) { prettyJson(row.payloadJson) }
-                    if (pretty == null) {
-                        Text("(no payload)", fontSize = 13.sp, color = AegisColors.textSecondary)
-                    } else {
-                        Text(
-                            pretty,
-                            fontSize = 12.sp,
-                            fontFamily = FontFamily.Monospace,
-                            color = AegisColors.textBody
-                        )
+                    row.action == "quote.created" && parsedPayload != null ->
+                        QuoteCreatedView(parsedPayload)
+                    row.action == "quote.calculated" && parsedPayload != null ->
+                        QuoteCalculatedView(parsedPayload)
+                    row.action == "session.email_requested" && parsedPayload != null ->
+                        SessionEmailView(parsedPayload)
+                    row.action == "outbox.purged" && parsedPayload != null ->
+                        OutboxPurgeView(parsedPayload)
+                    (row.action == "audit.chain_verified" ||
+                            row.action == "audit.chain_broken") && parsedPayload != null ->
+                        ChainVerifyView(parsedPayload)
+                    else -> {
+                        val pretty = remember(row.payloadJson) { prettyJson(row.payloadJson) }
+                        if (pretty == null) {
+                            Text("(no payload)", fontSize = 13.sp,
+                                color = AegisColors.textSecondary)
+                        } else {
+                            Text(
+                                pretty,
+                                fontSize = 12.sp,
+                                fontFamily = FontFamily.Monospace,
+                                color = AegisColors.textBody
+                            )
+                        }
                     }
                 }
             }
@@ -1441,5 +1464,219 @@ private fun renderDiffValue(el: JsonElement?): String {
         raw.take(DIFF_VALUE_TRUNCATE - 1) + "…"
     } else {
         raw
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Structured payload renderers (iteration cb).
+//
+// Each takes a parsed [JsonObject] and emits a compact 3-5 row mono-keyed
+// summary matching [PlanDiffView]'s density. Field extractors are tolerant —
+// a missing or wrong-typed field renders as "—" rather than blowing up the
+// drawer, so a server-side schema drift downgrades gracefully to the
+// generic prettify fallback path's signal level.
+// ---------------------------------------------------------------------------
+
+/**
+ * One labelled row of a payload summary table: monospaced key on the left
+ * (fixed 140dp to match [DiffRow]'s field column), value on the right.
+ * Plays the same visual role as [LedgerRow] but lives next to the structured
+ * renderers so it can evolve independently of the drawer-header rows.
+ */
+@Composable
+private fun PayloadRow(label: String, value: String, mono: Boolean = false) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = AegisSpacing.s1),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            label,
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            color = AegisColors.textSecondary,
+            modifier = Modifier.width(140.dp).padding(end = AegisSpacing.s2),
+        )
+        Text(
+            value,
+            fontSize = 12.sp,
+            fontFamily = if (mono) FontFamily.Monospace else FontFamily.Default,
+            fontWeight = FontWeight.Medium,
+            color = AegisColors.textBody,
+            modifier = Modifier.weight(1f),
+        )
+    }
+}
+
+/** Extract a string field with "—" fallback on missing or non-primitive values. */
+private fun JsonObject.strOr(key: String, fallback: String = "—"): String =
+    this[key]?.jsonPrimitive?.contentOrNull ?: fallback
+
+/** Extract a numeric field as Double; null when missing/non-numeric. */
+private fun JsonObject.numOrNull(key: String): Double? {
+    val prim = this[key]?.jsonPrimitive ?: return null
+    prim.doubleOrNull?.let { return it }
+    prim.longOrNull?.let { return it.toDouble() }
+    return prim.contentOrNull?.toDoubleOrNull()
+}
+
+/** Extract an Int field with sane null fallback. */
+private fun JsonObject.intFieldOrNull(key: String): Int? {
+    val prim = this[key]?.jsonPrimitive ?: return null
+    prim.intOrNull?.let { return it }
+    prim.longOrNull?.let { return it.toInt() }
+    return prim.contentOrNull?.toIntOrNull()
+}
+
+/**
+ * Compact summary for a `quote.created` ledger row. Operators tracking a
+ * support case want to see the saved plan id + actuarial inputs and the
+ * final premium without parsing JSON.
+ */
+@Composable
+private fun QuoteCreatedView(payload: JsonObject) {
+    val planId = payload.strOr("planId")
+    val primaryAge = payload.strOr("primaryAge")
+    val sumInsured = payload.numOrNull("sumInsured")
+    val finalPremium = payload.numOrNull("finalPremium")
+    Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s1)) {
+        Text(
+            "Quote saved · plan $planId · age $primaryAge",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AegisColors.textBody,
+        )
+        Spacer(Modifier.height(AegisSpacing.s1))
+        PayloadRow("planId", planId, mono = true)
+        PayloadRow("primaryAge", primaryAge, mono = true)
+        PayloadRow("sumInsured",
+            sumInsured?.let { formatRupees(it) } ?: "—")
+        PayloadRow("familyType", payload.strOr("familyType"))
+        PayloadRow("zone", payload.strOr("zone"))
+        PayloadRow("tenure", payload.strOr("tenure"))
+        PayloadRow("finalPremium",
+            finalPremium?.let { formatRupees(it) } ?: "—")
+    }
+}
+
+/**
+ * Compact summary for a `quote.calculated` ledger row. Same shape as
+ * [QuoteCreatedView] but flags invalid quotes with a DANGER badge next to
+ * the headline so operators spot validation failures at a glance.
+ */
+@Composable
+private fun QuoteCalculatedView(payload: JsonObject) {
+    val planId = payload.strOr("planId")
+    val primaryAge = payload.strOr("primaryAge")
+    val sumInsured = payload.numOrNull("sumInsured")
+    val isValid = payload["isValid"]?.jsonPrimitive?.booleanOrNull ?: true
+    val total = payload.numOrNull("totalIncludingGst")
+    Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s1)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Quote calculated · plan $planId",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = AegisColors.textBody,
+            )
+            if (!isValid) {
+                Spacer(Modifier.width(AegisSpacing.s2))
+                Box(
+                    Modifier
+                        .background(AegisColors.danger100, RoundedCornerShape(4.dp))
+                        .padding(horizontal = AegisSpacing.s2, vertical = 2.dp),
+                ) {
+                    Text(
+                        "INVALID",
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        color = AegisColors.danger700,
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(AegisSpacing.s1))
+        PayloadRow("planId", planId, mono = true)
+        PayloadRow("primaryAge", primaryAge, mono = true)
+        PayloadRow("sumInsured",
+            sumInsured?.let { formatRupees(it) } ?: "—")
+        PayloadRow("isValid", isValid.toString(), mono = true)
+        PayloadRow("totalIncludingGst",
+            total?.let { formatRupees(it) } ?: "—")
+    }
+}
+
+/**
+ * Compact summary for a `session.email_requested` ledger row. The recipient
+ * leads on the headline; the resume URL lives below in monospace so an
+ * operator can copy it verbatim from the drawer when chasing a "the email
+ * never arrived" case.
+ */
+@Composable
+private fun SessionEmailView(payload: JsonObject) {
+    val email = payload.strOr("email")
+    val url = payload.strOr("url")
+    Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s1)) {
+        Text(
+            "Resume link sent to $email",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AegisColors.textBody,
+        )
+        Text(
+            url,
+            fontSize = 11.sp,
+            fontFamily = FontFamily.Monospace,
+            color = AegisColors.textSecondary,
+        )
+    }
+}
+
+/**
+ * Compact summary for an `outbox.purged` ledger row — a single sentence in
+ * the drawer matches the parent surface's purge-complete toast wording.
+ */
+@Composable
+private fun OutboxPurgeView(payload: JsonObject) {
+    val olderThanDays = payload.intFieldOrNull("olderThanDays")
+    val requested = payload.intFieldOrNull("requested")
+    val deleted = payload.intFieldOrNull("deleted")
+    Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s1)) {
+        Text(
+            "Purged ${deleted ?: "?"} of ${requested ?: "?"} emails older than " +
+                    "${olderThanDays ?: "?"} days.",
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AegisColors.textBody,
+        )
+        Spacer(Modifier.height(AegisSpacing.s1))
+        PayloadRow("olderThanDays", olderThanDays?.toString() ?: "—", mono = true)
+        PayloadRow("requested", requested?.toString() ?: "—", mono = true)
+        PayloadRow("deleted", deleted?.toString() ?: "—", mono = true)
+    }
+}
+
+/**
+ * Compact summary for `audit.chain_verified` / `audit.chain_broken` ledger
+ * rows. Re-uses [AegisCallout] so the verify result reads the same in the
+ * drawer as in the parent surface's chain-integrity card — operators get
+ * the same SUCCESS/DANGER signal without context-switching.
+ */
+@Composable
+private fun ChainVerifyView(payload: JsonObject) {
+    val ok = payload["ok"]?.jsonPrimitive?.booleanOrNull ?: false
+    val rowsChecked = payload.intFieldOrNull("rowsChecked")
+    val breakAtId = payload.intFieldOrNull("breakAtId")
+    val reason = payload["reason"]?.jsonPrimitive?.contentOrNull
+    if (ok) {
+        AegisCallout(
+            kind = CalloutKind.SUCCESS,
+            title = "Chain verified · ${rowsChecked ?: "?"} rows",
+        )
+    } else {
+        AegisCallout(
+            kind = CalloutKind.DANGER,
+            title = "Chain broken at row #${breakAtId ?: "?"}: ${reason ?: "(no reason)"}",
+        )
     }
 }

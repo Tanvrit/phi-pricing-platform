@@ -35,6 +35,7 @@ import com.rate.aegis.components.NotificationDropdown
 import com.rate.aegis.customer.buyonline.BuyOnlineApp
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.data.rememberDashboardData
+import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.surfaces.audit.AuditEventsSurface
 import com.rate.aegis.surfaces.calculator.CalculatorSurface
 import com.rate.aegis.surfaces.covers.CoverCatalogSurface
@@ -64,6 +65,41 @@ import com.rate.domain.model.Plan
  */
 @Composable
 fun AegisRoot(role: AegisRole) {
+    // One-time browser-locale auto-seed. Runs once per AegisRoot construction
+    // (NOT per recomposition — `Unit` key) and persists the result so we never
+    // re-seed on subsequent launches.
+    //
+    // Trigger conditions (all must hold):
+    //   1. `AegisSettings.localeAutoSeeded == false` (this is the first launch
+    //      since the flag was added, OR the operator has never touched locale).
+    //   2. `AegisLaunchContext.hostLocale?.startsWith("hi") == true` (Hindi is
+    //      the only non-default language we seed for; everything else falls
+    //      through to the "en" default).
+    //
+    // After flipping the flag once we leave it alone forever — even if the
+    // operator manually switches back to "en", we will NOT re-seed on the next
+    // boot. This is the apply-on-next-page-open contract the rest of the
+    // settings surface already advertises.
+    //
+    // `AegisTheme` reads the persisted settings on every recomposition, so once
+    // the save lands the next theme recomposition picks up `locale = "hi"`
+    // automatically — no need to manually invalidate anything from here.
+    LaunchedEffect(Unit) {
+        val current = runCatching { AegisSettingsStore.load() }.getOrNull() ?: return@LaunchedEffect
+        if (current.localeAutoSeeded) return@LaunchedEffect
+        val host = AegisLaunchContext.hostLocale?.lowercase()
+        if (host?.startsWith("hi") == true) {
+            // Persist BOTH the locale flip AND the guard flag in a single save
+            // so the next boot is a no-op. We deliberately leave the flag at
+            // its default `false` when the host language ISN'T Hindi — that
+            // way a customer whose browser later switches to Hindi still gets
+            // the auto-seed on their next visit (the contract is "first time
+            // we see a Hindi browser", not "first ever boot").
+            runCatching {
+                AegisSettingsStore.save(current.copy(locale = "hi", localeAutoSeeded = true))
+            }
+        }
+    }
     AegisTheme {
         when (role) {
             AegisRole.CUSTOMER -> BuyOnlineApp()

@@ -72,6 +72,24 @@ data class OutboxEntry(
 data class PurgeResult(val requested: Int, val deleted: Int)
 
 /**
+ * Wire-only mirror of the server's `ServerConfigInfo`. Read-only snapshot of
+ * effective runtime config — version, listening port, sanitised DB host (host
+ * + db only, NO credentials), CORS allowlist, OTP / idempotency TTLs, and the
+ * server's boot timestamp. Gated server-side by `audit.verify`; the calling
+ * surface follows the same 403-→-WARN contract as the other diagnostics.
+ */
+@Serializable
+data class ServerConfigInfo(
+    val version: String,
+    val port: Int,
+    val dbHost: String,
+    val corsOrigins: List<String>,
+    val otpTtlSec: Int,
+    val idempotencyTtlHours: Int,
+    val startedAtIso: String,
+)
+
+/**
  * Wire-only DTO mirror of the server's [com.rate.server.auth.Operator]. Lives in
  * the client file so :shared doesn't need to know about RBAC primitives.
  */
@@ -367,6 +385,23 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      * client dep in commonMain.
      */
     suspend fun metricsText(): String = http.get("$baseUrl/metrics").bodyAsText()
+
+    /**
+     * Effective server config snapshot for the Aegis "Server config" diagnostic
+     * card. Scope-gated server-side (`audit.verify`); we re-use the same 403-
+     * →-thrown-error contract as [verifyAuditChain] / [listIdempotencyKeys] so
+     * the calling surface can render a WARN callout instead of a Ktor exception
+     * type leaking into commonMain. Server strips secrets before responding —
+     * see `ServerConfigInfo` defence-in-depth note.
+     */
+    suspend fun getServerConfig(): ServerConfigInfo {
+        val resp = http.get("$baseUrl/api/admin/config")
+        if (!resp.status.isSuccess()) {
+            val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
+            error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
+        }
+        return resp.body()
+    }
 
     // ── Buy-online sessions (operator analytics) ──────────────────────────
 

@@ -17,6 +17,16 @@ import io.ktor.server.application.*
 import io.ktor.server.netty.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
+
+/**
+ * Captured once at JVM boot (class init), surfaced verbatim by
+ * `/api/admin/config` so the Aegis "Server config" diagnostic card can
+ * show how long this server process has been running. Top-level so the
+ * routes package can import it directly without threading it through DI.
+ */
+val startedAt: Instant = Clock.System.now()
 
 fun main(args: Array<String>): Unit = EngineMain.main(args)
 

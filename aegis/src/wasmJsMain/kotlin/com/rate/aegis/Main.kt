@@ -2,6 +2,7 @@ package com.rate.aegis
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
+import com.rate.aegis.i18n.detectHostLocale
 import com.rate.aegis.settings.AegisSettingsStore
 import kotlinx.browser.document
 import kotlinx.browser.window
@@ -30,6 +31,10 @@ fun main() {
     // point prefers the quote (the operator just shared it; the half-done
     // session is presumably older context).
     AegisLaunchContext.quoteId = quoteFromQueryString(search)
+    // Read `navigator.language` once before Compose boots; AegisRoot uses this
+    // to one-time-auto-seed `AegisSettings.locale = "hi"` on a Hindi-speaking
+    // customer's first visit. Null = no detection, no auto-seed.
+    AegisLaunchContext.hostLocale = detectHostLocale()
     ComposeViewport(document.body!!) {
         AegisRoot(role)
     }

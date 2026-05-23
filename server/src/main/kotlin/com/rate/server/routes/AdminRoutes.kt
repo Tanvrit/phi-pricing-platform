@@ -5,6 +5,7 @@ import com.rate.server.audit.AuditEventService
 import com.rate.server.auth.requireScope
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
 import com.rate.server.plugins.REQUEST_ID_KEY
+import com.rate.server.startedAt
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.delete
@@ -15,6 +16,31 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import java.io.File
+
+/**
+ * Wire-level mirror of the operator-side "Server config" diagnostic card.
+ *
+ * Read-only snapshot of the server's effective runtime config — version,
+ * listening port, sanitised DB host (no creds), CORS allowlist, OTP / idempotency
+ * TTLs, and boot timestamp. Mirrored byte-for-byte by `ApiClient.ServerConfigInfo`
+ * in `:aegis/commonMain`.
+ *
+ * Defence-in-depth: NEVER widen this DTO to include the DB password, the OTP
+ * token secret, or any other env-loaded credential. The endpoint is scope-gated
+ * (`audit.verify`), but a leaky DTO would still embarrass us in logs / audit
+ * payloads. If you need to surface another setting, double-check it isn't a
+ * secret first.
+ */
+@Serializable
+data class ServerConfigInfo(
+    val version: String,
+    val port: Int,
+    val dbHost: String,
+    val corsOrigins: List<String>,
+    val otpTtlSec: Int,
+    val idempotencyTtlHours: Int,
+    val startedAtIso: String,
+)
 
 /**
  * Wire-level mirror of a single `.eml` row in the Phase-1 filesystem outbox.
@@ -55,6 +81,44 @@ data class OutboxPurgeResponse(val requested: Int, val deleted: Int)
  * the operator-initiated purge is traceable through the chain.
  */
 fun Route.adminRoutes(outboxDir: File, auditService: AuditEventService) {
+    // Sibling diagnostic: effective server config snapshot. Gated under the
+    // same `audit.verify` scope used by the outbox listing / idempotency cache
+    // walker — operators with that scope already see the surrounding server
+    // state and a dedicated `config.read` scope would be pure noise.
+    get("/api/admin/config") {
+        if (!requireScope("audit.verify")) return@get
+        // DB host extraction: turn `jdbc:postgresql://host:port/db?params=...`
+        // into `host:port/db`. We strip both the `jdbc:` prefix portion AND
+        // any `?query=string` so we don't accidentally surface a password that
+        // a poorly-configured deployment has dropped into the URL itself.
+        // Falls back to "(unset)" if DB_URL isn't in the environment (config
+        // file default is the local dev URL, which is fine to expose).
+        val dbHost = System.getenv("DB_URL")?.let { url ->
+            val afterScheme = url.substringAfter("//", url)
+            afterScheme.substringBefore("?")
+        } ?: "(unset)"
+        val corsOrigins = (System.getenv("CORS_ALLOWED_ORIGINS") ?: "")
+            .split(",")
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+        call.respond(
+            ServerConfigInfo(
+                version = "0.1.0-dev",
+                port = (System.getenv("PORT") ?: "9090").toIntOrNull() ?: 9090,
+                dbHost = dbHost,
+                corsOrigins = corsOrigins,
+                // OTP code TTL (mirrors OtpService.OTP_TTL_SECONDS) and the
+                // IdempotencyService 24h purge window. Hardcoded here because
+                // those constants are private to their services today; if they
+                // ever become tunable we'll plumb them through DI rather than
+                // re-reading env vars in the route.
+                otpTtlSec = 300,
+                idempotencyTtlHours = 24,
+                startedAtIso = startedAt.toString(),
+            )
+        )
+    }
+
     route("/api/admin/outbox") {
         get {
             if (!requireScope("audit.verify")) return@get

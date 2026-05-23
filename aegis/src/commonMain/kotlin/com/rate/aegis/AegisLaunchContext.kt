@@ -23,4 +23,17 @@ object AegisLaunchContext {
      * Null = no shared quote, fall through to the normal journey.
      */
     var quoteId: String? = null
+
+    /**
+     * Host-locale snapshot captured once at process start by the platform `main`
+     * (`detectHostLocale()` — JVM `Locale.getDefault().language`, WASM
+     * `navigator.language`). Read once by [com.rate.aegis.AegisRoot] to decide
+     * whether to one-time-auto-seed `AegisSettings.locale = "hi"` for first-run
+     * Hindi-speaking customers.
+     *
+     * Null = the platform either didn't expose one, threw, or the platform main
+     * forgot to set it (defensive — production mains always set it). On null we
+     * skip auto-seed and leave the persisted "en" default in place.
+     */
+    var hostLocale: String? = null
 }

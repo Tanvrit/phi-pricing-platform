@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.LocalRefreshTicker
+import com.rate.aegis.business.calculator.api.ServerConfigInfo
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -60,6 +61,15 @@ fun ServerHealthSurface() {
 
     var rawExpanded by remember { mutableStateOf(false) }
 
+    // Server config snapshot — fetched once on first composition. Single-shot
+    // by design (the prompt forbids a per-card refresh button); the global
+    // Refresh button at the shell level re-keys all `LaunchedEffect`s via
+    // `LocalRefreshTicker`, which is enough to pick up changes (e.g. operator
+    // restarted the server with a new port/CORS list).
+    var configInfo by remember { mutableStateOf<ServerConfigInfo?>(null) }
+    var configError by remember { mutableStateOf<String?>(null) }
+    var configLoaded by remember { mutableStateOf(false) }
+
     val refreshTick by LocalRefreshTicker.current
 
     // ── /health poller (5s) ──────────────────────────────────────────────
@@ -98,6 +108,22 @@ fun ServerHealthSurface() {
                 }
             delay(10_000L)
         }
+    }
+
+    // ── /api/admin/config (single fetch per refresh) ─────────────────────
+    // Keyed on `refreshTick` so the shell-level Refresh button picks up any
+    // operator-side env changes without us wiring a per-card button.
+    LaunchedEffect(client, refreshTick) {
+        configLoaded = false
+        runCatching { client.getServerConfig() }
+            .onSuccess {
+                configInfo = it
+                configError = null
+            }
+            .onFailure { t ->
+                configError = t.message ?: t::class.simpleName ?: "unknown error"
+            }
+        configLoaded = true
     }
 
     Column(
@@ -198,6 +224,18 @@ fun ServerHealthSurface() {
                 OtpTile("Conflict", "idempotent_conflict_total", metricsMap, Modifier.weight(1f))
             }
         }
+
+        // ── 3d. Server config card ──────────────────────────────────────
+        // Read-only readout of `/api/admin/config`. The endpoint is gated by
+        // `audit.verify`; a 403 routes to a WARN callout instead of a red
+        // alarm (operator just hasn't been granted the scope yet). Secrets
+        // (DB password, OTP token secret) are intentionally NOT in the wire
+        // payload — see `ServerConfigInfo` defence-in-depth note.
+        ServerConfigCard(
+            info = configInfo,
+            error = configError,
+            loaded = configLoaded,
+        )
 
         // ── 4. Metrics card ─────────────────────────────────────────────
         AegisCard(
@@ -400,4 +438,107 @@ internal fun formatMetric(v: Double): String {
     if (v.isInfinite()) return if (v > 0) "+Inf" else "-Inf"
     val l = v.toLong()
     return if (l.toDouble() == v) l.toString() else v.toString()
+}
+
+/**
+ * "Server config" diagnostic card — read-only snapshot of `/api/admin/config`.
+ *
+ * Three rendering states:
+ *   - `!loaded`            → "Loading server config…" hint
+ *   - `error != null`      → WARN callout (insufficient-scope 403) or DANGER
+ *                            callout (network / 5xx). Substring-detect "403"
+ *                            mirrors the contract used by [IdempotencyCacheCard]
+ *                            and [ChainIntegrityCard] in AuditEventsSurface so
+ *                            unbootstrapped operators get actionable guidance
+ *                            instead of a red alarm.
+ *   - `info != null`       → 7 inline key-value rows.
+ *
+ * CORS list is comma-joined and soft-truncated at ~80 chars so a long allow-
+ * list doesn't blow out the row height; the full list still goes over the wire
+ * and is available via the raw `/api/admin/config` curl.
+ */
+@Composable
+private fun ServerConfigCard(
+    info: ServerConfigInfo?,
+    error: String?,
+    loaded: Boolean,
+) {
+    AegisCard(
+        title = "Server config",
+        subtitle = "Effective runtime settings — read-only snapshot. " +
+                "Fetched once on surface open; the global Refresh button re-fetches.",
+    ) {
+        when {
+            !loaded -> Text(
+                "Loading server config…",
+                fontSize = 13.sp,
+                color = AegisColors.textSecondary,
+            )
+            error != null -> {
+                val is403 = error.contains("403")
+                AegisCallout(
+                    kind = if (is403) CalloutKind.WARN else CalloutKind.DANGER,
+                    title = if (is403) "Insufficient scope (403)"
+                            else "Server config unavailable",
+                    body = if (is403)
+                        "The current operator identity does not have the `audit.verify` scope " +
+                                "(reused for this diagnostic). Set your identity in Settings or ask " +
+                                "an admin to grant the scope. Detail: $error"
+                    else
+                        "Could not fetch /api/admin/config: $error",
+                )
+            }
+            info != null -> {
+                val corsDisplay = run {
+                    val joined = if (info.corsOrigins.isEmpty()) "(none)"
+                                 else info.corsOrigins.joinToString(", ")
+                    if (joined.length <= 80) joined else joined.take(77) + "…"
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                    val rows = listOf(
+                        "Version" to info.version,
+                        "Port" to info.port.toString(),
+                        "DB host" to info.dbHost,
+                        "CORS origins" to corsDisplay,
+                        "OTP TTL" to "${info.otpTtlSec}s",
+                        "Idempotency TTL" to "${info.idempotencyTtlHours}h",
+                        "Started at" to info.startedAtIso,
+                    )
+                    rows.forEachIndexed { idx, (label, value) ->
+                        ServerConfigRow(label, value)
+                        if (idx < rows.size - 1) AegisHDivider()
+                    }
+                }
+            }
+            else -> Text(
+                "(no config payload returned)",
+                fontSize = 13.sp,
+                color = AegisColors.textSecondary,
+            )
+        }
+    }
+}
+
+/**
+ * Inline key-value row inside [ServerConfigCard]. Same visual shape as
+ * [KeyValueRow] above but kept private here so the prompt's "DO NOT touch
+ * other surfaces" constraint stays intact — no risk of accidentally drifting
+ * the shared one.
+ */
+@Composable
+private fun ServerConfigRow(label: String, value: String) {
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(label, fontSize = 13.sp, color = AegisColors.textSecondary)
+        Text(
+            value,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            color = AegisColors.textBody,
+            fontFamily = FontFamily.Monospace,
+        )
+    }
 }

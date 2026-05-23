@@ -10,6 +10,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import com.rate.aegis.business.calculator.api.ApiClient
+import com.rate.aegis.i18n.detectHostLocale
 import com.rate.aegis.settings.AegisSettingsStore
 import kotlinx.coroutines.delay
 
@@ -39,6 +40,11 @@ fun main() {
     // `?quote=` query so an operator can sanity-check the read-only summary
     // view from the JVM build before sending the link out.
     AegisLaunchContext.quoteId = System.getProperty("aegis.quote")?.trim()?.takeIf { it.isNotEmpty() }
+
+    // Capture the host language tag once before Compose boots; AegisRoot uses
+    // this to one-time-auto-seed `AegisSettings.locale = "hi"` on first launch
+    // for Hindi-speaking customers. Null = no detection, no auto-seed.
+    AegisLaunchContext.hostLocale = detectHostLocale()
 
     val baseTitle = when (role) {
         AegisRole.CUSTOMER -> "Aegis — Buy Online (preview)"
