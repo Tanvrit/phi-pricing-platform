@@ -2,6 +2,8 @@ package com.rate.aegis.customer.buyonline
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,10 +27,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.AegisLaunchContext
+import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.customer.buyonline.api.BuyOnlineApiClient
 import com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen
 import com.rate.aegis.customer.buyonline.ui.addons.AddOnsScreen
@@ -59,6 +63,7 @@ import com.rate.aegis.customer.buyonline.ui.summary.PlanSummaryScreen
 import com.rate.aegis.customer.buyonline.ui.theme.PRUHealthTheme
 import com.rate.aegis.customer.buyonline.ui.theme.PruBackground
 import com.rate.aegis.customer.buyonline.ui.theme.PruRed
+import com.rate.aegis.customer.buyonline.ui.theme.PruSubtext
 import com.rate.aegis.customer.buyonline.ui.theme.PruText
 import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
 import kotlinx.coroutines.delay
@@ -116,21 +121,17 @@ fun BuyOnlineApp() {
     // Session-age derived value, used to decide whether to surface the
     // "expires soon" banner below. The server-side save+resume row has a
     // documented 30-day TTL (not yet enforced — that's a Phase-2 cleanup
-    // task) so we warn the customer once they cross 25 days. Keyed on the
-    // VM's sessionId so a restored session re-evaluates after rehydrate.
+    // task) so we warn the customer once they cross 25 days.
     //
-    // Source of `updatedAtIso`: vm.snapshot() — the VM doesn't expose the
-    // loaded session's original timestamp directly, and snapshot() is the
-    // canonical place that owns the field. Note that snapshot() stamps
-    // `Clock.System.now()` each call, so this derived value will read 0
-    // for fresh sessions and only flips positive once a real restore path
-    // surfaces an older timestamp into the snapshot (e.g. if the snapshot
-    // contract changes to preserve loaded `updatedAtIso`). Today this
-    // means the banner only fires for sessions that genuinely return a
-    // stale `updatedAtIso` from snapshot(); harmless on brand-new ones.
-    val ageDays = remember(vm.sessionId) {
-        val saved = vm.snapshot().updatedAtIso  // ISO instant
-        val updated = runCatching { kotlinx.datetime.Instant.parse(saved) }.getOrNull()
+    // Source of `updatedAtIso`: vm.sessionUpdatedAtIso — the VM exposes the
+    // *loaded* timestamp (or "now" for a fresh session) separately from
+    // snapshot(), because snapshot() stamps `Clock.System.now()` on every
+    // call for the server-persistence path. Reading vm.sessionUpdatedAtIso
+    // directly lets the callout actually age against the customer's real
+    // last-save time. Keyed on that property so a restore (and each
+    // subsequent successful save) re-evaluates the warning.
+    val ageDays = remember(vm.sessionUpdatedAtIso) {
+        val updated = runCatching { kotlinx.datetime.Instant.parse(vm.sessionUpdatedAtIso) }.getOrNull()
         if (updated == null) null
         else (kotlinx.datetime.Clock.System.now() - updated).inWholeDays
     }
@@ -215,6 +216,19 @@ fun BuyOnlineApp() {
                 vm.currentScreen !is BuyOnlineScreen.ApplicationComplete &&
                 vm.currentScreen !is BuyOnlineScreen.Satisfaction
 
+        // Inline EN/HI language switcher. Suppressed on the marketing Landing
+        // (the auto-seed in AegisRoot already handles first-impression locale
+        // detection, and adding chrome to Landing clutters it) and on the two
+        // terminal screens (journey is done — no point flipping languages).
+        // Same skip set as ResumeBanner so the two top-of-screen chrome bits
+        // appear/disappear together.
+        val showLanguageSwitcher = when (vm.currentScreen) {
+            is BuyOnlineScreen.Landing,
+            is BuyOnlineScreen.ApplicationComplete,
+            is BuyOnlineScreen.Satisfaction -> false
+            else -> true
+        }
+
         Column(Modifier.fillMaxSize()) {
             if (showExpires && ageDays != null) {
                 val daysLeft = (30 - ageDays).coerceAtLeast(0)
@@ -225,6 +239,9 @@ fun BuyOnlineApp() {
             }
             if (showWelcomeBack) {
                 WelcomeBackCallout(label = screenLabel(vm.currentScreen))
+            }
+            if (showLanguageSwitcher) {
+                LanguageSwitcher()
             }
             if (showSteps) {
                 StepIndicator(currentScreen = vm.currentScreen)
@@ -258,6 +275,63 @@ fun BuyOnlineApp() {
                     is BuyOnlineScreen.Satisfaction        -> SatisfactionScreen(vm)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Inline EN / HI language switcher rendered in the buyonline top chrome.
+ *
+ * The customer journey has no Settings entry point (the gear lives on the
+ * operator shell), so this is the only place a customer can flip the journey
+ * language post-Landing. Two compact chips, right-aligned; the active chip is
+ * filled in PruRed, the inactive is outlined in PruSubtext.
+ *
+ * On click we persist via [AegisSettingsStore.save] inside the click handler
+ * (NOT the composition phase — `save` does platform IO and would re-trigger
+ * recomposition if called during a frame). We then bump local state so the
+ * chip styling flips immediately; the broader journey picks up the new locale
+ * on the next [AegisTheme] / `Strings.t` read, which happens on the same
+ * recomposition pass triggered by the state write.
+ *
+ * We deliberately do NOT pull the locale through a CompositionLocal: today the
+ * surrounding theme rereads `AegisSettingsStore.load().locale` per composition,
+ * which is the project-wide convention for locale propagation.
+ */
+@Composable
+private fun LanguageSwitcher() {
+    val current = remember { mutableStateOf(AegisSettingsStore.load().locale) }
+    Row(
+        Modifier.fillMaxWidth().padding(end = 16.dp, top = 8.dp),
+        horizontalArrangement = Arrangement.End
+    ) {
+        listOf("en" to "EN", "hi" to "हिं").forEach { (code, label) ->
+            val isActive = current.value == code
+            Box(
+                Modifier
+                    .clickable {
+                        val settings = AegisSettingsStore.load()
+                        AegisSettingsStore.save(settings.copy(locale = code))
+                        current.value = code
+                    }
+                    .background(
+                        if (isActive) PruRed else Color.Transparent,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .border(
+                        1.dp, if (isActive) PruRed else PruSubtext,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .padding(horizontal = 12.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    label,
+                    color = if (isActive) Color.White else PruSubtext,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Spacer(Modifier.width(6.dp))
         }
     }
 }

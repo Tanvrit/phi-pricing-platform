@@ -45,6 +45,20 @@ class BuyOnlineViewModel(
     // orphan rows for users who hit Landing and bounce.
     var sessionId: String by mutableStateOf("")
         private set
+    // The wall-clock timestamp of the *loaded* session (when the customer last
+    // saved). Distinct from snapshot().updatedAtIso, which always stamps
+    // `Clock.System.now()` because that's what the server persists. The UI
+    // reads this property directly to compute days-since-save for the
+    // expires-soon callout — going via snapshot() would always read 0.
+    //
+    // Lifecycle:
+    //  - blank pre-launch (loadOrCreateSession hasn't run)
+    //  - on restore: set to the loaded state.updatedAtIso (a real older value)
+    //  - on fresh session: set to "now" so the callout doesn't fire immediately
+    //  - on each completed saveSoon(): bumped to "now" so the warning doesn't
+    //    fire while the customer is actively engaging
+    var sessionUpdatedAtIso: String by mutableStateOf("")
+        private set
     private var pendingSaveJob: Job? = null
 
     // ── Landing ───────────────────────────────────────────────────────────────
@@ -514,6 +528,11 @@ class BuyOnlineViewModel(
     /** Apply a previously-saved snapshot, then re-run the pricing engine. */
     fun restore(state: BuyOnlineSessionState) {
         sessionId = state.sessionId
+        // Preserve the *loaded* timestamp so the expires-soon callout has a
+        // real older value to age against. snapshot() will continue to stamp
+        // `Clock.System.now()` on the wire, so the server still gets a fresh
+        // value on each save.
+        sessionUpdatedAtIso = state.updatedAtIso
         mobile = state.mobile
         pincode = state.pincode
         eldestAge = state.eldestAge
@@ -607,8 +626,14 @@ class BuyOnlineViewModel(
                 val loaded = client.loadSession(maybeId)
                 if (loaded != null) { restore(loaded); return@launch }
                 sessionId = maybeId  // keep the customer's URL stable even if the row was lost
+                // No row to age against — treat as fresh-from-now so the
+                // callout doesn't fire on this orphaned id.
+                sessionUpdatedAtIso = kotlinx.datetime.Clock.System.now().toString()
             } else {
                 sessionId = randomHexId()
+                // Brand-new session: seed with "now" so the 25-day callout
+                // doesn't fire immediately for customers who haven't saved yet.
+                sessionUpdatedAtIso = kotlinx.datetime.Clock.System.now().toString()
             }
         }
     }
@@ -624,7 +649,9 @@ class BuyOnlineViewModel(
         pendingSaveJob?.cancel()
         pendingSaveJob = scope.launch {
             delay(1500)
+            val now = kotlinx.datetime.Clock.System.now().toString()
             runCatching { client.saveSession(snapshot()) }
+                .onSuccess { sessionUpdatedAtIso = now }
         }
     }
 

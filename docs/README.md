@@ -1,27 +1,53 @@
-# Rate Calculator Platform — Documentation
+# PRUHealth Aegis Platform — Documentation
 
 > **Prudential Health Insurance** actuarial pricing engine, REST API, desktop calculator, and buy-online journey — built with Kotlin Multiplatform.
 
+This index is the single entry point for the platform's docs. **Reference** documents explain how the system is built and how to operate the day-to-day surfaces (pricing engine, REST API, desktop calculator, Excel import, business rules, audit retention). **Runbooks** are incident-response playbooks keyed to alert titles — when a page fires at 3 a.m., open the matching runbook before improvising.
+
+If you are new to the platform, start with [`01-architecture.md`](01-architecture.md) and [`08-development.md`](08-development.md). If you are on-call, jump straight to [`runbooks/`](runbooks/) and find the row matching your alert.
+
 ---
 
-## Quick Links
+## Reference
 
-| Document | Description |
-|----------|-------------|
-| [Architecture Overview](./01-architecture.md) | System design, modules, data flow, provider model |
-| [Pricing Engine](./02-pricing-engine.md) | How premiums are calculated, Excel row-by-row mapping |
-| [Rate Tables Reference](./03-rate-tables.md) | All covers, rates, Excel mapping, parameter options |
-| [API Reference](./04-api-reference.md) | All server endpoints with request/response schemas and curl examples |
-| [Desktop Calculator Guide](./05-desktop-guide.md) | UI walkthrough: all fields, pincode detection, result tables |
-| [Excel Import Guide](./06-excel-import.md) | How to import new actuarial rate tables from Excel |
-| [Business Rules](./07-business-rules.md) | Validation rules, mutual exclusions, constraints |
-| [Development Guide](./08-development.md) | Build, run, extend: add covers, plans, importers |
+| Doc | Covers |
+|---|---|
+| [01-architecture.md](01-architecture.md) | Module layout (`:shared`/`:server`/`:desktop`/`:buyonline`), data flow, provider model, JVM + WASM/iOS targets |
+| [02-pricing-engine.md](02-pricing-engine.md) | Pricing engine internals — row-by-row replication of the actuarial Excel formulas |
+| [03-rate-tables.md](03-rate-tables.md) | Actuarial rate-table format, all 52 covers + 7 discounts, parameter options, Excel mapping |
+| [04-api-reference.md](04-api-reference.md) | REST API endpoints + request/response DTOs with curl examples |
+| [05-desktop-guide.md](05-desktop-guide.md) | Aegis desktop binary operator guide — UI walkthrough, pincode detection, result tables |
+| [06-excel-import.md](06-excel-import.md) | Excel rate-table import workflow (dry-run, commit, rollback) |
+| [07-business-rules.md](07-business-rules.md) | 28 business rules — validation, mutual exclusions, member constraints |
+| [08-development.md](08-development.md) | Developer setup — build, run, extend (add covers, plans, importers) |
+| [audit-retention.md](audit-retention.md) | Audit log retention, hash-chain integrity model, IRDAI + GDPR/DPDPA compliance posture |
+
+---
+
+## Runbooks (incident response + ops procedures)
+
+Each runbook follows a fixed structure (symptom, customer impact, detection, first five minutes, full remediation) so a responder can scan it under pressure. The full index with alert titles also lives in [`runbooks/README.md`](runbooks/README.md).
+
+| Runbook | Severity | When to use |
+|---|---|---|
+| [aegis-operator-ops.md](runbooks/aegis-operator-ops.md) | n/a (ops) | Bootstrap mode, add/remove operators, weekly audit verification, outbox housekeeping |
+| [audit-chain-integrity.md](runbooks/audit-chain-integrity.md) | SEV-1 | Hourly `/api/audit/verify` reports `ok=false`; `audit_chain_break` alert fires |
+| [audit-service-degraded.md](runbooks/audit-service-degraded.md) | SEV-1 | `AuditEventService.record(...)` is failing/timing out; Aegis edits cannot commit |
+| [buyonline-conversion-drop.md](runbooks/buyonline-conversion-drop.md) | SEV-2 | Hourly quote → proposal conversion drops > 30% below 7-day baseline |
+| [database-readiness.md](runbooks/database-readiness.md) | SEV-1 | `/health/ready` returns 503; pods being pulled from the load balancer |
+| [db-disk-pressure.md](runbooks/db-disk-pressure.md) | SEV-2 (escalates to SEV-1) | Postgres host disk > 80% full; writes at risk of failing |
+| [engine-zero-premium.md](runbooks/engine-zero-premium.md) | SEV-0 | Pricing engine returns ₹0 totals; canonical-quote canaries diverging |
+| [excel-import-rollback.md](runbooks/excel-import-rollback.md) | SEV-1 | Bad Excel import committed — wrong premiums in production, rollback needed |
+| [latency-burn.md](runbooks/latency-burn.md) | SEV-2 | p99 latency on `/api/quotes/calculate` or `/api/buy-online/premium` > 1s for 5+ min |
+| [otp-rate-limit.md](runbooks/otp-rate-limit.md) | SEV-2 | OTP 5/hour ceiling hit by > 5% of distinct mobiles in the last 15 min |
+| [pii-in-logs.md](runbooks/pii-in-logs.md) | SEV-1 | Plaintext mobile / Aadhaar / PAN / bank / IFSC detected in centralised logs |
+| [sms-gateway-degraded.md](runbooks/sms-gateway-degraded.md) | SEV-2 | SMS vendor degraded; customers not receiving OTPs (Phase 3+) |
 
 ---
 
 ## System Summary
 
-The **Rate Calculator Platform** is a health insurance pricing system that digitises the Excel workbook `Rate_Calculator_v7.0.xlsm`. It provides:
+The **PRUHealth Aegis Platform** is a health insurance pricing system that digitises the actuarial Excel workbook `Rate_Calculator_v7.0.xlsm`. It provides:
 
 - **Exact parity** with the actuarial Excel model — every row, every formula, reproduced in Kotlin
 - **Multi-plan support** — 15 plan variants across Domestic, Senior, Sub-Standard, and Global tiers
@@ -72,6 +98,7 @@ The **Rate Calculator Platform** is a health insurance pricing system that digit
 ```
 rate/
 ├── docs/                    ← this documentation
+│   └── runbooks/            ← incident playbooks (RB-01 … RB-13)
 ├── shared/                  ← KMP pricing engine + domain models
 │   └── src/commonMain/kotlin/com/rate/domain/
 │       ├── model/           ← Models.kt, CoverDefinitions.kt
@@ -98,4 +125,4 @@ rate/
 
 ---
 
-*Generated: 2026-02-22. Source: Rate_Calculator_v7.0.xlsm*
+*Last updated: 2026-05-23. Source: Rate_Calculator_v7.0.xlsm*
