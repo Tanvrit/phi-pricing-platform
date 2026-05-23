@@ -14,7 +14,10 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -221,6 +224,7 @@ fun ReportsSurface() {
         // ── Date-range chips ──────────────────────────────────────────────
         // Operator-picked window applied to the quote ledger only. The funnel
         // card (sessions → screen) bypasses this filter by design (v1).
+        var customDialogOpen by remember { mutableStateOf(false) }
         AegisCard(
             title = "Date range",
             subtitle = if (dateFilter is DateFilter.AllTime)
@@ -236,7 +240,47 @@ fun ReportsSurface() {
                         onClick = { dateFilter = df }
                     )
                 }
+                AegisChip(
+                    label = if (dateFilter is DateFilter.Custom) dateFilter.label else "Custom…",
+                    selected = dateFilter is DateFilter.Custom,
+                    onClick = { customDialogOpen = true }
+                )
             }
+        }
+        if (customDialogOpen) {
+            // Seed the dialog inputs from the active window. If "All time" is
+            // active we have no concrete range to copy, so we fall back to a
+            // 7-day window ending today — the most common ad-hoc operator
+            // pick. For the preset windows we resolve the same [from, today]
+            // pair the filter would have matched.
+            val today = Clock.System.todayIn(TimeZone.UTC)
+            val (seedFrom, seedTo) = when (val df = dateFilter) {
+                is DateFilter.Custom -> df.from to df.to
+                is DateFilter.Today -> today to today
+                is DateFilter.Last7Days -> today.minus(6, DateTimeUnit.DAY) to today
+                is DateFilter.Last30Days -> today.minus(29, DateTimeUnit.DAY) to today
+                is DateFilter.ThisMonth -> LocalDate(today.year, today.month, 1) to today
+                is DateFilter.LastMonth -> {
+                    val firstOfThis = LocalDate(today.year, today.month, 1)
+                    val lastOfLast = firstOfThis.minus(1, DateTimeUnit.DAY)
+                    LocalDate(lastOfLast.year, lastOfLast.month, 1) to lastOfLast
+                }
+                is DateFilter.AllTime -> today.minus(6, DateTimeUnit.DAY) to today
+            }
+            CustomDateRangeDialog(
+                initialFrom = seedFrom.toString(),
+                initialTo = seedTo.toString(),
+                onDismiss = { customDialogOpen = false },
+                onApply = { from, to ->
+                    // Swap on submit if reversed so the resulting range is
+                    // always non-empty. Validation in the dialog already
+                    // guaranteed both parsed cleanly.
+                    val lo = if (from <= to) from else to
+                    val hi = if (from <= to) to else from
+                    dateFilter = DateFilter.Custom(lo, hi)
+                    customDialogOpen = false
+                }
+            )
         }
 
         // ── Source banner ─────────────────────────────────────────────────
@@ -1185,7 +1229,7 @@ private fun QuoteTotalDistributionCard(
  * row than misplace it in the wrong bucket) but means a buggy upstream date
  * format will silently shrink the dataset — fine for a v1.
  */
-private sealed class DateFilter(val label: String) {
+private sealed class DateFilter(open val label: String) {
     object AllTime : DateFilter("All time")
     object Today : DateFilter("Today")
     object Last7Days : DateFilter("Last 7 days")
@@ -1193,7 +1237,22 @@ private sealed class DateFilter(val label: String) {
     object ThisMonth : DateFilter("This month")
     object LastMonth : DateFilter("Last month")
 
-    fun matches(createdAt: String): Boolean {
+    /**
+     * Operator-picked arbitrary [from, to] window (both inclusive). Created by
+     * the "Custom…" chip's dialog. We keep the singleton presets above (each a
+     * pure tag with no payload) alongside this data class — Kotlin's sealed
+     * hierarchy permits both shapes to coexist as long as the discriminator
+     * (the subtype) is the only thing the consumer pattern-matches on.
+     */
+    data class Custom(val from: LocalDate, val to: LocalDate) :
+        DateFilter("Custom: $from … $to") {
+        override fun matches(createdAt: String): Boolean {
+            val d = runCatching { LocalDate.parse(createdAt.take(10)) }.getOrNull() ?: return false
+            return d in from..to
+        }
+    }
+
+    open fun matches(createdAt: String): Boolean {
         if (this is AllTime) return true
         val date = runCatching { LocalDate.parse(createdAt.take(10)) }.getOrNull() ?: return false
         val today = Clock.System.todayIn(TimeZone.UTC)
@@ -1214,12 +1273,89 @@ private sealed class DateFilter(val label: String) {
                 val lastOfLast = firstOfThis.minus(1, DateTimeUnit.DAY)
                 date.year == lastOfLast.year && date.month == lastOfLast.month
             }
+            is Custom -> false // overridden above; this branch is unreachable
         }
     }
 
     companion object {
         val ALL: List<DateFilter> = listOf(AllTime, Today, Last7Days, Last30Days, ThisMonth, LastMonth)
     }
+}
+
+/**
+ * Modal text-input picker for [DateFilter.Custom]. Two `YYYY-MM-DD` fields
+ * with inline parse validation. "Apply" is disabled until both fields parse
+ * as valid ISO dates — once they do, the parent decides whether to swap
+ * the bounds. We deliberately keep this text-only (no calendar widget) so
+ * the diff stays small and KMP-safe across desktop/wasm targets.
+ */
+@Composable
+private fun CustomDateRangeDialog(
+    initialFrom: String,
+    initialTo: String,
+    onDismiss: () -> Unit,
+    onApply: (LocalDate, LocalDate) -> Unit,
+) {
+    var fromText by remember { mutableStateOf(initialFrom) }
+    var toText by remember { mutableStateOf(initialTo) }
+    val parsedFrom = parseIsoDate(fromText)
+    val parsedTo = parseIsoDate(toText)
+    val applyEnabled = parsedFrom != null && parsedTo != null
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Custom date range") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+                Text(
+                    "Enter both dates as YYYY-MM-DD. The range is inclusive on " +
+                            "both ends and applies to the quote ledger only.",
+                    fontSize = 12.sp,
+                    color = AegisColors.textSecondary,
+                )
+                OutlinedTextField(
+                    value = fromText,
+                    onValueChange = { fromText = it },
+                    label = { Text("From (YYYY-MM-DD)") },
+                    isError = fromText.isNotBlank() && parsedFrom == null,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = toText,
+                    onValueChange = { toText = it },
+                    label = { Text("To (YYYY-MM-DD)") },
+                    isError = toText.isNotBlank() && parsedTo == null,
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                enabled = applyEnabled,
+                onClick = {
+                    val f = parsedFrom ?: return@TextButton
+                    val t = parsedTo ?: return@TextButton
+                    onApply(f, t)
+                }
+            ) { Text("Apply") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+/**
+ * Parse a strict `YYYY-MM-DD` string. We enforce length == 10 so partial
+ * input like "2026-5" (which kotlinx-datetime would happily accept as a
+ * lenient parse on some platforms) keeps "Apply" disabled until the
+ * operator has typed the full date.
+ */
+private fun parseIsoDate(s: String): LocalDate? {
+    val trimmed = s.trim()
+    if (trimmed.length != 10) return null
+    return runCatching { LocalDate.parse(trimmed) }.getOrNull()
 }
 
 /** One-decimal percentage formatting that doesn't rely on `String.format`. */

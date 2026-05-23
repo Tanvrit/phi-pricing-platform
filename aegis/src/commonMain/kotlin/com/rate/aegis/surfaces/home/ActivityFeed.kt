@@ -1,6 +1,7 @@
 package com.rate.aegis.surfaces.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,9 +27,13 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.LocalRefreshTicker
+import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.components.AegisCard
 import com.rate.aegis.components.AegisHDivider
+import com.rate.aegis.components.AegisSurface
 import com.rate.aegis.data.AuditEventDto
 import com.rate.aegis.data.openAuditStream
 import com.rate.aegis.data.rememberApiClient
@@ -59,8 +64,13 @@ import kotlin.coroutines.coroutineContext
  *   • OFFLINE — warn500 amber when the last poll threw (we keep showing the
  *               previous snapshot rather than blanking the list).
  *
- * TODO(next iteration): clicking a row should deep-link into AuditEventsSurface
- * with that row pre-selected. Wired as a no-op for now.
+ * Each row is clickable: if the event has a recognised `resourceType`
+ * ("plan" / "quote") we set [LocalAegisDeepLink] to the typed id and route
+ * to the matching surface (Plan Configurator / Quote Explorer), letting
+ * their existing deep-link consumers open the edit dialog / drawer once
+ * the data lands. Any other event type (audit.chain_verified,
+ * outbox.purged, etc.) just routes to the Audit surface so the operator
+ * can see the full row.
  */
 @Composable
 fun ActivityFeed(maxRows: Int = 6) {
@@ -134,8 +144,32 @@ private fun ActivityRow(ev: Map<String, JsonElement>) {
     val accent = accentFor(action)
     val resourceSummary = if (resourceId.isNullOrBlank()) resourceType else "$resourceType $resourceId"
 
+    val deepLink = LocalAegisDeepLink.current
+    val router = LocalSurfaceRouter.current
+
     Row(
         Modifier.fillMaxWidth()
+            .clickable {
+                // Mirror AuditEventsSurface's ResourceCell routing: typed
+                // resources land on their owning surface with the deep-link
+                // pre-set; everything else falls through to the Audit
+                // surface so the operator can still see the full event.
+                when (resourceType.lowercase()) {
+                    "plan" -> {
+                        if (!resourceId.isNullOrBlank()) {
+                            deepLink.value = DeepLink(planId = resourceId)
+                        }
+                        router(AegisSurface.PLAN_CONFIGURATOR)
+                    }
+                    "quote" -> {
+                        if (!resourceId.isNullOrBlank()) {
+                            deepLink.value = DeepLink(quoteId = resourceId)
+                        }
+                        router(AegisSurface.QUOTES)
+                    }
+                    else -> router(AegisSurface.AUDIT)
+                }
+            }
             .defaultMinSize(minHeight = 36.dp)
             .padding(vertical = AegisSpacing.s2),
         verticalAlignment = Alignment.CenterVertically

@@ -95,6 +95,23 @@ fun Route.importRoutes(auditService: AuditEventService, idempotencyService: Idem
                 actor = actor,
                 requestId = rid
             )
+            // Secondary, upload-centric audit row. `rates.imported` above is keyed to the
+            // rate_table resource; this companion event is keyed to the upload itself
+            // (sha256 acts as the import-job id) so dashboards filtering on the
+            // "import" resourceType see every successful POST /api/import/upload.
+            auditService.record(
+                action = "import.uploaded",
+                resourceType = "import",
+                resourceId = requestHash,
+                payload = JsonObject(mapOf(
+                    "filename" to JsonPrimitive(filename ?: "(unknown)"),
+                    "sizeBytes" to JsonPrimitive(bytes.size.toLong()),
+                    "sha256" to JsonPrimitive(requestHash),
+                    "idempotencyKey" to JsonPrimitive(idemKey ?: "")
+                )),
+                actor = actor,
+                requestId = rid
+            )
             val responseBody = """{"message":"Excel data imported successfully","sourceFilename":${
                 if (filename == null) "null" else "\"" + filename!!.replace("\"", "\\\"") + "\""
             }}"""
