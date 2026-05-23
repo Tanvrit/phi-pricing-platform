@@ -24,6 +24,12 @@ fun main() {
     // Buyonline save+resume: stash the `session=...` hex id before composition so
     // BuyOnlineApp can pick it up on first render. Null = fresh journey.
     AegisLaunchContext.sessionId = sessionFromQueryString(search)
+    // Shared quote: `?quote=<id>` is the operator-handed read-only summary link.
+    // Mutually orthogonal to `?session=` — session resumes a half-finished
+    // journey, quote shows a saved calc. If both are present the customer entry
+    // point prefers the quote (the operator just shared it; the half-done
+    // session is presumably older context).
+    AegisLaunchContext.quoteId = quoteFromQueryString(search)
     ComposeViewport(document.body!!) {
         AegisRoot(role)
     }
@@ -33,6 +39,14 @@ private fun sessionFromQueryString(search: String): String? {
     if (search.isEmpty() || search == "?") return null
     val params = search.removePrefix("?").split("&")
     val pair = params.firstOrNull { it.startsWith("session=", ignoreCase = true) } ?: return null
+    val value = pair.substringAfter('=').trim()
+    return value.ifBlank { null }
+}
+
+private fun quoteFromQueryString(search: String): String? {
+    if (search.isEmpty() || search == "?") return null
+    val params = search.removePrefix("?").split("&")
+    val pair = params.firstOrNull { it.startsWith("quote=", ignoreCase = true) } ?: return null
     val value = pair.substringAfter('=').trim()
     return value.ifBlank { null }
 }

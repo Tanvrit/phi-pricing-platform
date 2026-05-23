@@ -13,4 +13,14 @@ package com.rate.aegis
 object AegisLaunchContext {
     /** Session id from `?session=...` URL query or `-Daegis.session=...`. Null = fresh journey. */
     var sessionId: String? = null
+
+    /**
+     * Saved-quote id from `?quote=...` URL query or `-Daegis.quote=...`. When set,
+     * the customer entry point short-circuits the buyonline journey and renders a
+     * read-only summary of the shared quote — the affordance the operator hands a
+     * customer ("here's the price we discussed: <link>").
+     *
+     * Null = no shared quote, fall through to the normal journey.
+     */
+    var quoteId: String? = null
 }

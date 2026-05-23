@@ -5,7 +5,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.rate.aegis.AegisLaunchContext
 import com.rate.aegis.customer.buyonline.api.BuyOnlineApiClient
@@ -39,6 +42,30 @@ import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
 
 @Composable
 fun BuyOnlineApp() {
+    // Shared-quote short-circuit. If the page was opened with `?quote=<id>` the
+    // operator handed the customer a saved-calculation link — render a
+    // read-only summary instead of the 22-screen journey. The customer can
+    // dismiss the overlay via the "Continue to apply" CTA, which flips this
+    // local flag and falls through to the normal journey body (rather than
+    // forcing a full page reload that would lose the rest of the app state).
+    val sharedQuoteId = remember { AegisLaunchContext.quoteId }
+    var showSharedQuote by remember { mutableStateOf(sharedQuoteId != null) }
+    if (showSharedQuote && sharedQuoteId != null) {
+        PRUHealthTheme {
+            SharedQuoteView(
+                quoteId = sharedQuoteId,
+                onContinue = {
+                    // Clear the launch context so a subsequent re-composition
+                    // (e.g. browser navigation) doesn't re-trigger the view,
+                    // and flip the local flag to drop into the journey.
+                    AegisLaunchContext.quoteId = null
+                    showSharedQuote = false
+                }
+            )
+        }
+        return
+    }
+
     val client = remember { BuyOnlineApiClient() }
     val vm     = remember { BuyOnlineViewModel(client) }
 

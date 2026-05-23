@@ -2,6 +2,7 @@ package com.rate.server.plugins
 
 import com.rate.domain.engine.PricingEngine
 import com.rate.domain.repository.RateDataProvider
+import com.rate.server.audit.AuditEventRow
 import com.rate.server.audit.AuditEventService
 import com.rate.server.auth.requireScope
 import com.rate.server.database.DatabaseFactory
@@ -14,7 +15,11 @@ import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import io.ktor.utils.io.*
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 
 @Serializable
 internal data class HealthResponse(val status: String, val service: String, val check: String? = null)
@@ -96,6 +101,76 @@ fun Application.configureRouting(
             val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 100)
                 .coerceIn(1, 500)
             call.respond(auditService.listEvents(limit))
+        }
+
+        // ── Server-Sent Events live stream of audit rows ─────────────────────
+        // Subscribers get every row persisted AFTER they connect; they're
+        // expected to bootstrap historical state via `GET /api/audit/events`
+        // first, then attach here. The polling endpoint above stays as the
+        // fallback for environments where SSE isn't available (proxies that
+        // buffer, ancient browsers, etc.).
+        //
+        // We deliberately implement the SSE wire format by hand on top of
+        // `respondBytesWriter` rather than pulling in `ktor-server-sse`:
+        // adding that artifact would force a transitive Ktor minor-version
+        // bump and the format is trivial (`data: <json>\n\n` + optional
+        // `event:`/`id:` lines). The endpoint is fully testable via
+        // `curl -N http://host:9090/api/audit/stream`.
+        get("/api/audit/stream") {
+            val eventStream = ContentType("text", "event-stream")
+            // Disable proxy buffering; some reverse proxies (nginx, ALB) hold
+            // a streaming response until N bytes accumulate, which would defeat
+            // sub-second propagation. `X-Accel-Buffering: no` is the nginx
+            // hint; Cache-Control reinforces it for general intermediaries.
+            call.response.headers.append("Cache-Control", "no-cache, no-transform")
+            call.response.headers.append("X-Accel-Buffering", "no")
+            call.respondBytesWriter(contentType = eventStream) {
+                // Initial comment line forces the response headers to flush and
+                // tells the client "you're connected" without polluting the
+                // event channel. Per the SSE spec lines starting with ':' are
+                // comments and ignored by EventSource.
+                writeStringUtf8(": connected\n\n")
+                flush()
+                try {
+                    auditService.stream()
+                        .onCompletion {
+                            // Best-effort: close gracefully when the upstream
+                            // flow ends. Channel close is handled by the
+                            // `respondBytesWriter` machinery on return.
+                        }
+                        .collect { row: AuditEventRow ->
+                            val payload = Json.encodeToString(AuditEventRow.serializer(), row)
+                            // Wire format: `id:<n>\nevent:audit\ndata:<json>\n\n`.
+                            // JSON is single-line (no embedded newlines from the
+                            // serializer's default config), so we don't need to
+                            // split `data:` across multiple lines.
+                            val frame = buildString {
+                                append("id: ").append(row.id).append('\n')
+                                append("event: audit\n")
+                                append("data: ").append(payload).append("\n\n")
+                            }
+                            writeStringUtf8(frame)
+                            flush()
+                        }
+                } catch (_: kotlinx.coroutines.CancellationException) {
+                    // Client disconnected. Let the cancellation propagate so the
+                    // response channel closes cleanly — not an error.
+                    throw kotlin.coroutines.cancellation.CancellationException("client disconnected")
+                }
+            }
+        }
+
+        // ── Idempotency cache diagnostic (admin/auditor only) ────────────────
+        // Read-only listing of recent idempotency-key entries so operators can
+        // debug client retry behaviour without dropping to SQL. Gated by the
+        // existing `audit.verify` scope — admin operators with chain-integrity
+        // access already see this kind of diagnostic, so a separate scope would
+        // just be noise. Cap mirrors `/api/audit/events`.
+        get("/api/audit/idempotency") {
+            if (!requireScope("audit.verify")) return@get
+            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 100)
+                .coerceIn(1, 500)
+            call.respond(idempotencyService.listRecent(limit))
         }
 
         quoteRoutes(rateDataProvider, quoteRepo, auditService, idempotencyService)

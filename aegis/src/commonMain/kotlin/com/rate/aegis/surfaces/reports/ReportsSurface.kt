@@ -264,6 +264,9 @@ fun ReportsSurface() {
             }
         }
 
+        // ── Quote total distribution (histogram over all polled quotes) ──
+        QuoteTotalDistributionCard(quotes = quotes, cap = quotes.size)
+
         // ── GWP-per-bucket ────────────────────────────────────────────────
         AegisCard(
             title = "GWP per ${bucket.singular}",
@@ -988,6 +991,140 @@ private fun aggregateSI(quotes: List<FakeAegisRepo.FakeQuote>): List<Distributio
     )
     return bands.map { (label, pred) ->
         Distribution(label, quotes.count { pred(it.sumInsured) })
+    }
+}
+
+// ── Quote total distribution histogram ──────────────────────────────────
+private const val QUOTE_TOTAL_BUCKET_COUNT = 10
+private const val QUOTE_TOTAL_LABEL_ROUNDING = 10_000.0   // ₹10k granularity
+
+private data class QuoteTotalBucket(
+    val low: Double,
+    val high: Double,
+    val count: Int,
+)
+
+private fun roundToTenK(v: Double): Double {
+    if (v <= 0.0) return 0.0
+    return (kotlin.math.round(v / QUOTE_TOTAL_LABEL_ROUNDING)) * QUOTE_TOTAL_LABEL_ROUNDING
+}
+
+/**
+ * Compute 10 equal-width buckets over [totals]. Last bucket is inclusive of the
+ * max so the peak quote always lands in bucket 9 rather than overflowing to 10.
+ * Caller guarantees `totals.size >= 2` and a non-zero spread.
+ */
+private fun computeQuoteTotalBuckets(totals: List<Double>): List<QuoteTotalBucket> {
+    val minV = totals.min()
+    val maxV = totals.max()
+    val width = (maxV - minV) / QUOTE_TOTAL_BUCKET_COUNT
+    val counts = IntArray(QUOTE_TOTAL_BUCKET_COUNT)
+    totals.forEach { v ->
+        val idx = if (v >= maxV) QUOTE_TOTAL_BUCKET_COUNT - 1
+                  else ((v - minV) / width).toInt().coerceIn(0, QUOTE_TOTAL_BUCKET_COUNT - 1)
+        counts[idx] = counts[idx] + 1
+    }
+    return (0 until QUOTE_TOTAL_BUCKET_COUNT).map { i ->
+        val lo = minV + width * i
+        val hi = if (i == QUOTE_TOTAL_BUCKET_COUNT - 1) maxV else minV + width * (i + 1)
+        QuoteTotalBucket(low = lo, high = hi, count = counts[i])
+    }
+}
+
+@Composable
+private fun QuoteTotalDistributionCard(
+    quotes: List<FakeAegisRepo.FakeQuote>,
+    cap: Int,
+) {
+    val validTotals = quotes
+        .filter { it.isValid }
+        .map { it.totalIncludingGst }
+        .filter { it > 0.0 }
+
+    // Pre-compute buckets so both the card body and the Export CSV action can
+    // read the same numbers. We only build them when there's enough spread to
+    // chart — otherwise the action stays disabled and the body shows a hint.
+    val spread: Double = if (validTotals.size >= 2) validTotals.max() - validTotals.min() else 0.0
+    val buckets: List<QuoteTotalBucket> =
+        if (validTotals.size >= 2 && spread > 0.0) computeQuoteTotalBuckets(validTotals) else emptyList()
+
+    AegisCard(
+        title = "Quote total distribution",
+        subtitle = "Premium spread across all polled quotes (post-GST).",
+        action = {
+            AegisButton(
+                label = "Export CSV",
+                variant = AegisButtonVariant.Ghost,
+                size = AegisButtonSize.Sm,
+                enabled = buckets.isNotEmpty(),
+                onClick = {
+                    val csv = buildCsv(
+                        headers = listOf("Bucket low", "Bucket high", "Count"),
+                        rows = buckets.map { listOf(it.low, it.high, it.count) }
+                    )
+                    saveCsv(
+                        "aegis-reports-quote-distribution-${todayIsoDate()}.csv",
+                        csv
+                    )
+                }
+            )
+        }
+    ) {
+        when {
+            validTotals.size < 2 -> EmptyHint("Not enough valid quotes to chart.")
+            spread <= 0.0 -> {
+                // Degenerate: every valid quote has the same total. Show the
+                // summary line but skip the bars (10 equal-width buckets would
+                // all collapse to width 0).
+                val only = validTotals.first()
+                Text(
+                    "${validTotals.size} valid quotes · all at ${formatRupees(only)}",
+                    fontSize = 13.sp,
+                    color = AegisColors.textSecondary
+                )
+            }
+            else -> {
+                val minV = validTotals.min()
+                val maxV = validTotals.max()
+                val avg = validTotals.sum() / validTotals.size
+                // Median: for odd N take the middle element, for even N average
+                // the two middle elements. Sort once and reuse.
+                val sorted = validTotals.sorted()
+                val median = if (sorted.size % 2 == 1) {
+                    sorted[sorted.size / 2]
+                } else {
+                    (sorted[sorted.size / 2 - 1] + sorted[sorted.size / 2]) / 2.0
+                }
+                val peak = (buckets.maxOfOrNull { it.count } ?: 0).coerceAtLeast(1)
+
+                Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                    Text(
+                        "${validTotals.size} valid quotes · ${formatRupees(minV)} to ${formatRupees(maxV)} · " +
+                                "avg ${formatRupees(avg)} · median ${formatRupees(median)}",
+                        fontSize = 13.sp,
+                        color = AegisColors.textSecondary
+                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                        buckets.forEach { b ->
+                            val ratio = b.count.toDouble() / peak
+                            val isPeak = b.count == peak && b.count > 0
+                            BarRow(
+                                label = "${formatRupees(roundToTenK(b.low))} – ${formatRupees(roundToTenK(b.high))}",
+                                ratio = ratio,
+                                valueText = b.count.toString(),
+                                barColor = if (isPeak) AegisColors.indigo500
+                                           else AegisColors.info500
+                            )
+                        }
+                    }
+                    Text(
+                        "All quotes from the last $cap polled.",
+                        fontSize = 12.sp,
+                        color = AegisColors.textSecondary
+                    )
+                }
+            }
+        }
     }
 }
 

@@ -5,7 +5,15 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Text
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -75,6 +83,7 @@ fun HomeSurface() {
                 delta = "${signed(kpis.quotesToday - kpis.quotesYesterday)} vs yesterday",
                 deltaPositive = kpis.quotesToday >= kpis.quotesYesterday,
                 sparkline = quotesSpark,
+                tooltip = "Number of quotes calculated today (any plan, valid or invalid).",
                 modifier = Modifier.weight(1f)
             )
             KpiTile(
@@ -83,6 +92,7 @@ fun HomeSurface() {
                 delta = "${pctSigned(kpis.gwpThisMonth, kpis.gwpLastMonth)} vs last month",
                 deltaPositive = kpis.gwpThisMonth >= kpis.gwpLastMonth,
                 sparkline = gwpSpark,
+                tooltip = "Gross Written Premium — sum of total-including-GST for valid quotes saved this calendar month.",
                 modifier = Modifier.weight(1f)
             )
             KpiTile(
@@ -90,6 +100,7 @@ fun HomeSurface() {
                 value = "${kpis.conversionRatePct.format1()}%",
                 delta = "${signedPct(kpis.conversionRateDeltaPct)} vs trailing 7d",
                 deltaPositive = kpis.conversionRateDeltaPct >= 0,
+                tooltip = "Share of valid quotes vs total quote attempts. Quote→policy conversion lands when the policies projection ships.",
                 modifier = Modifier.weight(1f)
             )
             KpiTile(
@@ -97,6 +108,7 @@ fun HomeSurface() {
                 value = kpis.activePlans.toString(),
                 delta = "${kpis.draftPlans} draft · ${kpis.retiredPlans} retired",
                 deltaPositive = true,
+                tooltip = "Plans currently in LIVE lifecycle. Operators can switch plans to DRAFT/RETIRED in the Plan Configurator.",
                 modifier = Modifier.weight(1f)
             )
             KpiTile(
@@ -105,6 +117,7 @@ fun HomeSurface() {
                 delta = if (kpis.uwBreaches > 0)
                     "${kpis.uwBreaches} SLA-breached" else "All within SLA",
                 deltaPositive = kpis.uwBreaches == 0,
+                tooltip = "Quotes flagged for underwriter review (invalid, senior age, high SI, or global plans).",
                 modifier = Modifier.weight(1f)
             )
         }
@@ -221,6 +234,7 @@ private fun DashboardSourceBanner(source: DashboardSource, reason: String, refre
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun KpiTile(
     label: String,
@@ -229,22 +243,48 @@ private fun KpiTile(
     deltaPositive: Boolean,
     modifier: Modifier = Modifier,
     sparkline: List<Double>? = null,
+    tooltip: String? = null,
 ) {
     val deltaColor = if (deltaPositive) AegisColors.success700 else AegisColors.danger700
     val sparkColor = if (deltaPositive) AegisColors.success500 else AegisColors.danger500
-    AegisCard(modifier = modifier, padding = PaddingValues(AegisSpacing.s4)) {
-        Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
-            Text(label, fontSize = 12.sp, color = AegisColors.textSecondary, fontWeight = FontWeight.Medium)
-            Text(value, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
-            if (sparkline != null) {
-                AegisSparkline(
-                    values = sparkline,
-                    accent = sparkColor,
-                    modifier = Modifier.fillMaxWidth().height(28.dp),
-                )
+    val card: @Composable () -> Unit = {
+        AegisCard(modifier = modifier, padding = PaddingValues(AegisSpacing.s4)) {
+            Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(label, fontSize = 12.sp, color = AegisColors.textSecondary, fontWeight = FontWeight.Medium)
+                    if (tooltip != null) {
+                        Spacer(Modifier.width(AegisSpacing.s1))
+                        // The "?" affords discoverability — the TooltipBox itself is invisible
+                        // on first paint, so without this hint operators wouldn't know to hover.
+                        Icon(
+                            imageVector = Icons.Filled.HelpOutline,
+                            contentDescription = null,
+                            tint = AegisColors.textSecondary,
+                            modifier = Modifier.size(12.dp),
+                        )
+                    }
+                }
+                Text(value, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
+                if (sparkline != null) {
+                    AegisSparkline(
+                        values = sparkline,
+                        accent = sparkColor,
+                        modifier = Modifier.fillMaxWidth().height(28.dp),
+                    )
+                }
+                Text(delta, fontSize = 11.sp, color = deltaColor)
             }
-            Text(delta, fontSize = 11.sp, color = deltaColor)
         }
+    }
+    if (tooltip != null) {
+        TooltipBox(
+            positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+            tooltip = { PlainTooltip { Text(tooltip) } },
+            state = rememberTooltipState(isPersistent = false),
+            content = card,
+        )
+    } else {
+        card()
     }
 }
 

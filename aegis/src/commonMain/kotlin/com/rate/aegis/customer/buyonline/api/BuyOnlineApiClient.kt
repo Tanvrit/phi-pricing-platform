@@ -1,6 +1,9 @@
 package com.rate.aegis.customer.buyonline.api
 
 import com.rate.domain.model.BuyOnlineSessionState
+import com.rate.domain.model.Plan
+import com.rate.domain.model.QuoteRequest
+import com.rate.domain.model.QuoteResult
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -75,6 +78,14 @@ data class ProposalResponse(
     val sumInsured: Long,
     val annualPremium: Double
 )
+
+/**
+ * Mirror of the server's `QuoteDetailResponse` (see `QuoteRoutes.kt`). Same field
+ * names so the deserialiser picks them up by-name; both halves are existing
+ * `:shared` types so no DTO drift to maintain.
+ */
+@Serializable
+data class QuoteDetailResponse(val request: QuoteRequest, val result: QuoteResult)
 
 // ── Client ────────────────────────────────────────────────────────────────────
 
@@ -152,6 +163,26 @@ class BuyOnlineApiClient(private val baseUrl: String = "http://localhost:9090") 
 
     suspend fun loadSession(sessionId: String): BuyOnlineSessionState? = runCatching {
         http.get("$baseUrl/api/buy-online/session/$sessionId").body<BuyOnlineSessionState>()
+    }.getOrNull()
+
+    /**
+     * Shared-quote lookup. Returns null on any failure (stale link, network
+     * blip, server down) so the read-only summary view can render a friendly
+     * "we couldn't find that quote" message rather than throwing into the
+     * Compose tree. The server route is the same `/api/quotes/{id}` the
+     * operator console hits — no new endpoint.
+     */
+    suspend fun getQuoteById(id: String): QuoteDetailResponse? = runCatching {
+        http.get("$baseUrl/api/quotes/$id").body<QuoteDetailResponse>()
+    }.getOrNull()
+
+    /**
+     * Resolve a plan id → full Plan for the shared-quote summary header.
+     * Null-tolerant for the same reason as [getQuoteById]; the view falls
+     * back to displaying the raw plan id if the lookup fails.
+     */
+    suspend fun getPlan(planId: String): Plan? = runCatching {
+        http.get("$baseUrl/api/plans/$planId").body<Plan>()
     }.getOrNull()
 
     fun close() = http.close()

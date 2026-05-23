@@ -17,6 +17,7 @@ import com.rate.aegis.DeepLink
 import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.business.calculator.api.AuditVerify
+import com.rate.aegis.business.calculator.api.IdempotencyRow
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -61,6 +62,12 @@ fun AuditEventsSurface() {
     var verifying by remember { mutableStateOf(false) }
     var verifyTrigger by remember { mutableStateOf(0) }
 
+    // Idempotency cache snapshot — fetched once on composition. Same 403-→-WARN
+    // contract as the chain-integrity card (the route is gated by `audit.verify`).
+    var idemRows by remember { mutableStateOf<List<IdempotencyRow>>(emptyList()) }
+    var idemError by remember { mutableStateOf<String?>(null) }
+    var idemLoaded by remember { mutableStateOf(false) }
+
     LaunchedEffect(client, verifyTrigger) {
         verifying = true
         runCatching { client.verifyAuditChain() }
@@ -73,6 +80,19 @@ fun AuditEventsSurface() {
                 verifyError = t.message ?: t::class.simpleName ?: "unknown error"
             }
         verifying = false
+    }
+
+    LaunchedEffect(client) {
+        runCatching { client.listIdempotencyKeys(limit = 100) }
+            .onSuccess { r ->
+                idemRows = r
+                idemError = null
+                idemLoaded = true
+            }
+            .onFailure { t ->
+                idemError = t.message ?: t::class.simpleName ?: "unknown error"
+                idemLoaded = true
+            }
     }
 
     LaunchedEffect(client) {
@@ -138,6 +158,12 @@ fun AuditEventsSurface() {
             verifyResult = verifyResult,
             verifyError = verifyError,
             onReverify = { if (!verifying) verifyTrigger++ },
+        )
+
+        IdempotencyCacheCard(
+            rows = idemRows,
+            error = idemError,
+            loaded = idemLoaded,
         )
 
         AegisCard {
@@ -383,6 +409,136 @@ private fun ChainIntegrityCard(
             }
         }
     }
+}
+
+/**
+ * "Idempotency cache" diagnostic card. Fetches `/api/audit/idempotency` once
+ * on composition (no polling — the cache mutates only on writes, and operators
+ * already get a refresh on surface re-entry). Mirrors [ChainIntegrityCard]'s
+ * 403-→-WARN routing so an operator without the `audit.verify` scope gets a
+ * "Insufficient scope" callout instead of a red alarm.
+ */
+@Composable
+private fun IdempotencyCacheCard(
+    rows: List<IdempotencyRow>,
+    error: String?,
+    loaded: Boolean,
+) {
+    AegisCard(
+        title = "Idempotency cache",
+        subtitle = "Recent client-replay-protection entries — read-only snapshot. " +
+                "Fetched once on surface open; re-enter to refresh.",
+    ) {
+        when {
+            !loaded -> Text(
+                "Loading idempotency cache snapshot…",
+                fontSize = 13.sp,
+                color = AegisColors.textSecondary,
+            )
+            error != null -> {
+                val is403 = error.contains("403")
+                AegisCallout(
+                    kind = if (is403) CalloutKind.WARN else CalloutKind.DANGER,
+                    title = if (is403) "Insufficient scope (403)"
+                            else "Idempotency listing unavailable",
+                    body = if (is403)
+                        "The current operator identity does not have the `audit.verify` scope " +
+                                "(reused for this diagnostic). Set your identity in Settings or ask an admin " +
+                                "to grant the scope. Detail: $error"
+                    else
+                        "Could not fetch the idempotency cache: $error",
+                )
+            }
+            rows.isEmpty() -> AegisCallout(
+                kind = CalloutKind.INFO,
+                title = "Cache is empty",
+                body = "No idempotency-key entries to display. Entries are recorded only for " +
+                        "writes that carry an `Idempotency-Key` header and expire after 24h.",
+            )
+            else -> Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                AegisCallout(
+                    kind = CalloutKind.SUCCESS,
+                    title = "Live data",
+                    body = "${rows.size} entries — newest first.",
+                )
+                AegisTable(
+                    items = rows,
+                    columns = listOf(
+                        AegisColumn<IdempotencyRow>(
+                            header = "Key", weight = 1.1f, mono = true,
+                            cell = {
+                                Text(
+                                    it.key.take(12) + if (it.key.length > 12) "…" else "",
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AegisColors.textBody,
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Route", weight = 1.6f,
+                            cell = {
+                                Text(it.routeKey, fontSize = 13.sp, color = AegisColors.textBody)
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Req hash", weight = 0.7f, mono = true,
+                            cell = {
+                                Text(
+                                    it.requestHash.take(8),
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AegisColors.textSecondary,
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Status", weight = 0.5f, mono = true,
+                            cell = {
+                                Text(
+                                    if (it.responseStatus == 0) "—" else it.responseStatus.toString(),
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AegisColors.textBody,
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Created", weight = 0.7f,
+                            cell = {
+                                Text(
+                                    extractHms(it.createdAt),
+                                    fontSize = 13.sp,
+                                    color = AegisColors.textSecondary,
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Expires", weight = 0.7f,
+                            cell = {
+                                Text(
+                                    extractHms(it.expiresAt),
+                                    fontSize = 13.sp,
+                                    color = AegisColors.textSecondary,
+                                )
+                            }
+                        ),
+                    ),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Pulls `HH:MM:SS` out of an ISO-8601 instant (e.g. `2026-05-22T10:42:11Z` →
+ * `10:42:11`). Returns the raw string if the input doesn't look ISO-shaped —
+ * we'd rather show something legible than a blank cell on a malformed value.
+ */
+private fun extractHms(iso: String): String {
+    val t = iso.indexOf('T')
+    if (t < 0 || t + 9 > iso.length) return iso
+    return iso.substring(t + 1, t + 9)
 }
 
 /** Internal client-side row — decouples the surface from server-side serialization tweaks. */

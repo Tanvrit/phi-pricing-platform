@@ -6,6 +6,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import kotlinx.serialization.Serializable
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.less
 import org.jetbrains.exposed.sql.deleteWhere
@@ -20,6 +22,25 @@ import kotlin.time.Duration.Companion.hours
 data class IdempotencyHit(
     val status: Int,
     val body: String?
+)
+
+/**
+ * Wire-format row for `GET /api/audit/idempotency`. Mirrors the columns of
+ * [com.rate.server.database.tables.IdempotencyKeyTable]; `expiresAt` is derived
+ * from `createdAt + TTL` since the table only stores the creation instant.
+ * `firstResponseBytes` is the byte length of the cached body (0 if null) and
+ * exists purely as a debugging hint — operators can spot pathologically large
+ * cached payloads without having to dump the body itself.
+ */
+@Serializable
+data class IdempotencyEntry(
+    val key: String,
+    val routeKey: String,
+    val requestHash: String,
+    val responseStatus: Int,
+    val createdAt: String,
+    val expiresAt: String,
+    val firstResponseBytes: Int
 )
 
 /** Outcome of a `check()` call. */
@@ -93,6 +114,35 @@ class IdempotencyService {
             log.debug("idempotency.store skipped for key={} route={}: {}", key, route, t.message)
         }
     }
+
+    /**
+     * Newest-first snapshot of the idempotency cache for the audit/diagnostic
+     * surface. Read-only — does NOT include `responseBody` (which can be large
+     * and may carry response PII); operators get a size hint instead. The
+     * caller is responsible for clamping [limit]; this method enforces a hard
+     * upper bound regardless to avoid pulling unbounded payloads on a typo.
+     */
+    suspend fun listRecent(limit: Int = 100): List<IdempotencyEntry> =
+        newSuspendedTransaction {
+            val capped = limit.coerceIn(1, 500)
+            IdempotencyKeyTable
+                .selectAll()
+                .orderBy(IdempotencyKeyTable.createdAt, SortOrder.DESC)
+                .limit(capped)
+                .map { row ->
+                    val created = row[IdempotencyKeyTable.createdAt]
+                    val body = row[IdempotencyKeyTable.responseBody]
+                    IdempotencyEntry(
+                        key                = row[IdempotencyKeyTable.key],
+                        routeKey           = row[IdempotencyKeyTable.route],
+                        requestHash        = row[IdempotencyKeyTable.requestHash],
+                        responseStatus     = row[IdempotencyKeyTable.responseStatus],
+                        createdAt          = created.toString(),
+                        expiresAt          = created.plus(TTL).toString(),
+                        firstResponseBytes = body?.toByteArray(Charsets.UTF_8)?.size ?: 0
+                    )
+                }
+        }
 
     /** Background cleanup loop — purges entries older than the TTL every hour. */
     fun startCleanup(scope: CoroutineScope) {

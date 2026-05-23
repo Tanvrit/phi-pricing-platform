@@ -1,6 +1,9 @@
 package com.rate.server.audit
 
 import com.rate.server.database.tables.AuditEventTable
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
@@ -71,6 +74,32 @@ class AuditEventService {
     private val log = LoggerFactory.getLogger(AuditEventService::class.java)
 
     /**
+     * Live broadcast of freshly-persisted audit rows. Used by `GET /api/audit/stream`
+     * to push events to SSE subscribers without polling the DB.
+     *
+     * Buffer sizing:
+     *  - replay = 0 (default): late subscribers don't get historical rows — they
+     *    should bootstrap via `GET /api/audit/events?limit=N` and then attach.
+     *  - extraBufferCapacity = 64: small headroom for transient consumer slowness
+     *    (e.g. one client behind a slow proxy). On overflow we DROP_OLDEST so a
+     *    stuck subscriber can never backpressure the audit write path. This is
+     *    an explicit "best-effort live feed" — chain integrity stays in the DB
+     *    and is verifiable via `/api/audit/verify` regardless of stream drops.
+     */
+    private val events = MutableSharedFlow<AuditEventRow>(
+        replay = 0,
+        extraBufferCapacity = 64,
+        onBufferOverflow = kotlinx.coroutines.channels.BufferOverflow.DROP_OLDEST
+    )
+
+    /**
+     * Cold view of [events] for SSE subscribers. Each `collect` is an independent
+     * subscription; cancelling the collecting coroutine (e.g. when the client
+     * disconnects) automatically unsubscribes — no manual cleanup needed.
+     */
+    fun stream(): SharedFlow<AuditEventRow> = events.asSharedFlow()
+
+    /**
      * Records one event and returns the inserted row id. Failures are caught and
      * logged — audit writes must never break the underlying business operation
      * (we'd rather miss one audit row than fail a quote save).
@@ -83,7 +112,7 @@ class AuditEventService {
         actor: AuditActor = AuditActor.unknown(),
         requestId: String? = null
     ): Long? = try {
-        newSuspendedTransaction {
+        val inserted = newSuspendedTransaction {
             val prevHash = AuditEventTable
                 .selectAll()
                 .orderBy(AuditEventTable.id, SortOrder.DESC)
@@ -105,7 +134,7 @@ class AuditEventService {
             )
             val thisHash = sha256(prevHash + canonical)
 
-            AuditEventTable.insert {
+            val newId = AuditEventTable.insert {
                 it[eventAt]      = now
                 it[actorSubject] = actor.subject
                 it[actorRole]    = actor.role
@@ -117,7 +146,30 @@ class AuditEventService {
                 it[AuditEventTable.prevHash]     = prevHash
                 it[AuditEventTable.thisHash]     = thisHash
             } get AuditEventTable.id
+
+            // Build the wire row from the same fields that just hit the DB. We
+            // emit OUTSIDE the transaction (after it returns) so a slow collector
+            // can't hold the JDBC connection open.
+            AuditEventRow(
+                id            = newId,
+                eventAt       = now.toString(),
+                action        = action,
+                resourceType  = resourceType,
+                resourceId    = resourceId,
+                actorSubject  = actor.subject,
+                actorRole     = actor.role,
+                requestId     = requestId,
+                payloadJson   = payload?.toString(),
+                prevHash      = prevHash,
+                thisHash      = thisHash
+            )
         }
+
+        // tryEmit is non-suspending; drops on overflow (DROP_OLDEST) — acceptable
+        // for a best-effort live feed. The persisted row in `audit_events` is the
+        // source of truth; SSE is a convenience push, not a guarantee.
+        events.tryEmit(inserted)
+        inserted.id
     } catch (t: Throwable) {
         log.warn("audit.record failed for action={} resource={}: {}", action, resourceType, t.message)
         null

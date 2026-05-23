@@ -7,6 +7,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
@@ -18,6 +19,7 @@ import com.rate.aegis.data.FakeAegisRepo
 import com.rate.aegis.data.rememberDashboardData
 import com.rate.aegis.theme.*
 import com.rate.aegis.util.buildCsv
+import com.rate.aegis.util.copyToClipboard
 import com.rate.aegis.util.saveCsv
 import com.rate.aegis.util.todayIsoDate
 import com.rate.domain.money.formatRupees
@@ -251,6 +253,36 @@ fun QuoteExplorerSurface() {
                             "on the live PricingEngine (Phase 4b), this drawer will render " +
                             "per-cover lines + per-year breakdown + the rate-table version that " +
                             "produced the quote."
+                )
+                // ── Share-with-customer affordance ────────────────────────
+                // Every saved quote is shareable — there's no "is_shared" flag;
+                // the URL is just a deterministic function of the id. Operator
+                // copies the link, drops it into chat/email, customer hits the
+                // landing and sees SharedQuoteView (read-only) instead of the
+                // buyonline journey. Cloudflare Pages is the canonical host;
+                // local dev can rewrite the prefix in a future settings entry.
+                Spacer(Modifier.height(AegisSpacing.s3))
+                AegisHDivider()
+                Spacer(Modifier.height(AegisSpacing.s2))
+                Text("Share with customer", fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    color = AegisColors.textBody)
+                val shareUrl = "https://phi-buyonline.pages.dev/?quote=${q.id}"
+                var copied by remember(q.id) { mutableStateOf(false) }
+                Text(shareUrl, fontSize = 12.sp, fontFamily = FontFamily.Monospace,
+                    color = AegisColors.textSecondary)
+                AegisButton(
+                    label = if (copied) "Copied" else "Copy URL",
+                    variant = AegisButtonVariant.Secondary,
+                    size = AegisButtonSize.Sm,
+                    onClick = {
+                        copyToClipboard(shareUrl)
+                        copied = true
+                    }
+                )
+                Text(
+                    "Customer sees a read-only summary at this URL. They start a fresh " +
+                            "application from the same page after reviewing.",
+                    fontSize = 11.sp, color = AegisColors.textSecondary
                 )
             }
         }

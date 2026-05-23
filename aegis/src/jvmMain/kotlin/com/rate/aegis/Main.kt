@@ -28,6 +28,10 @@ fun main() {
     // JVM system property so operators can reproduce a customer's stuck state
     // by launching with `-Daegis.session=<hex>` for debugging.
     AegisLaunchContext.sessionId = System.getProperty("aegis.session")?.trim()?.takeIf { it.isNotEmpty() }
+    // Shared-quote preview on desktop: `-Daegis.quote=<id>` mirrors the WASM
+    // `?quote=` query so an operator can sanity-check the read-only summary
+    // view from the JVM build before sending the link out.
+    AegisLaunchContext.quoteId = System.getProperty("aegis.quote")?.trim()?.takeIf { it.isNotEmpty() }
 
     val title = when (role) {
         AegisRole.CUSTOMER -> "Aegis — Buy Online (preview)"

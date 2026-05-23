@@ -28,6 +28,24 @@ data class AuditVerify(
 )
 
 /**
+ * Wire-only DTO mirror of the server's `IdempotencyEntry`. One row per cached
+ * idempotency-key entry — diagnostic listing only; the cached response body is
+ * NOT included (operators get the byte length via `firstResponseBytes`).
+ * Defaults hydrate cleanly if older server builds omit `responseStatus` /
+ * `firstResponseBytes`.
+ */
+@Serializable
+data class IdempotencyRow(
+    val key: String,
+    val routeKey: String,
+    val requestHash: String,
+    val responseStatus: Int = 0,
+    val createdAt: String,
+    val expiresAt: String,
+    val firstResponseBytes: Int = 0
+)
+
+/**
  * Wire-only DTO mirror of the server's [com.rate.server.auth.Operator]. Lives in
  * the client file so :shared doesn't need to know about RBAC primitives.
  */
@@ -174,6 +192,25 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
         http.get("$baseUrl/api/audit/events?limit=$limit").body()
 
     /**
+     * Server-Sent Events stream of audit events — placeholder.
+     *
+     * The server endpoint (`GET /api/audit/stream`) is live and testable via
+     * `curl -N`, but the Aegis surfaces (ActivityFeed + AuditEventsSurface)
+     * still use polling against [getAuditEvents]. Migrating them requires a
+     * proper EventSource bridge across all client targets (JVM via
+     * NIO/coroutines, browser via the native `EventSource` API in WASM/JS,
+     * iOS via NSURLSession with `text/event-stream` accept) — punted to the
+     * next iteration.
+     *
+     * Throws on call so nobody accidentally wires an incomplete consumer.
+     * Remove the throw and implement here when picking up the follow-up.
+     */
+    @Suppress("UnusedParameter")
+    suspend fun streamAuditEvents(): Nothing {
+        error("SSE consumer not yet implemented — see follow-up iteration")
+    }
+
+    /**
      * Walks the hash chain server-side and reports the result. Scope-gated
      * (`audit.verify`); a caller without scope gets HTTP 403 with the standard
      * `{errorCode, scope, identity}` body. We surface that as a thrown
@@ -183,6 +220,21 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun verifyAuditChain(): AuditVerify {
         val resp = http.get("$baseUrl/api/audit/verify")
+        if (!resp.status.isSuccess()) {
+            val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
+            error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
+        }
+        return resp.body()
+    }
+
+    /**
+     * Lists recent idempotency-key cache entries (newest-first). Scope-gated
+     * server-side (`audit.verify`); the same 403→thrown-error contract as
+     * [verifyAuditChain] applies so the calling surface can render a WARN
+     * callout instead of bubbling a Ktor exception type into commonMain.
+     */
+    suspend fun listIdempotencyKeys(limit: Int = 100): List<IdempotencyRow> {
+        val resp = http.get("$baseUrl/api/audit/idempotency?limit=$limit")
         if (!resp.status.isSuccess()) {
             val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
             error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
