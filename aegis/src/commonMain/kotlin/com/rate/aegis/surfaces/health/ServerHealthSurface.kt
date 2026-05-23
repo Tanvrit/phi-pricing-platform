@@ -17,10 +17,14 @@ import androidx.compose.ui.unit.sp
 import com.rate.aegis.AEGIS_VERSION
 import com.rate.aegis.LocalRefreshTicker
 import com.rate.aegis.business.calculator.api.DbPoolStats
+import com.rate.aegis.business.calculator.api.LogTail
 import com.rate.aegis.business.calculator.api.ServerConfigInfo
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
+import com.rate.aegis.util.copyToClipboard
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.datetime.Clock
@@ -62,7 +66,26 @@ fun ServerHealthSurface() {
     var metricsMap by remember { mutableStateOf<Map<String, Double>>(emptyMap()) }
     var metricsError by remember { mutableStateOf<String?>(null) }
 
+    // Rolling history for the "Trends" card. We retain the last 30 samples
+    // (=~5 minutes at the 10s /metrics cadence) per tracked metric. The
+    // history is intentionally co-located with the existing metrics poller
+    // below — keeping a separate ticker would double the request rate, and
+    // the prompt forbids changing the cadence.
+    val trendHistory = remember { mutableStateOf<Map<String, List<Double>>>(emptyMap()) }
+
     var rawExpanded by remember { mutableStateOf(false) }
+
+    // ── Server log tail state ──────────────────────────────────────────
+    // Operator-initiated only — there's no poller here (unlike /health and
+    // /metrics) because the prompt forbids polling the log endpoint and a
+    // continuously-streaming tail would mask real abuse spikes by hiding
+    // burst patterns under a sliding window. The operator presses one of the
+    // chip buttons and we fire a one-shot fetch with the chosen line count.
+    var logTail by remember { mutableStateOf<LogTail?>(null) }
+    var logError by remember { mutableStateOf<String?>(null) }
+    var logLoading by remember { mutableStateOf(false) }
+    var logCopied by remember { mutableStateOf(false) }
+    val logScope = rememberCoroutineScope()
 
     // Server config snapshot — fetched once on first composition. Single-shot
     // by design (the prompt forbids a per-card refresh button); the global
@@ -110,8 +133,21 @@ fun ServerHealthSurface() {
             runCatching { client.metricsText() }
                 .onSuccess { text ->
                     metricsRaw = text
-                    metricsMap = parsePrometheus(text)
+                    val parsed = parsePrometheus(text)
+                    metricsMap = parsed
                     metricsError = null
+                    // Append this sample to the rolling history for each
+                    // tracked metric, capped at TREND_WINDOW_SIZE. Missing
+                    // metrics record 0.0 so the series length stays in
+                    // lockstep across rows (operators reading deltas expect
+                    // identical sample counts per row).
+                    val updated = trendHistory.value.toMutableMap()
+                    TRACKED_TREND_METRICS.forEach { name ->
+                        val value = parsed[name] ?: 0.0
+                        val series = (updated[name] ?: emptyList()) + value
+                        updated[name] = series.takeLast(TREND_WINDOW_SIZE)
+                    }
+                    trendHistory.value = updated
                 }
                 .onFailure { t ->
                     metricsError = t.message ?: t::class.simpleName ?: "unknown error"
@@ -269,6 +305,15 @@ fun ServerHealthSurface() {
             }
         }
 
+        // ── 3c+. Trends card ────────────────────────────────────────────
+        // Rolling 5-minute trend (last 30 samples at the 10s /metrics
+        // cadence) for the counters most likely to show interesting deltas
+        // during an incident. The card sits directly under Idempotency
+        // activity because both visualise rate-of-change signals — operators
+        // already scrolling that region for retry storms get the broader
+        // sparkline view "for free".
+        TrendsCard(history = trendHistory.value, current = metricsMap)
+
         // ── 3d. Server config card ──────────────────────────────────────
         // Read-only readout of `/api/admin/config`. The endpoint is gated by
         // `audit.verify`; a 403 routes to a WARN callout instead of a red
@@ -350,6 +395,40 @@ fun ServerHealthSurface() {
                 }
             }
         }
+
+        // ── 6. Server log tail card ─────────────────────────────────────
+        // Operator-initiated tail of the server's `logs/aegis.log`. NOT polled
+        // — the operator presses one of the chip buttons (200 / 500 / 1000) to
+        // fetch a one-shot snapshot. Scope-gated by `audit.verify`; a 403
+        // routes to the same WARN callout pattern as the other admin cards.
+        // PII safety: the on-disk file is written through the masked encoder
+        // in logback.xml, so this card cannot leak Aadhaar/mobile/PAN even if
+        // something slips past defensive logging.
+        ServerLogTailCard(
+            tail = logTail,
+            error = logError,
+            loading = logLoading,
+            copied = logCopied,
+            onFetch = { lines ->
+                logScope.launch {
+                    logLoading = true
+                    logError = null
+                    logCopied = false
+                    runCatching { client.getServerLogTail(lines) }
+                        .onSuccess { logTail = it }
+                        .onFailure { t ->
+                            logError = t.message ?: t::class.simpleName ?: "unknown error"
+                        }
+                    logLoading = false
+                }
+            },
+            onCopy = {
+                val joined = logTail?.lines?.joinToString("\n") ?: ""
+                if (joined.isNotEmpty()) {
+                    logCopied = copyToClipboard(joined)
+                }
+            },
+        )
     }
 }
 
@@ -742,5 +821,327 @@ private fun DbPoolTile(
             color = valueColor,
             fontFamily = FontFamily.Monospace,
         )
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Trends card — rolling sparkline view of selected counters
+// ────────────────────────────────────────────────────────────────────────
+
+/**
+ * Sliding-window size for the trends card. With the /metrics poller at 10s,
+ * 30 samples ≈ 5 minutes of history. Larger windows blow the sparkline
+ * resolution out without adding much signal, since the counters of interest
+ * are monotonic.
+ */
+private const val TREND_WINDOW_SIZE = 30
+
+/**
+ * The Prometheus counters we sparkline in the Trends card. Counters were
+ * picked for their incident-debug value: quote calculation rate, OTP send
+ * rate (abuse spikes), and idempotent replay rate (client retry storms).
+ * `db_pool_active` would be a fourth here but it's exposed via
+ * `/api/admin/db-pool`, not `/metrics`, so we don't track it on this card —
+ * the dedicated DB pool tiles cover that signal.
+ */
+private val TRACKED_TREND_METRICS = listOf(
+    "quotes_calculated_total",
+    "otp_sent_total",
+    "idempotent_replay_total",
+)
+
+/**
+ * "Trends" card — a 4-row (currently 3-row) sparkline table over the rolling
+ * [TREND_WINDOW_SIZE]-sample window. Each row shows: metric name (mono,
+ * left) · current value (right-aligned, bold) · 80dp sparkline · delta-vs-
+ * window-start chip (green when up, red when down, neutral when flat).
+ *
+ * Delta is computed against `series.first()` so the chip reflects the actual
+ * change observed since the window started filling — not since the first
+ * scrape ever. This makes the chip meaningful even after a server restart
+ * (the window simply starts over).
+ */
+@Composable
+private fun TrendsCard(
+    history: Map<String, List<Double>>,
+    current: Map<String, Double>,
+) {
+    AegisCard(
+        title = "Trends",
+        subtitle = "Last ~5 minutes of selected counters " +
+                "($TREND_WINDOW_SIZE samples at 10s cadence). " +
+                "Green/red chip = delta vs. window start.",
+    ) {
+        val anySeries = TRACKED_TREND_METRICS.any { (history[it]?.size ?: 0) > 0 }
+        if (!anySeries) {
+            Text(
+                "Collecting samples… first sparkline appears after the next /metrics tick.",
+                fontSize = 13.sp,
+                color = AegisColors.textSecondary,
+            )
+            return@AegisCard
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+            TRACKED_TREND_METRICS.forEachIndexed { idx, metric ->
+                val series = history[metric] ?: emptyList()
+                val currentValue = current[metric] ?: series.lastOrNull() ?: 0.0
+                TrendRow(
+                    metric = metric,
+                    currentValue = currentValue,
+                    series = series,
+                )
+                if (idx < TRACKED_TREND_METRICS.size - 1) AegisHDivider()
+            }
+        }
+    }
+}
+
+/**
+ * One row of the [TrendsCard]: name, current, sparkline, delta chip.
+ *
+ * Layout choices:
+ *   - Name takes a fixed `weight(1f)` so long metric names truncate / wrap
+ *     rather than push the sparkline off-screen.
+ *   - Sparkline is a fixed 80dp wide so all rows line up visually; the
+ *     sparkline height matches the surrounding text baseline (24dp).
+ *   - The delta chip uses success/danger 50 (background) + 700 (foreground)
+ *     to match the surface's existing colour vocabulary.
+ */
+@Composable
+private fun TrendRow(
+    metric: String,
+    currentValue: Double,
+    series: List<Double>,
+) {
+    val first = series.firstOrNull() ?: currentValue
+    val delta = currentValue - first
+    val deltaLabel = run {
+        val abs = kotlin.math.abs(delta)
+        val absStr = formatMetric(abs)
+        when {
+            delta > 0.0 -> "+$absStr"
+            delta < 0.0 -> "−$absStr"  // U+2212 minus sign — visually heavier than ASCII '-'
+            else -> "0"
+        }
+    }
+    val (chipBg, chipFg) = when {
+        delta > 0.0 -> AegisColors.success50 to AegisColors.success700
+        delta < 0.0 -> AegisColors.danger50 to AegisColors.danger700
+        else -> AegisColors.surfaceMuted to AegisColors.textSecondary
+    }
+    val sparkAccent = when {
+        delta > 0.0 -> AegisColors.success500
+        delta < 0.0 -> AegisColors.danger500
+        else -> AegisColors.info500
+    }
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+    ) {
+        Text(
+            metric,
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            color = AegisColors.textBody,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            formatMetric(currentValue),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AegisColors.textPrimary,
+            fontFamily = FontFamily.Monospace,
+        )
+        AegisSparkline(
+            values = series,
+            accent = sparkAccent,
+            modifier = Modifier.width(80.dp).height(24.dp),
+        )
+        Box(
+            Modifier
+                .background(chipBg, RoundedCornerShape(AegisRadii.rSm))
+                .padding(horizontal = 6.dp, vertical = 2.dp),
+        ) {
+            Text(
+                deltaLabel,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = chipFg,
+                fontFamily = FontFamily.Monospace,
+            )
+        }
+    }
+}
+
+// ────────────────────────────────────────────────────────────────────────
+// Server log tail card
+// ────────────────────────────────────────────────────────────────────────
+
+/**
+ * Operator-initiated tail of the server's on-disk `logs/aegis.log`. Three
+ * rendering states match the other admin cards:
+ *
+ *   - `error != null`             → WARN (403, scope missing) / DANGER (5xx,
+ *                                   network) callout, mirroring [ServerConfigCard]
+ *                                   and [DbPoolCard]. Substring-detect "403"
+ *                                   so an un-bootstrapped operator gets
+ *                                   actionable guidance instead of a red alarm.
+ *   - `tail == null && !loading`  → Empty state: the operator hasn't pressed
+ *                                   a fetch button yet. Shows the three chip
+ *                                   buttons + a hint.
+ *   - `tail != null`              → Header row (Copy button + meta), scrollable
+ *                                   monospace box capped at 400dp. If
+ *                                   `tail.reason` is set we show that *instead*
+ *                                   of the lines block — that's the path for
+ *                                   "no FileAppender configured" / "file not
+ *                                   found yet".
+ *
+ * No polling: the operator picks one of the chip buttons (200/500/1000) and
+ * we fire a one-shot fetch. The prompt explicitly forbids a periodic refresh
+ * here — a continuously-tailing card would defeat its own purpose by making
+ * burst patterns invisible.
+ */
+@Composable
+private fun ServerLogTailCard(
+    tail: LogTail?,
+    error: String?,
+    loading: Boolean,
+    copied: Boolean,
+    onFetch: (Int) -> Unit,
+    onCopy: () -> Unit,
+) {
+    AegisCard(
+        title = "Server log tail",
+        subtitle = "Operator-initiated read of logs/aegis.log. " +
+                "PII is masked at write time; large tails are capped at 2000 lines server-side.",
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+            // ── Action row: Copy + chip buttons ──────────────────────
+            // Copy button sits on the LEFT so it shares the same eye-line as
+            // the "Showing N lines" meta on the right — operators reach for
+            // the keyboard with their right hand while the cursor is on the
+            // copy button. Disabled until we actually have lines to copy.
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val hasLines = (tail?.lines?.isNotEmpty() == true)
+                AegisButton(
+                    label = if (copied) "Copied!" else "Copy to clipboard",
+                    onClick = onCopy,
+                    variant = AegisButtonVariant.Secondary,
+                    size = AegisButtonSize.Sm,
+                    enabled = hasLines,
+                )
+                val metaText = when {
+                    loading -> "Fetching…"
+                    tail == null -> "No log fetched yet"
+                    tail.lines.isEmpty() -> "0 lines"
+                    else -> "Showing ${tail.lines.size} line${if (tail.lines.size == 1) "" else "s"}"
+                }
+                Text(
+                    metaText,
+                    fontSize = 12.sp,
+                    color = AegisColors.textTertiary,
+                    fontFamily = FontFamily.Monospace,
+                )
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                AegisButton(
+                    label = "Fetch last 200 lines",
+                    onClick = { onFetch(200) },
+                    variant = AegisButtonVariant.Secondary,
+                    size = AegisButtonSize.Sm,
+                    loading = loading,
+                )
+                AegisButton(
+                    label = "Fetch last 500 lines",
+                    onClick = { onFetch(500) },
+                    variant = AegisButtonVariant.Secondary,
+                    size = AegisButtonSize.Sm,
+                    loading = loading,
+                )
+                AegisButton(
+                    label = "Fetch last 1000 lines",
+                    onClick = { onFetch(1000) },
+                    variant = AegisButtonVariant.Secondary,
+                    size = AegisButtonSize.Sm,
+                    loading = loading,
+                )
+            }
+
+            // ── Body ─────────────────────────────────────────────────
+            when {
+                error != null -> {
+                    val is403 = error.contains("403")
+                    AegisCallout(
+                        kind = if (is403) CalloutKind.WARN else CalloutKind.DANGER,
+                        title = if (is403) "Insufficient scope (403)"
+                                else "Log tail unavailable",
+                        body = if (is403)
+                            "The current operator identity does not have the `audit.verify` scope " +
+                                    "(reused for this diagnostic). Set your identity in Settings or ask " +
+                                    "an admin to grant the scope. Detail: $error"
+                        else
+                            "Could not fetch /api/admin/log: $error",
+                    )
+                }
+                tail == null -> {
+                    // Pre-fetch empty state. Don't render the monospace box
+                    // yet — operators will press a chip button first; showing
+                    // a 400dp empty grey box would just be visual noise.
+                    Text(
+                        "Press one of the fetch buttons above to read the trailing lines from logs/aegis.log.",
+                        fontSize = 13.sp,
+                        color = AegisColors.textSecondary,
+                    )
+                }
+                tail.reason != null && tail.lines.isEmpty() -> {
+                    // Server returned a soft empty (file missing, read failed,
+                    // appender not wired). Route to a WARN callout so the
+                    // operator gets the explanatory `reason` instead of a
+                    // silent grey box.
+                    AegisCallout(
+                        kind = CalloutKind.WARN,
+                        title = "Log file not available",
+                        body = tail.reason,
+                    )
+                }
+                tail.lines.isEmpty() -> {
+                    Text(
+                        "(no lines)",
+                        fontSize = 13.sp,
+                        color = AegisColors.textSecondary,
+                    )
+                }
+                else -> {
+                    // Cap the scrollable box at 400dp regardless of how many
+                    // lines came back. 1000 lines at 12sp wraps far past any
+                    // sensible card height; the inner verticalScroll handles
+                    // anything beyond the cap.
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(400.dp)
+                            .background(AegisColors.surfaceMuted, RoundedCornerShape(AegisRadii.rMd))
+                            .verticalScroll(rememberScrollState())
+                            .padding(AegisSpacing.s4)
+                    ) {
+                        Text(
+                            tail.lines.joinToString("\n"),
+                            fontSize = 12.sp,
+                            fontFamily = FontFamily.Monospace,
+                            color = AegisColors.textBody,
+                        )
+                    }
+                }
+            }
+        }
     }
 }

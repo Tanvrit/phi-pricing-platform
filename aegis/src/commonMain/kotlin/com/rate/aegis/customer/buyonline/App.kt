@@ -38,6 +38,7 @@ import com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen
 import com.rate.aegis.customer.buyonline.ui.addons.AddOnsScreen
 import com.rate.aegis.customer.buyonline.ui.complete.ApplicationCompleteScreen
 import com.rate.aegis.customer.buyonline.ui.complete.SatisfactionScreen
+import com.rate.aegis.customer.buyonline.ui.components.FloatingHelpButton
 import com.rate.aegis.customer.buyonline.ui.components.ResumeBanner
 import com.rate.aegis.customer.buyonline.ui.components.SessionExpiresCallout
 import com.rate.aegis.customer.buyonline.ui.components.StepIndicator
@@ -229,6 +230,18 @@ fun BuyOnlineApp() {
             else -> true
         }
 
+        // Floating "Need help?" button overlays the journey on every screen
+        // except the two terminal ones (ApplicationComplete + Satisfaction —
+        // the journey is finished, support routing changes from "help me
+        // apply" to "I'm a policyholder", which lives elsewhere). Wrapped in
+        // an outer Box so the button can anchor to the screen corner without
+        // shifting the journey layout above it.
+        val showHelpFab = when (vm.currentScreen) {
+            is BuyOnlineScreen.ApplicationComplete,
+            is BuyOnlineScreen.Satisfaction -> false
+            else -> true
+        }
+        Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize()) {
             if (showExpires && ageDays != null) {
                 val daysLeft = (30 - ageDays).coerceAtLeast(0)
@@ -274,6 +287,14 @@ fun BuyOnlineApp() {
                     is BuyOnlineScreen.ApplicationComplete -> ApplicationCompleteScreen(vm)
                     is BuyOnlineScreen.Satisfaction        -> SatisfactionScreen(vm)
                 }
+            }
+        }
+            if (showHelpFab) {
+                FloatingHelpButton(
+                    Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp)
+                )
             }
         }
     }

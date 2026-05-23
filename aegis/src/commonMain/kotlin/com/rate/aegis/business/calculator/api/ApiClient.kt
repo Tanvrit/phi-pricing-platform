@@ -90,6 +90,19 @@ data class ServerConfigInfo(
 )
 
 /**
+ * Wire-only mirror of the server's `LogTail`. Carries the most recent N lines
+ * read from the on-disk `logs/aegis.log`; [reason] is non-null only when [lines]
+ * is empty (file missing, read failed). Same scope-gating (`audit.verify`) and
+ * 403-→-WARN contract as the other admin diagnostics. Default-empty so older
+ * server builds without the endpoint hydrate cleanly into an empty card.
+ */
+@Serializable
+data class LogTail(
+    val lines: List<String> = emptyList(),
+    val reason: String? = null,
+)
+
+/**
  * Wire-only mirror of the server's `DbPoolStats`. Live HikariCP pool counters
  * for the Aegis "DB connection pool" diagnostic card — defaults to all-zero so
  * the surface can render an empty tile row before the first poll completes (or
@@ -435,6 +448,29 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      */
     suspend fun getDbPoolStats(): DbPoolStats {
         val resp = http.get("$baseUrl/api/admin/db-pool")
+        if (!resp.status.isSuccess()) {
+            val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
+            error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")
+        }
+        return resp.body()
+    }
+
+    /**
+     * Returns the trailing [lines] lines from the server's `logs/aegis.log`
+     * file. Operator-initiated only (no polling) — the calling surface fires
+     * this on a button press. Server clamps `lines` to 1..2000 regardless of
+     * what we pass. Scope-gated server-side by `audit.verify`; same 403-→-
+     * thrown-error contract as [getServerConfig] / [getDbPoolStats] so the
+     * surface renders a WARN callout instead of leaking a Ktor exception type
+     * into commonMain. The wire payload is `LogTail` with an optional `reason`
+     * field that explains an empty body (file missing, read failed) without
+     * forcing a 5xx — that lets the operator see "no FileAppender configured"
+     * rather than a generic error.
+     */
+    suspend fun getServerLogTail(lines: Int = 200): LogTail {
+        val resp = http.get("$baseUrl/api/admin/log") {
+            url { parameters.append("lines", lines.toString()) }
+        }
         if (!resp.status.isSuccess()) {
             val bodyText = runCatching { resp.bodyAsText() }.getOrNull().orEmpty()
             error("HTTP ${resp.status.value} ${resp.status.description}${if (bodyText.isNotBlank()) " — $bodyText" else ""}")

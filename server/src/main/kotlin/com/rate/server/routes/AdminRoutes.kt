@@ -91,6 +91,27 @@ internal data class DbPoolStats(
 private data class DbPoolStatus(val status: String)
 
 /**
+ * Wire-level snapshot of the tail of the server's on-disk log file. Used by the
+ * Aegis "Server log tail" diagnostic card. [lines] is the verbatim sequence of
+ * trailing lines (newest at the end, just like `tail -n`); [reason] is set ONLY
+ * when [lines] is empty and we want to tell the operator why (e.g. the file
+ * doesn't exist yet because nothing has been logged since boot, or the logback
+ * config doesn't have a FileAppender wired).
+ *
+ * Defence-in-depth: the on-disk log is masked by [PiiMaskingConverter] at write
+ * time, so this endpoint cannot leak Aadhaar/mobile/PAN even if call sites slip
+ * up. The route is gated by `audit.verify` and the line cap is hardcoded at
+ * 2000 — large tails risk both perf issues (full-file read into memory) and
+ * surfacing huge stack traces that the operator likely doesn't want in their
+ * browser anyway.
+ */
+@Serializable
+data class LogTail(
+    val lines: List<String>,
+    val reason: String? = null,
+)
+
+/**
  * Admin-only diagnostics. Today: list / bulk-prune the email outbox
  * (~/.aegis/outbox/), useful for verifying that the buyonline "Email me"
  * flow actually drops files where it claims to. In Phase 2 these endpoints
@@ -173,6 +194,47 @@ fun Route.adminRoutes(outboxDir: File, auditService: AuditEventService) {
                 maxPoolSize = ds.maximumPoolSize,
             )
         )
+    }
+
+    // Operator-initiated tail of the on-disk log file. Read-only; the line cap
+    // is clamped server-side to 1..2000 so a misbehaving client can't ask for
+    // the whole file (large reads risk perf issues + might surface multi-MB
+    // stack-trace blocks the operator doesn't actually want to browse). Path
+    // is the repo-root-relative `logs/aegis.log` written by the RollingFileAppender
+    // in `logback.xml`; if that appender isn't wired the file won't exist and we
+    // hand back an empty body with [reason] explaining why instead of 5xx-ing.
+    get("/api/admin/log") {
+        if (!requireScope("audit.verify")) return@get
+        val lines = (call.request.queryParameters["lines"]?.toIntOrNull() ?: 200)
+            .coerceIn(1, 2000)
+        val logFile = File("logs/aegis.log")
+        if (!logFile.exists()) {
+            call.respond(
+                LogTail(
+                    lines = emptyList(),
+                    reason = "Log file at logs/aegis.log not found. " +
+                            "Either the server hasn't logged anything since boot, " +
+                            "or no RollingFileAppender is wired in logback.xml.",
+                )
+            )
+            return@get
+        }
+        // useLines streams the file rather than slurping it whole, but takeLast
+        // still materialises the whole sequence so the in-memory cost is O(file).
+        // For aegis.log with daily rotation + maxHistory=14 the live file stays
+        // well under 100MB worst-case; if that ever changes we'll swap to a
+        // reverse-read using RandomAccessFile.
+        val tail = runCatching { logFile.useLines { it.toList().takeLast(lines) } }
+            .getOrElse { t ->
+                call.respond(
+                    LogTail(
+                        lines = emptyList(),
+                        reason = "Failed to read logs/aegis.log: ${t.message ?: t::class.simpleName}",
+                    )
+                )
+                return@get
+            }
+        call.respond(LogTail(lines = tail))
     }
 
     route("/api/admin/outbox") {

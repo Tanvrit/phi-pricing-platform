@@ -17,8 +17,28 @@
         </encoder>
     </appender>
 
+    <!--
+        Disk sink for the /api/admin/log operator tail endpoint. Same masked pattern
+        as STDOUT so the on-disk file never contains plaintext PII even if a library
+        leaks it. Rolling daily + gzipped, 14-day retention keeps disk usage bounded
+        without operator intervention. The file path is RELATIVE to the server's CWD
+        — when launched via `./gradlew :server:run` that's the repo root; in Docker
+        it's the workdir set by the Dockerfile.
+    -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/aegis.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/aegis.%d{yyyy-MM-dd}.log.gz</fileNamePattern>
+            <maxHistory>14</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %piimsg%n</pattern>
+        </encoder>
+    </appender>
+
     <root level="INFO">
         <appender-ref ref="STDOUT" />
+        <appender-ref ref="FILE" />
     </root>
 
     <!-- Exposed at INFO in production to avoid leaking SQL/table/column names. -->
