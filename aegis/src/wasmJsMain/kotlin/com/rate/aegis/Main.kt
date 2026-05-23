@@ -19,10 +19,22 @@ import kotlinx.browser.window
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val role = roleFromQueryString(window.location.search)
+    val search = window.location.search
+    val role = roleFromQueryString(search)
+    // Buyonline save+resume: stash the `session=...` hex id before composition so
+    // BuyOnlineApp can pick it up on first render. Null = fresh journey.
+    AegisLaunchContext.sessionId = sessionFromQueryString(search)
     ComposeViewport(document.body!!) {
         AegisRoot(role)
     }
+}
+
+private fun sessionFromQueryString(search: String): String? {
+    if (search.isEmpty() || search == "?") return null
+    val params = search.removePrefix("?").split("&")
+    val pair = params.firstOrNull { it.startsWith("session=", ignoreCase = true) } ?: return null
+    val value = pair.substringAfter('=').trim()
+    return value.ifBlank { null }
 }
 
 private fun roleFromQueryString(search: String): AegisRole {

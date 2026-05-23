@@ -3,6 +3,7 @@ package com.rate.server.plugins
 import com.rate.domain.engine.PricingEngine
 import com.rate.domain.repository.RateDataProvider
 import com.rate.server.audit.AuditEventService
+import com.rate.server.auth.requireScope
 import com.rate.server.database.DatabaseFactory
 import com.rate.server.database.repositories.*
 import com.rate.server.metrics.Metrics
@@ -33,8 +34,9 @@ fun Application.configureRouting(
     auditService: AuditEventService,
     idempotencyService: IdempotencyService
 ) {
-    val quoteRepo = QuoteRepositoryImpl()
-    val planRepo  = PlanRepositoryImpl()
+    val quoteRepo   = QuoteRepositoryImpl()
+    val planRepo    = PlanRepositoryImpl()
+    val sessionRepo = BuyOnlineSessionRepository()
 
     routing {
         // ── Liveness: cheap, no dependencies — answers "is the JVM up?" ──────
@@ -78,8 +80,9 @@ fun Application.configureRouting(
             call.respondText(Metrics.render(), ContentType.parse("text/plain; version=0.0.4; charset=utf-8"))
         }
 
-        // ── Audit chain verification (Phase 2: gate behind auditor role later) ─
+        // ── Audit chain verification (admin/auditor only) ────────────────────
         get("/api/audit/verify") {
+            if (!requireScope("audit.verify")) return@get
             val from = call.request.queryParameters["fromId"]?.toLongOrNull()
             val to   = call.request.queryParameters["toId"]?.toLongOrNull()
             val r = auditService.verifyChain(from, to)
@@ -101,6 +104,7 @@ fun Application.configureRouting(
         coverRoutes()
         discountRoutes(rateDataProvider)
         importRoutes(auditService, idempotencyService)
-        buyOnlineRoutes(otpService, pricingEngine, auditService, idempotencyService)
+        buyOnlineRoutes(otpService, pricingEngine, auditService, idempotencyService, sessionRepo)
+        operatorRoutes()
     }
 }

@@ -4,6 +4,7 @@ import com.rate.domain.model.Plan
 import com.rate.domain.repository.PlanRepository
 import com.rate.server.audit.AuditActor
 import com.rate.server.audit.AuditEventService
+import com.rate.server.auth.requireScope
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
 import com.rate.server.plugins.REQUEST_ID_KEY
 import io.ktor.http.*
@@ -24,6 +25,7 @@ fun Route.planRoutes(planRepo: PlanRepository, auditService: AuditEventService) 
         }
 
         post {
+            if (!requireScope("plans.write")) return@post
             val plan = call.receive<Plan>()
             planRepo.upsertPlan(plan)
             val rid = call.attributes.getOrNull(REQUEST_ID_KEY)
@@ -45,6 +47,7 @@ fun Route.planRoutes(planRepo: PlanRepository, auditService: AuditEventService) 
         }
 
         delete("/{id}") {
+            if (!requireScope("plans.delete")) return@delete
             val id = call.parameters["id"] ?: throw IllegalArgumentException("Missing plan id")
             planRepo.deletePlan(id)
             val rid = call.attributes.getOrNull(REQUEST_ID_KEY)

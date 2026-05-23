@@ -1,5 +1,6 @@
 package com.rate.aegis.customer.buyonline.api
 
+import com.rate.domain.model.BuyOnlineSessionState
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.plugins.contentnegotiation.*
@@ -137,6 +138,21 @@ class BuyOnlineApiClient(private val baseUrl: String = "http://localhost:9090") 
             contentType(ContentType.Application.Json)
             setBody(req)
         }.body()
+
+    // Save+resume — fire-and-forget save, null-tolerant load. The load path
+    // wraps in runCatching so a stale `?session=` link (e.g. server lost the
+    // row, network blip) falls back silently to a fresh journey rather than
+    // failing the whole composition.
+    suspend fun saveSession(state: BuyOnlineSessionState) {
+        http.post("$baseUrl/api/buy-online/session") {
+            contentType(ContentType.Application.Json)
+            setBody(state)
+        }
+    }
+
+    suspend fun loadSession(sessionId: String): BuyOnlineSessionState? = runCatching {
+        http.get("$baseUrl/api/buy-online/session/$sessionId").body<BuyOnlineSessionState>()
+    }.getOrNull()
 
     fun close() = http.close()
 }

@@ -9,6 +9,7 @@ import com.rate.domain.validation.ValidationResult
 import com.rate.domain.validation.Validators
 import com.rate.server.audit.AuditActor
 import com.rate.server.audit.AuditEventService
+import com.rate.server.database.repositories.BuyOnlineSessionRepository
 import com.rate.server.metrics.Metrics
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
 import com.rate.server.plugins.REQUEST_ID_KEY
@@ -105,7 +106,8 @@ fun Route.buyOnlineRoutes(
     otpService: OtpService,
     engine: PricingEngine,
     auditService: AuditEventService,
-    idempotencyService: IdempotencyService
+    idempotencyService: IdempotencyService,
+    sessionRepo: BuyOnlineSessionRepository
 ) {
     route("/api/buy-online") {
 
@@ -391,6 +393,23 @@ fun Route.buyOnlineRoutes(
                     )
                 }
             }
+        }
+
+        // ── Save+resume session snapshot ─────────────────────────────────────
+        // Client persists an opaque session id (sent via `?session=` URL param) and
+        // POSTs the latest snapshot here on every meaningful state change. There's
+        // no auth on these endpoints intentionally — the session id IS the bearer
+        // (mirrors how payment-aggregator resume links work).
+        post("/session") {
+            val state = call.receive<BuyOnlineSessionState>()
+            sessionRepo.save(state)
+            call.respond(HttpStatusCode.OK, BuyOnlineMessageResponse("saved"))
+        }
+        get("/session/{id}") {
+            val id = call.parameters["id"] ?: throw IllegalArgumentException("Missing session id")
+            val state = sessionRepo.load(id)
+            if (state == null) call.respond(HttpStatusCode.NotFound, BuyOnlineErrorResponse("SESSION_NOT_FOUND", "No session"))
+            else call.respond(state)
         }
 
         // ── Track proposal ───────────────────────────────────────────────────

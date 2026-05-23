@@ -28,11 +28,15 @@ import com.rate.aegis.components.AegisCard
 import com.rate.aegis.components.AegisChip
 import com.rate.aegis.components.AegisInput
 import com.rate.aegis.components.CalloutKind
+import com.rate.aegis.business.calculator.api.ApiOperator
+import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.settings.AegisSettings
 import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * Aegis SETTINGS surface — view + edit the per-device operator settings.
@@ -195,6 +199,12 @@ fun SettingsSurface() {
             }
         }
 
+        // ── Manage operators (admin-gated) ──────────────────────────────
+        // Local visibility check only; server enforces real RBAC.
+        if (defaultRole.uppercase() == "ADMIN") {
+            ManageOperatorsCard()
+        }
+
         // ── Action footer ────────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -279,4 +289,148 @@ private val THEME_OPTIONS: List<Pair<String, String>> = listOf(
 private fun normaliseTheme(raw: String): String {
     val v = raw.lowercase()
     return if (THEME_OPTIONS.any { it.first == v }) v else "light"
+}
+
+/** Five scopes the server gates today. New scopes added here when they ship. */
+private val OPERATOR_SCOPES = listOf(
+    "plans.write", "plans.delete", "import.upload", "audit.verify", "operators.write"
+)
+
+/**
+ * Admin-only "Manage operators" card. Lists the server's operator allowlist,
+ * supports add + remove. Bootstrap-permissive on the server (empty store = open)
+ * so the first admin can grant themselves rights without out-of-band file edits.
+ */
+@Composable
+private fun ManageOperatorsCard() {
+    val client = rememberApiClient()
+    val scope = rememberCoroutineScope()
+    var operators by remember { mutableStateOf<List<ApiOperator>>(emptyList()) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    suspend fun refresh() {
+        loading = true; error = null
+        runCatching { client.listOperators() }
+            .onSuccess { operators = it }
+            .onFailure { error = "Server unreachable: ${it.message}" }
+        loading = false
+    }
+
+    LaunchedEffect(client) { refresh() }
+
+    var newIdentity by remember { mutableStateOf("") }
+    var newRole by remember { mutableStateOf("operator") }
+    var newScopes by remember { mutableStateOf<Set<String>>(setOf("plans.write")) }
+
+    AegisCard(
+        title = "Manage operators",
+        subtitle = "Identities listed here can write plans, manage operators, and trigger imports. Empty list = bootstrap mode (permissive).",
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+            when {
+                error != null -> AegisCallout(
+                    kind = CalloutKind.DANGER,
+                    title = "Couldn't load operators",
+                    body = error!!,
+                )
+                loading && operators.isEmpty() -> AegisCallout(
+                    kind = CalloutKind.INFO,
+                    title = "Loading…",
+                    body = "Fetching operator allowlist from the server.",
+                )
+                operators.isEmpty() -> AegisCallout(
+                    kind = CalloutKind.WARN,
+                    title = "Unbootstrapped",
+                    body = "No operators on the server. Every mutation is currently permissive. Add yourself below to lock things down.",
+                )
+                else -> Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                    operators.forEach { op ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+                        ) {
+                            Text(
+                                op.identity,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = AegisColors.textBody,
+                                modifier = Modifier.widthIn(min = 200.dp),
+                            )
+                            AegisChip(label = op.role, selected = op.role == "admin", onClick = {})
+                            Text(
+                                op.scopes.sorted().joinToString(", ").ifBlank { "—" },
+                                fontSize = 12.sp,
+                                color = AegisColors.textSecondary,
+                                modifier = Modifier.weight(1f),
+                            )
+                            AegisButton(
+                                label = "Remove",
+                                variant = AegisButtonVariant.Danger,
+                                onClick = {
+                                    scope.launch {
+                                        runCatching { client.removeOperator(op.identity) }
+                                            .onSuccess { refresh() }
+                                            .onFailure { error = it.message }
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Add new operator row
+            AegisCallout(
+                kind = CalloutKind.INFO,
+                title = "Add an operator",
+                body = "Identity matches the X-Aegis-Actor header (set via 'Operator identity' above).",
+            )
+            AegisInput(
+                value = newIdentity,
+                onValueChange = { newIdentity = it },
+                label = "Identity",
+                helper = "e.g. alice@pruhealth.example.in",
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                Text("Role:", fontSize = 13.sp, color = AegisColors.textSecondary)
+                listOf("operator", "admin").forEach { r ->
+                    AegisChip(label = r, selected = newRole == r, onClick = { newRole = r })
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
+                Text("Scopes:", fontSize = 13.sp, color = AegisColors.textSecondary)
+                OPERATOR_SCOPES.forEach { s ->
+                    AegisChip(
+                        label = s,
+                        selected = s in newScopes,
+                        onClick = {
+                            newScopes = if (s in newScopes) newScopes - s else newScopes + s
+                        },
+                    )
+                }
+            }
+            AegisButton(
+                label = "Add operator",
+                variant = AegisButtonVariant.Primary,
+                enabled = newIdentity.isNotBlank(),
+                onClick = {
+                    scope.launch {
+                        val op = ApiOperator(
+                            identity = newIdentity.trim(),
+                            role = newRole,
+                            scopes = if (newRole == "admin") emptySet() else newScopes,
+                        )
+                        runCatching { client.addOperator(op) }
+                            .onSuccess {
+                                newIdentity = ""
+                                newScopes = setOf("plans.write")
+                                refresh()
+                            }
+                            .onFailure { error = it.message }
+                    }
+                },
+            )
+        }
+    }
 }

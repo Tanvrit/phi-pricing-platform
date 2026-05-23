@@ -1,7 +1,9 @@
 package com.rate.aegis.customer.buyonline
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import com.rate.aegis.AegisLaunchContext
 import com.rate.aegis.customer.buyonline.api.BuyOnlineApiClient
 import com.rate.aegis.customer.buyonline.navigation.BuyOnlineScreen
 import com.rate.aegis.customer.buyonline.ui.addons.AddOnsScreen
@@ -33,6 +35,11 @@ import com.rate.aegis.customer.buyonline.viewmodel.BuyOnlineViewModel
 fun BuyOnlineApp() {
     val client = remember { BuyOnlineApiClient() }
     val vm     = remember { BuyOnlineViewModel(client) }
+
+    // Save+resume bootstrap. Reads the one-shot `session=` id stashed by the
+    // platform `main` (wasmJs URL query / jvm -D property). Null = brand-new
+    // customer; the VM mints a fresh hex id and stays quiet until they interact.
+    LaunchedEffect(Unit) { vm.loadOrCreateSession(AegisLaunchContext.sessionId) }
 
     PRUHealthTheme {
         when (vm.currentScreen) {

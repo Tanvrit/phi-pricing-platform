@@ -302,3 +302,30 @@ fun getFamilyTypeInfo(code: String): FamilyTypeInfo =
 // These constants are kept only as a UI fallback display before the first plan loads.
 val DOMESTIC_SUM_INSUREDS: List<Long> = emptyList()
 val GLOBAL_SUM_INSUREDS: List<Long>   = emptyList()
+
+// ────────────────────────────────────────────────────────────────────────────
+// Buy-online save+resume — snapshot of the customer's in-flight journey.
+// Persisted server-side keyed by `sessionId`. Captures only the fields that
+// take effort to re-enter; payment / KYC / proposal data is excluded for v1
+// (sensitive + harder to safely rehydrate). `currentScreen` carries the sealed
+// subtype's simple name so the client can resolve it back via a `when`.
+// ────────────────────────────────────────────────────────────────────────────
+@Serializable
+data class BuyOnlineSessionState(
+    val sessionId: String,
+    val currentScreen: String,
+    val mobile: String = "",
+    val pincode: String = "",
+    val eldestAge: String = "",
+    val selectedMembers: List<String> = emptyList(),  // MemberType.name values
+    val kidsCount: Int = 0,
+    val hasPED: Boolean = false,
+    val pedMembers: List<String> = emptyList(),
+    val hasCriticalIllness: Boolean = false,
+    val criticalIllnessMembers: List<String> = emptyList(),
+    val selectedTier: String = "PREMIER",
+    val selectedSumInsured: Long = 1_000_000L,
+    val selectedTenure: Int = 1,
+    val selectedAddOnIds: List<String> = emptyList(),
+    val updatedAtIso: String = ""
+)

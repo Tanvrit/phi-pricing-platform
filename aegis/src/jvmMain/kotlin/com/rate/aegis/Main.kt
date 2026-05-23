@@ -24,6 +24,11 @@ fun main() {
         runCatching { AegisRole.valueOf(saved.uppercase()) }.getOrElse { AegisRole.BUSINESS }
     }
 
+    // Buyonline save+resume: mirror the WASM `?session=` query support via a
+    // JVM system property so operators can reproduce a customer's stuck state
+    // by launching with `-Daegis.session=<hex>` for debugging.
+    AegisLaunchContext.sessionId = System.getProperty("aegis.session")?.trim()?.takeIf { it.isNotEmpty() }
+
     val title = when (role) {
         AegisRole.CUSTOMER -> "Aegis — Buy Online (preview)"
         AegisRole.BUSINESS -> "Aegis — Operator Console"

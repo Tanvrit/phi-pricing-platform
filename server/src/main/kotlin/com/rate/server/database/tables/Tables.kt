@@ -121,6 +121,19 @@ object AuditEventTable : Table("audit_event") {
 }
 
 /**
+ * Save+resume snapshot for the customer buyonline journey. Keyed by an opaque
+ * hex session id the client puts in `?session=` URLs; rows are upserted on every
+ * meaningful state change (navigate, tier/SI/tenure/addOns).
+ */
+object BuyOnlineSessionTable : Table("buyonline_session") {
+    val sessionId = varchar("session_id", 64)
+    val stateJson = text("state_json")
+    val createdAt = timestamp("created_at")
+    val updatedAt = timestamp("updated_at")
+    override val primaryKey = PrimaryKey(sessionId)
+}
+
+/**
  * 24h replay cache for POST routes. Client sends `Idempotency-Key`; if the same key
  * arrives again, the cached response is returned verbatim. `request_hash` lets us
  * detect a key being reused for a *different* request body and reject it.

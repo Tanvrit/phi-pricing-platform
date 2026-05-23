@@ -54,7 +54,7 @@ enum class AegisSurface(val displayName: String, val icon: ImageVector) {
     PRODUCT_CATALOG("Product catalog", Icons.Filled.ViewModule),
     PLAN_CONFIGURATOR("Plan configurator", Icons.Filled.Tune),
     COVER_CATALOG("Cover catalog", Icons.Filled.Shield),
-    RATE_TABLES("Rate tables", Icons.Filled.PieChart),
+    RATE_TABLES("Server health", Icons.Filled.PieChart),
     DISCOUNTS("Discounts", Icons.Filled.Discount),
     RULES("Prospectus", Icons.Filled.PlaylistAddCheck),
     IMPORT("Import", Icons.Filled.UploadFile),

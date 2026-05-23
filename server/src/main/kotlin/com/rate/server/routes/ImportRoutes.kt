@@ -2,6 +2,7 @@ package com.rate.server.routes
 
 import com.rate.server.audit.AuditActor
 import com.rate.server.audit.AuditEventService
+import com.rate.server.auth.requireScope
 import com.rate.server.import.ExcelImporter
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
 import com.rate.server.plugins.REQUEST_ID_KEY
@@ -31,6 +32,7 @@ fun Route.importRoutes(auditService: AuditEventService, idempotencyService: Idem
         // Upload an Excel file to import rates. Honors Idempotency-Key (file bytes
         // are SHA-256'd so re-uploading the same file with the same key is a replay).
         post("/upload") {
+            if (!requireScope("import.upload")) return@post
             val parts = call.receiveMultipart()
             var fileBytes: ByteArray? = null
             var filename: String? = null

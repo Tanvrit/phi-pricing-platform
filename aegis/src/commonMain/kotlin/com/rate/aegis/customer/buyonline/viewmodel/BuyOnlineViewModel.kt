@@ -9,6 +9,7 @@ import com.rate.domain.buyonline.BuyOnlineTier
 import com.rate.domain.buyonline.toPlanId
 import com.rate.domain.data.InProcessRateDataProvider
 import com.rate.domain.engine.PricingEngine
+import com.rate.domain.model.BuyOnlineSessionState
 import com.rate.domain.model.CoverSelection
 import com.rate.domain.model.Member
 import com.rate.domain.model.PaymentMode
@@ -28,8 +29,23 @@ class BuyOnlineViewModel(
     var currentScreen by mutableStateOf<BuyOnlineScreen>(BuyOnlineScreen.Landing)
     private val backStack = mutableListOf<BuyOnlineScreen>()
 
-    fun navigate(screen: BuyOnlineScreen) { backStack.add(currentScreen); currentScreen = screen }
-    fun navigateBack() { if (backStack.isNotEmpty()) currentScreen = backStack.removeLast() }
+    fun navigate(screen: BuyOnlineScreen) {
+        backStack.add(currentScreen); currentScreen = screen
+        // Every screen-change is a natural save point — debounced so rapid
+        // proceed-clicks (PlanLoading → Eligibility happens within a single
+        // coroutine) coalesce into one network round-trip.
+        saveSoon()
+    }
+    fun navigateBack() { if (backStack.isNotEmpty()) currentScreen = backStack.removeLast(); saveSoon() }
+
+    // ── Save+resume session ──────────────────────────────────────────────────
+    // sessionId is the opaque hex token the customer carries in their resume URL
+    // (`?session=<id>`). Empty string = pre-launch (loadOrCreateSession hasn't
+    // run yet); blank stays blank until first interaction so we never leave
+    // orphan rows for users who hit Landing and bounce.
+    var sessionId: String by mutableStateOf("")
+        private set
+    private var pendingSaveJob: Job? = null
 
     // ── Landing ───────────────────────────────────────────────────────────────
     var selectedMembers by mutableStateOf<Set<MemberType>>(setOf(MemberType.SELF))
@@ -233,6 +249,10 @@ class BuyOnlineViewModel(
             else -> emptySet()
         }
         serverPremium = null
+        // Tier toggles can happen multiple times on the Quote screen without
+        // navigating; persist them so a customer who fiddled with tiers then
+        // closed the tab gets their last choice back.
+        saveSoon()
     }
 
     val totalAddOnCost get() = availableAddOns.filter { it.id in selectedAddOnIds }.sumOf { it.annualCost }
@@ -461,4 +481,126 @@ class BuyOnlineViewModel(
     fun proceedToSatisfaction() = navigate(BuyOnlineScreen.Satisfaction)
 
     fun dispose() { scope.cancel(); timerJob?.cancel() }
+
+    // ── Save+resume helpers ──────────────────────────────────────────────────
+    //
+    // Strategy: take a flat snapshot of the high-effort UI inputs (members,
+    // health declarations, plan choices), serialise, ship to the server with a
+    // 1.5s debounce. On boot, if a `?session=` id was in the URL we GET the
+    // snapshot back and rehydrate. KYC/payment/proposal fields are NOT in the
+    // snapshot — they're either sensitive or single-use and shouldn't survive
+    // a session restore.
+
+    /** Build a serialisable snapshot of the current journey state. */
+    fun snapshot(): BuyOnlineSessionState = BuyOnlineSessionState(
+        sessionId              = sessionId,
+        currentScreen          = screenName(currentScreen),
+        mobile                 = mobile,
+        pincode                = pincode,
+        eldestAge              = eldestAge,
+        selectedMembers        = selectedMembers.map { it.name },
+        kidsCount              = kidsCount,
+        hasPED                 = hasPED,
+        pedMembers             = pedMembers.toList(),
+        hasCriticalIllness     = hasCriticalIllness,
+        criticalIllnessMembers = criticalIllnessMembers.toList(),
+        selectedTier           = selectedTier.name,
+        selectedSumInsured     = selectedSumInsured,
+        selectedTenure         = selectedTenure,
+        selectedAddOnIds       = selectedAddOnIds.toList(),
+        updatedAtIso           = kotlinx.datetime.Clock.System.now().toString()
+    )
+
+    /** Apply a previously-saved snapshot, then re-run the pricing engine. */
+    fun restore(state: BuyOnlineSessionState) {
+        sessionId = state.sessionId
+        mobile = state.mobile
+        pincode = state.pincode
+        eldestAge = state.eldestAge
+        selectedMembers = state.selectedMembers.mapNotNull {
+            runCatching { MemberType.valueOf(it) }.getOrNull()
+        }.toSet().ifEmpty { setOf(MemberType.SELF) }
+        kidsCount = state.kidsCount
+        hasPED = state.hasPED
+        pedMembers = state.pedMembers.toSet()
+        hasCriticalIllness = state.hasCriticalIllness
+        criticalIllnessMembers = state.criticalIllnessMembers.toSet()
+        selectedTier = runCatching { PlanTier.valueOf(state.selectedTier) }.getOrElse { PlanTier.PREMIER }
+        selectedSumInsured = state.selectedSumInsured
+        selectedTenure = state.selectedTenure
+        selectedAddOnIds = state.selectedAddOnIds.toSet()
+        currentScreen = screenFromName(state.currentScreen)
+        // The restored screen may be Quote / AddOns / Summary — all of which
+        // expect `lastQuote` to be populated. Kick the engine so the UI doesn't
+        // flash through a "₹0" state.
+        refreshPremium()
+    }
+
+    /**
+     * Boot-time hook. If [maybeId] is non-null and the server has a snapshot
+     * for it, we restore. Otherwise we generate a fresh hex id and keep it
+     * stable for the rest of the session — but we don't save until the user
+     * has done something worth saving (first navigate or first tier change).
+     */
+    fun loadOrCreateSession(maybeId: String?) {
+        scope.launch {
+            if (!maybeId.isNullOrBlank()) {
+                val loaded = client.loadSession(maybeId)
+                if (loaded != null) { restore(loaded); return@launch }
+                sessionId = maybeId  // keep the customer's URL stable even if the row was lost
+            } else {
+                sessionId = randomHexId()
+            }
+        }
+    }
+
+    private fun randomHexId(): String =
+        kotlin.random.Random.nextBytes(16).joinToString("") {
+            (it.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
+
+    /** Debounced save — collapses bursts of mutations into one POST. */
+    fun saveSoon() {
+        if (sessionId.isBlank()) return
+        pendingSaveJob?.cancel()
+        pendingSaveJob = scope.launch {
+            delay(1500)
+            runCatching { client.saveSession(snapshot()) }
+        }
+    }
+
+    /** Sealed-subtype → stable string for the wire. */
+    private fun screenName(screen: BuyOnlineScreen): String =
+        screen::class.simpleName ?: "Landing"
+
+    /**
+     * Stable string → sealed-subtype. Kept as an explicit `when` (not reflective)
+     * for KMP portability — `KClass.objectInstance` works on JVM but not WASM,
+     * and the screen set is small enough that an exhaustive map costs nothing.
+     */
+    private fun screenFromName(name: String): BuyOnlineScreen = when (name) {
+        "Landing"             -> BuyOnlineScreen.Landing
+        "Otp"                 -> BuyOnlineScreen.Otp
+        "GetStarted"          -> BuyOnlineScreen.GetStarted
+        "PreExistingDisease"  -> BuyOnlineScreen.PreExistingDisease
+        "CriticalIllness"     -> BuyOnlineScreen.CriticalIllness
+        "PlanLoading"         -> BuyOnlineScreen.PlanLoading
+        "Eligibility"         -> BuyOnlineScreen.Eligibility
+        "Quote"               -> BuyOnlineScreen.Quote
+        "AddOns"              -> BuyOnlineScreen.AddOns
+        "PlanSummary"         -> BuyOnlineScreen.PlanSummary
+        "PersonalDetails"     -> BuyOnlineScreen.PersonalDetails
+        "LifestyleQuestions"  -> BuyOnlineScreen.LifestyleQuestions
+        "MedicalQuestions"    -> BuyOnlineScreen.MedicalQuestions
+        "Payment"             -> BuyOnlineScreen.Payment
+        "PaymentSuccess"      -> BuyOnlineScreen.PaymentSuccess
+        "KycMethod"           -> BuyOnlineScreen.KycMethod
+        "KycDetails"          -> BuyOnlineScreen.KycDetails
+        "KycOtp"              -> BuyOnlineScreen.KycOtp
+        "BankDetails"         -> BuyOnlineScreen.BankDetails
+        "KycSubmitted"        -> BuyOnlineScreen.KycSubmitted
+        "ApplicationComplete" -> BuyOnlineScreen.ApplicationComplete
+        "Satisfaction"        -> BuyOnlineScreen.Satisfaction
+        else                  -> BuyOnlineScreen.Landing
+    }
 }

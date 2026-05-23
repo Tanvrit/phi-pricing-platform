@@ -10,7 +10,20 @@ import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.*
+
+/**
+ * Wire-only DTO mirror of the server's [com.rate.server.auth.Operator]. Lives in
+ * the client file so :shared doesn't need to know about RBAC primitives.
+ */
+@Serializable
+data class ApiOperator(
+    val identity: String,
+    val role: String,
+    val scopes: Set<String> = emptySet(),
+    val addedAtIso: String = ""
+)
 
 /**
  * Operator-side HTTP client for the BUSINESS calculator. Multiplatform-friendly —
@@ -132,6 +145,37 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
 
     suspend fun seedBuiltinData(): Map<String, JsonElement> =
         http.post("$baseUrl/api/import/seed").body()
+
+    // ── Server health & Prometheus metrics ────────────────────────────────
+
+    /**
+     * Lightweight liveness probe. Returns the small JSON status payload the
+     * server emits (e.g. `{"status":"ok","db":"up"}`). Parsed as a raw map so
+     * the Aegis surface can render whatever fields the server happens to ship
+     * without us shipping a schema in lockstep.
+     */
+    suspend fun health(): Map<String, JsonElement> = http.get("$baseUrl/health").body()
+
+    /**
+     * Raw Prometheus text-format exposition. Parsing into name/value pairs is
+     * the caller's job — keeps this transport-thin and avoids a Prometheus
+     * client dep in commonMain.
+     */
+    suspend fun metricsText(): String = http.get("$baseUrl/metrics").bodyAsText()
+
+    // ── Operators (Phase-1 RBAC allowlist) ────────────────────────────────
+
+    suspend fun listOperators(): List<ApiOperator> =
+        http.get("$baseUrl/api/operators").body()
+
+    suspend fun addOperator(op: ApiOperator): ApiOperator =
+        http.post("$baseUrl/api/operators") {
+            contentType(ContentType.Application.Json); setBody(op)
+        }.body()
+
+    suspend fun removeOperator(identity: String) {
+        http.delete("$baseUrl/api/operators/$identity")
+    }
 
     fun close() = http.close()
 }
