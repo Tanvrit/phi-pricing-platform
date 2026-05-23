@@ -188,9 +188,20 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
      * Returns the newest [limit] audit events as raw JSON maps so the Aegis
      * surface can parse fields itself (matches the pattern of [listQuotes]).
      * Server caps the limit at 500 regardless of what we send.
+     *
+     * When [actor] is non-null, the server narrows the query to rows whose
+     * `actor_subject` matches — cheaper than pulling the global feed and
+     * filtering client-side, and the natural shape for "my own audit trail"
+     * surfaces. Null (the default) is strictly additive — existing callers
+     * keep the original "newest N globally" behaviour.
      */
-    suspend fun getAuditEvents(limit: Int = 100): List<Map<String, JsonElement>> =
-        http.get("$baseUrl/api/audit/events?limit=$limit").body()
+    suspend fun getAuditEvents(limit: Int = 100, actor: String? = null): List<Map<String, JsonElement>> =
+        http.get("$baseUrl/api/audit/events") {
+            url {
+                parameters.append("limit", limit.toString())
+                if (actor != null) parameters.append("actor", actor)
+            }
+        }.body()
 
     // SSE consumer for `/api/audit/stream` lives in
     // `com.rate.aegis.data.openAuditStream(baseUrl)` rather than on this client,

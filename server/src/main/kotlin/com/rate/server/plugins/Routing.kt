@@ -100,7 +100,13 @@ fun Application.configureRouting(
         get("/api/audit/events") {
             val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 100)
                 .coerceIn(1, 500)
-            call.respond(auditService.listEvents(limit))
+            // Optional narrowing by actor subject — lets MyAuditEvents and
+            // future role-scoped views ask the server for just one identity's
+            // trail instead of pulling the global feed and filtering client-side.
+            // Blank values are coerced to null so `?actor=` (empty) behaves
+            // identically to omitting the param.
+            val actor = call.request.queryParameters["actor"]?.takeIf { it.isNotBlank() }
+            call.respond(auditService.listEvents(limit = limit, actor = actor))
         }
 
         // ── Server-Sent Events live stream of audit rows ─────────────────────

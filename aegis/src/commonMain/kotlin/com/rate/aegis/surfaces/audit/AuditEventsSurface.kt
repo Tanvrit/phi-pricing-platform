@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+
 package com.rate.aegis.surfaces.audit
 
 import androidx.compose.foundation.background
@@ -58,6 +60,11 @@ fun AuditEventsSurface() {
     var loadError by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var resourceFilter by remember { mutableStateOf("All") }
+    // Action + actor chip filters — like resourceFilter, "All" is the
+    // pass-through sentinel and the distinct option sets recompute whenever
+    // new events arrive (via poll OR SSE). All in-memory; no extra server hit.
+    var actionFilter by remember { mutableStateOf("All") }
+    var actorFilter by remember { mutableStateOf("All") }
     var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<AuditRow?>(null) }
 
@@ -148,9 +155,23 @@ fun AuditEventsSurface() {
     val resourceTypes = remember(rows) {
         listOf("All") + rows.map { it.resourceType }.distinct().sorted()
     }
-    val filtered = remember(rows, resourceFilter, search) {
+    // Distinct action names from the loaded snapshot — alphabetised, "All"
+    // pinned first. Recomputes on every rows-mutation so freshly-streamed
+    // events surface new buckets immediately.
+    val actions = remember(rows) {
+        listOf("All") + rows.map { it.action }.distinct().sorted()
+    }
+    // Distinct actor subjects with "unknown" standing in for nulls (the chip
+    // label has to be clickable, and an empty string would render as a
+    // zero-width chip).
+    val actors = remember(rows) {
+        listOf("All") + rows.map { it.actorSubject ?: "unknown" }.distinct().sorted()
+    }
+    val filtered = remember(rows, resourceFilter, actionFilter, actorFilter, search) {
         rows.asSequence()
             .filter { rt -> resourceFilter == "All" || rt.resourceType == resourceFilter }
+            .filter { rt -> actionFilter == "All" || rt.action == actionFilter }
+            .filter { rt -> actorFilter == "All" || (rt.actorSubject ?: "unknown") == actorFilter }
             .filter { rt -> search.isBlank() || rt.matchesSearch(search) }
             .toList()
     }
@@ -208,13 +229,27 @@ fun AuditEventsSurface() {
                     label = "Search audit log",
                     helper = "Matches action, resource, actor, request id, hash, or payload contents.",
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
-                    Text("Resource:", fontSize = 13.sp, color = AegisColors.textSecondary,
-                        modifier = Modifier.align(Alignment.CenterVertically))
-                    resourceTypes.forEach { rt ->
-                        AegisChip(label = rt, selected = resourceFilter == rt, onClick = { resourceFilter = rt })
-                    }
-                }
+                // Three stacked chip rows. Using FlowRow rather than horizontal
+                // scroll: a large ledger can produce dozens of distinct actors
+                // and operators expect to see them all without horizontal swipe.
+                ChipFilterRow(
+                    label = "Resource:",
+                    options = resourceTypes,
+                    selected = resourceFilter,
+                    onSelect = { resourceFilter = it },
+                )
+                ChipFilterRow(
+                    label = "Action:",
+                    options = actions,
+                    selected = actionFilter,
+                    onSelect = { actionFilter = it },
+                )
+                ChipFilterRow(
+                    label = "Actor:",
+                    options = actors,
+                    selected = actorFilter,
+                    onSelect = { actorFilter = it },
+                )
             }
         }
 
@@ -367,6 +402,46 @@ fun AuditEventsSurface() {
                         )
                     }
                 }
+            }
+        }
+    }
+}
+
+/**
+ * One labelled FlowRow of filter chips. Shared by the resource-type, action,
+ * and actor chip rows inside the filter card. Label sits on the left at the
+ * top of the row so it stays aligned with the first wrap line even when the
+ * chip set spills across multiple lines.
+ */
+@Composable
+private fun ChipFilterRow(
+    label: String,
+    options: List<String>,
+    selected: String,
+    onSelect: (String) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Text(
+            label,
+            fontSize = 13.sp,
+            color = AegisColors.textSecondary,
+            modifier = Modifier.width(72.dp).padding(top = 6.dp),
+        )
+        FlowRow(
+            modifier = Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s2),
+            verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2),
+        ) {
+            options.forEach { opt ->
+                AegisChip(
+                    label = opt,
+                    selected = selected == opt,
+                    onClick = { onSelect(opt) },
+                )
             }
         }
     }

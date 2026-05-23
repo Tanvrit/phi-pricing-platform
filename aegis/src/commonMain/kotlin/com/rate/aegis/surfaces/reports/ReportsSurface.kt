@@ -47,10 +47,14 @@ import com.rate.aegis.util.buildCsv
 import com.rate.aegis.util.saveCsv
 import com.rate.aegis.util.todayIsoDate
 import com.rate.domain.money.formatRupees
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
+import kotlinx.datetime.todayIn
 import kotlin.math.roundToInt
 
 /**
@@ -67,8 +71,18 @@ import kotlin.math.roundToInt
 @Composable
 fun ReportsSurface() {
     val dashboard by rememberDashboardData()
-    val quotes = dashboard.quotes
     var bucket by remember { mutableStateOf(TimeBucket.Day) }
+    var dateFilter by remember { mutableStateOf<DateFilter>(DateFilter.AllTime) }
+
+    // The date-range chip row pre-filters the quote ledger before every
+    // downstream aggregation. The funnel section deliberately ignores this
+    // filter because its data source is sessions, not quotes — see the note
+    // rendered above the funnel card.
+    val quotes = remember(dashboard.quotes, dateFilter) {
+        if (dateFilter is DateFilter.AllTime) dashboard.quotes
+        else dashboard.quotes.filter { dateFilter.matches(it.createdAt) }
+    }
+    val unfilteredCount = dashboard.quotes.size
 
     val series = remember(quotes, bucket) { aggregateTimeSeries(quotes, bucket) }
     val planDist = remember(quotes) { aggregatePlans(quotes) }
@@ -76,6 +90,7 @@ fun ReportsSurface() {
     val siDist = remember(quotes) { aggregateSI(quotes) }
     val validCount = quotes.count { it.isValid }
     val invalidCount = quotes.size - validCount
+    val filterSuffix = if (dateFilter is DateFilter.AllTime) "" else " (${dateFilter.label.lowercase()})"
 
     // Funnel data is fetched here at the parent scope so the top-level
     // "Export all" button can read the same per-screen counts the funnel
@@ -203,6 +218,27 @@ fun ReportsSurface() {
             fontSize = 13.sp, color = AegisColors.textSecondary
         )
 
+        // ── Date-range chips ──────────────────────────────────────────────
+        // Operator-picked window applied to the quote ledger only. The funnel
+        // card (sessions → screen) bypasses this filter by design (v1).
+        AegisCard(
+            title = "Date range",
+            subtitle = if (dateFilter is DateFilter.AllTime)
+                "Showing $unfilteredCount quotes across all time."
+            else
+                "Showing ${quotes.size} of $unfilteredCount quotes · ${dateFilter.label}.",
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+                DateFilter.ALL.forEach { df ->
+                    AegisChip(
+                        label = df.label,
+                        selected = dateFilter::class == df::class,
+                        onClick = { dateFilter = df }
+                    )
+                }
+            }
+        }
+
         // ── Source banner ─────────────────────────────────────────────────
         ReportsSourceBanner(
             source = dashboard.source,
@@ -230,9 +266,9 @@ fun ReportsSurface() {
         AegisCard(
             title = "Quotes per ${bucket.singular}",
             subtitle = if (series.isEmpty())
-                "No quotes in the current dataset."
+                "No quotes in the current dataset${filterSuffix}."
             else
-                "${series.size} ${bucket.label.lowercase()} buckets, ${quotes.size} quotes.",
+                "Aggregating ${quotes.size} quotes${filterSuffix} across ${series.size} ${bucket.label.lowercase()} buckets.",
             action = {
                 AegisButton(
                     label = "Export CSV",
@@ -272,7 +308,7 @@ fun ReportsSurface() {
         // ── GWP-per-bucket ────────────────────────────────────────────────
         AegisCard(
             title = "GWP per ${bucket.singular}",
-            subtitle = "Sum of total (incl. GST) for valid quotes only.",
+            subtitle = "Sum of total (incl. GST) for valid quotes only${filterSuffix}.",
             action = {
                 val hasGwp = series.any { it.gwp > 0.0 }
                 AegisButton(
@@ -310,7 +346,7 @@ fun ReportsSurface() {
         // ── Plan distribution ────────────────────────────────────────────
         AegisCard(
             title = "Plan distribution",
-            subtitle = "Share of quotes per plan, sorted by volume.",
+            subtitle = "Share of quotes per plan, sorted by volume${filterSuffix}.",
             action = {
                 AegisButton(
                     label = "Export CSV",
@@ -352,7 +388,7 @@ fun ReportsSurface() {
         // ── Age distribution ─────────────────────────────────────────────
         AegisCard(
             title = "Age distribution",
-            subtitle = "Primary-life age bands across all quotes.",
+            subtitle = "Primary-life age bands across all quotes${filterSuffix}.",
             action = {
                 val ageTotal = ageDist.sumOf { it.count }
                 AegisButton(
@@ -379,7 +415,7 @@ fun ReportsSurface() {
         // ── SI distribution ──────────────────────────────────────────────
         AegisCard(
             title = "Sum-insured distribution",
-            subtitle = "Cover amount bucketed across the quote ledger.",
+            subtitle = "Cover amount bucketed across the quote ledger${filterSuffix}.",
             action = {
                 val siTotal = siDist.sumOf { it.count }
                 AegisButton(
@@ -406,7 +442,7 @@ fun ReportsSurface() {
         // ── Validity ratio ───────────────────────────────────────────────
         AegisCard(
             title = "Validity",
-            subtitle = "Engine-accepted quotes vs invalid ones.",
+            subtitle = "Engine-accepted quotes vs invalid ones${filterSuffix}.",
             action = {
                 AegisButton(
                     label = "Export CSV",
@@ -479,6 +515,13 @@ fun ReportsSurface() {
         }
 
         // ── Customer journey funnel ──────────────────────────────────────
+        if (dateFilter !is DateFilter.AllTime) {
+            Text(
+                "Note: the date-range filter applies to quotes only — the funnel below is over all buyonline sessions.",
+                fontSize = 12.sp,
+                color = AegisColors.textSecondary
+            )
+        }
         CustomerJourneyFunnelSection(
             sessions = funnelSessions,
             loading = funnelLoading,
@@ -1127,6 +1170,55 @@ private fun QuoteTotalDistributionCard(
                 }
             }
         }
+    }
+}
+
+// ── Date-range filter ───────────────────────────────────────────────────
+/**
+ * Operator-selectable date window over the `createdAt` (YYYY-MM-DD) field of
+ * [FakeAegisRepo.FakeQuote]. All windows are inclusive on both ends and resolve
+ * "today" via [Clock.System.todayIn] in UTC — matching the server's `createdAt`
+ * timezone semantics from `LiveDashboardRepo`.
+ *
+ * Malformed / unparseable `createdAt` strings are excluded when a non-AllTime
+ * filter is active. That keeps the aggregations honest (we'd rather drop a
+ * row than misplace it in the wrong bucket) but means a buggy upstream date
+ * format will silently shrink the dataset — fine for a v1.
+ */
+private sealed class DateFilter(val label: String) {
+    object AllTime : DateFilter("All time")
+    object Today : DateFilter("Today")
+    object Last7Days : DateFilter("Last 7 days")
+    object Last30Days : DateFilter("Last 30 days")
+    object ThisMonth : DateFilter("This month")
+    object LastMonth : DateFilter("Last month")
+
+    fun matches(createdAt: String): Boolean {
+        if (this is AllTime) return true
+        val date = runCatching { LocalDate.parse(createdAt.take(10)) }.getOrNull() ?: return false
+        val today = Clock.System.todayIn(TimeZone.UTC)
+        return when (this) {
+            is AllTime -> true
+            is Today -> date == today
+            is Last7Days -> {
+                val start = today.minus(6, DateTimeUnit.DAY) // inclusive 7-day window
+                date in start..today
+            }
+            is Last30Days -> {
+                val start = today.minus(29, DateTimeUnit.DAY)
+                date in start..today
+            }
+            is ThisMonth -> date.year == today.year && date.month == today.month
+            is LastMonth -> {
+                val firstOfThis = LocalDate(today.year, today.month, 1)
+                val lastOfLast = firstOfThis.minus(1, DateTimeUnit.DAY)
+                date.year == lastOfLast.year && date.month == lastOfLast.month
+            }
+        }
+    }
+
+    companion object {
+        val ALL: List<DateFilter> = listOf(AllTime, Today, Last7Days, Last30Days, ThisMonth, LastMonth)
     }
 }
 

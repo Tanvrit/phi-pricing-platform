@@ -12,6 +12,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.jetbrains.exposed.sql.SortOrder
+import org.jetbrains.exposed.sql.andWhere
 import org.jetbrains.exposed.sql.insert
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
@@ -179,11 +180,26 @@ class AuditEventService {
      * Lists the most recent audit events for display in operator surfaces.
      * Newest-first, capped at [limit] (caller is responsible for upper-bound clamping).
      * No tampering checks are performed here — that's what `verifyChain` is for.
+     *
+     * When [actor] is non-null the result is narrowed to rows whose
+     * `actor_subject` equals it exactly. Useful for "show me my own audit
+     * trail" surfaces that don't want to filter client-side over a 500-row
+     * snapshot. Null (the default) keeps the original "newest N globally"
+     * behaviour so existing callers are unaffected.
      */
-    suspend fun listEvents(limit: Int = 100): List<AuditEventRow> =
+    suspend fun listEvents(limit: Int = 100, actor: String? = null): List<AuditEventRow> =
         newSuspendedTransaction {
+            // `selectAll().where { … }` only takes one predicate, so we start
+            // unconditional and `andWhere` the actor clause when present —
+            // mirrors the conditional-predicate pattern already used in
+            // `RateDataProviderImpl`. Keeps SQL straightforward (a single
+            // equality on the `actorSubject` column; uses the existing index
+            // if/when one is added later).
             AuditEventTable
                 .selectAll()
+                .apply {
+                    if (actor != null) andWhere { AuditEventTable.actorSubject eq actor }
+                }
                 .orderBy(AuditEventTable.id, SortOrder.DESC)
                 .limit(limit)
                 .map { row ->
