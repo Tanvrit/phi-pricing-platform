@@ -1,8 +1,10 @@
 package com.rate.aegis.business.calculator.api
 
+import com.rate.aegis.settings.AegisSettingsStore
 import com.rate.domain.model.*
 import io.ktor.client.*
 import io.ktor.client.call.*
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -17,6 +19,14 @@ import kotlinx.serialization.json.*
  * The Excel upload endpoint that used to live here required `java.io.File` and so
  * was JVM-only; it has been split out into `ApiClient.uploadExcel()` as a JVM-only
  * extension in `:aegis/jvmMain` so the rest of the client can run in the browser.
+ *
+ * AUDIT ATTRIBUTION: every outbound request carries an `X-Aegis-Actor` header
+ * sourced from `AegisSettings.operatorIdentity` (the value the operator types
+ * into the Settings surface). The server's request interceptor lifts it into
+ * `ACTOR_SUBJECT_KEY` so existing audit-recording code attributes events
+ * automatically. The lookup happens per-request — not at client construction —
+ * so editing Settings takes effect immediately, no client rebuild needed.
+ * A blank identity skips the header so the server falls back to "unknown".
  */
 class ApiClient(val baseUrl: String = "http://localhost:9090") {
 
@@ -26,6 +36,14 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
                 ignoreUnknownKeys = true
                 isLenient         = true
             })
+        }
+        install(DefaultRequest) {
+            // Re-read the persisted operator identity on every request so edits in
+            // Settings take effect without rebuilding the client. The store load is
+            // a cheap file/localStorage read; if it ever shows up in a profile we
+            // can cache + invalidate, but for now correctness beats micro-opt.
+            val identity = AegisSettingsStore.load().operatorIdentity
+            if (identity.isNotBlank()) header("X-Aegis-Actor", identity)
         }
     }
 

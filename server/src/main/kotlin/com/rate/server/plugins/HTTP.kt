@@ -38,6 +38,7 @@ fun Application.configureHTTP() {
         allowHeader(HttpHeaders.Accept)
         allowHeader(HttpHeaders.Authorization)
         allowHeader("X-Request-Id")
+        allowHeader("X-Aegis-Actor")
         // Replace the prior `anyHost()` with an explicit allowlist.
         // Production must override this via the CORS_ALLOWED_ORIGINS env var.
         allowedOrigins.forEach { origin ->
@@ -63,6 +64,23 @@ fun Application.configureHTTP() {
         val rid = call.request.headers["X-Request-Id"] ?: generateRequestId()
         h.appendIfAbsent("X-Request-Id", rid)
         call.attributes.put(REQUEST_ID_KEY, rid)
+
+        // Operator identity pass-through. The Aegis ApiClient stamps
+        // `X-Aegis-Actor` with the operator's self-declared identity; we lift it
+        // into ACTOR_SUBJECT_KEY so route handlers' existing `getOrNull(KEY)?.let { AuditActor(subject = it) }`
+        // pattern attributes audit events automatically.
+        //
+        // Trim + blank-check so an accidentally-set empty/whitespace header doesn't
+        // produce a degenerate AuditActor(subject = " "). When unset, the key
+        // stays absent and AuditActor.unknown() takes over downstream.
+        //
+        // TRUST MODEL: this is a pure header pass-through — anyone can claim any
+        // identity. Phase 2 will replace it with a verified JWT subject; until
+        // then the audit trail is "what the client said it was".
+        call.request.headers["X-Aegis-Actor"]
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() }
+            ?.let { call.attributes.put(ACTOR_SUBJECT_KEY, it) }
     }
 
     install(StatusPages) {
@@ -96,7 +114,15 @@ fun Application.configureHTTP() {
 
 /** Exposed for the request log plugin, audit service, and route handlers. */
 val REQUEST_ID_KEY = AttributeKey<String>("requestId")
-/** Populated by auth interceptors (Phase 2 JWT). For now this stays null. */
+/**
+ * Set by [configureHTTP]'s `X-Aegis-Actor` pass-through interceptor and consumed
+ * by route handlers when building [com.rate.domain.audit.AuditActor]. Absent when
+ * the client didn't send the header (e.g. customer journey, internal probes) —
+ * downstream code falls back to [com.rate.domain.audit.AuditActor.unknown].
+ *
+ * Phase 2 will replace the header pass-through with a verified JWT subject; the
+ * key itself stays put so route handlers don't need to change.
+ */
 val ACTOR_SUBJECT_KEY = AttributeKey<String>("actorSubject")
 
 private fun ResponseHeaders.appendIfAbsent(name: String, value: String) {

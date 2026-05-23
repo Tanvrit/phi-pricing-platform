@@ -115,6 +115,9 @@ fun HomeSurface() {
             FlowRow("Total (incl. GST)",  totalGwp,    AegisColors.brand, bold = true)
         }
 
+        // Live activity feed (polls /api/audit/events every 5s) ────────────
+        ActivityFeed()
+
         // Recent activity table ────────────────────────────────────────────
         AegisCard(title = "Recent quotes") {
             AegisTable(

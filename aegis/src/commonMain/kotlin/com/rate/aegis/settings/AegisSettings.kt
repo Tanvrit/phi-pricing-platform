@@ -22,6 +22,14 @@ import kotlinx.serialization.json.Json
  *                    without a schema migration. Currently recognised values:
  *                    "light" (default) and "dark". Anything else falls back to
  *                    light at theme resolution time.
+ *   operatorIdentity — free-form string the operator types into Settings to
+ *                    self-identify (name, email, employee id). The Aegis
+ *                    `ApiClient` forwards it as the `X-Aegis-Actor` request
+ *                    header; the server stamps it on every `audit_event` row.
+ *                    Empty string ("") means "no identity set" — the server
+ *                    falls back to `AuditActor.unknown()`. This is a
+ *                    trust-the-header pass-through; real auth (Phase 2) will
+ *                    replace it with a verified JWT subject.
  *
  * The settings record is intentionally narrow.
  */
@@ -30,6 +38,7 @@ data class AegisSettings(
     val serverBaseUrl: String = "http://localhost:9090",
     val defaultRole: String = "BUSINESS",
     val theme: String = "light",
+    val operatorIdentity: String = "",
 )
 
 /**

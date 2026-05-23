@@ -59,6 +59,7 @@ fun SettingsSurface() {
     var serverBaseUrl by remember { mutableStateOf(persisted.serverBaseUrl) }
     var defaultRole by remember { mutableStateOf(persisted.defaultRole) }
     var theme by remember { mutableStateOf(normaliseTheme(persisted.theme)) }
+    var operatorIdentity by remember { mutableStateOf(persisted.operatorIdentity) }
     var saveBannerShown by remember { mutableStateOf(false) }
 
     // Auto-hide the SUCCESS callout a few seconds after it appears so the
@@ -73,7 +74,8 @@ fun SettingsSurface() {
     val urlError: String? = validateBaseUrl(serverBaseUrl)
     val dirty = serverBaseUrl != persisted.serverBaseUrl ||
             defaultRole != persisted.defaultRole ||
-            theme != normaliseTheme(persisted.theme)
+            theme != normaliseTheme(persisted.theme) ||
+            operatorIdentity != persisted.operatorIdentity
     val canSave = dirty && urlError == null
 
     Column(
@@ -140,6 +142,36 @@ fun SettingsSurface() {
             }
         }
 
+        // ── Operator identity ────────────────────────────────────────────
+        // Sent verbatim as the `X-Aegis-Actor` request header by ApiClient,
+        // which the server stamps onto every audit_event row created from
+        // this device. Blank = "unknown" (server falls back to AuditActor.unknown()).
+        // No strict validation — we accept anything the operator types — but
+        // emails are nudged in the callout below since they're easy to triage.
+        AegisCard(
+            title = "Operator identity",
+            subtitle = "Who Aegis attributes audit events to from this device.",
+        ) {
+            Column(
+                modifier = Modifier.widthIn(max = 560.dp),
+                verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+            ) {
+                AegisInput(
+                    value = operatorIdentity,
+                    onValueChange = { operatorIdentity = it },
+                    label = "Identity (your name or email)",
+                    helper = "Stamped on audit events created from this device. Leave blank to attribute as 'unknown'.",
+                    placeholder = "jane.doe@example.com",
+                )
+                AegisCallout(
+                    kind = CalloutKind.INFO,
+                    title = "Emails recommended",
+                    body = "An email or employee id makes audit history easier to triage. " +
+                            "This is local until real auth lands — anyone can type anything here.",
+                )
+            }
+        }
+
         // ── Theme ───────────────────────────────────────────────────────
         AegisCard(
             title = "Theme",
@@ -175,6 +207,9 @@ fun SettingsSurface() {
                         serverBaseUrl = serverBaseUrl,
                         defaultRole = defaultRole,
                         theme = theme,
+                        // Trim to avoid sneaking whitespace into the X-Aegis-Actor
+                        // header; a pure-whitespace input collapses to "" (= unknown).
+                        operatorIdentity = operatorIdentity.trim(),
                     )
                     AegisSettingsStore.save(next)
                     // Refresh the "persisted" snapshot so `dirty` flips back to
@@ -194,6 +229,7 @@ fun SettingsSurface() {
                     serverBaseUrl = d.serverBaseUrl
                     defaultRole = d.defaultRole
                     theme = normaliseTheme(d.theme)
+                    operatorIdentity = d.operatorIdentity
                 },
                 variant = AegisButtonVariant.Ghost,
             )

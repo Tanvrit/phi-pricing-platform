@@ -2,6 +2,7 @@ package com.rate.aegis
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -12,9 +13,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import com.rate.aegis.components.AegisCallout
+import com.rate.aegis.components.AegisCommand
+import com.rate.aegis.components.AegisCommandPalette
 import com.rate.aegis.components.AegisShell
 import com.rate.aegis.components.AegisSurface
 import com.rate.aegis.components.AegisUser
@@ -39,11 +49,9 @@ import com.rate.aegis.theme.AegisTheme
 /**
  * Single entry composable for the whole Aegis platform. Dispatches based on role:
  *
- *   CUSTOMER → Buyonline journey (was the :buyonline module)
- *   BUSINESS → Aegis operator shell: Home / Quotes / Plans / Covers / …
- *              (the rate-calculator from the old :desktop module lives in here too,
- *              accessible as the "Calculator" sub-surface — wired in a follow-up.)
- *   ADMIN    → Placeholder for now; rendered inside the operator shell.
+ *   CUSTOMER → Buyonline journey
+ *   BUSINESS → operator shell: Home / Quotes / Plans / Covers / …
+ *   ADMIN    → Audit-centric variant of the operator shell
  */
 @Composable
 fun AegisRoot(role: AegisRole) {
@@ -62,55 +70,99 @@ private val operatorUser = AegisUser(
     role = "Underwriter"
 )
 
+/** Surfaces reachable from the command palette, in display order. */
+private val OPERATOR_SURFACES: List<AegisSurface> = listOf(
+    AegisSurface.HOME,
+    AegisSurface.CALCULATOR,
+    AegisSurface.QUOTES,
+    AegisSurface.PRODUCT_CATALOG,
+    AegisSurface.PLAN_CONFIGURATOR,
+    AegisSurface.COVER_CATALOG,
+    AegisSurface.DISCOUNTS,
+    AegisSurface.RULES,
+    AegisSurface.REPORTS,
+    AegisSurface.UW_QUEUE,
+    AegisSurface.AUDIT,
+    AegisSurface.SETTINGS,
+)
+
 @Composable
 private fun BusinessRoot() {
     var active by remember { mutableStateOf(AegisSurface.HOME) }
-    AegisShell(
-        activeSurface = active,
-        onSurfaceChange = { active = it },
-        user = operatorUser
-    ) {
-        when (active) {
-            AegisSurface.HOME              -> HomeSurface()
-            AegisSurface.CALCULATOR        -> CalculatorSurface()
-            AegisSurface.QUOTES            -> QuoteExplorerSurface()
-            AegisSurface.PRODUCT_CATALOG   -> ProductCatalogSurface()
-            AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
-            AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
-            AegisSurface.DISCOUNTS         -> DiscountsSurface()
-            AegisSurface.RULES             -> ProspectusSurface()
-            AegisSurface.REPORTS           -> ReportsSurface()
-            AegisSurface.UW_QUEUE          -> UwQueueSurface()
-            AegisSurface.AUDIT             -> AuditEventsSurface()
-            AegisSurface.SETTINGS          -> SettingsSurface()
-            else -> SurfaceTodo(active)
-        }
-    }
+    OperatorShell(operatorUser, active, onSurfaceChange = { active = it })
 }
 
 @Composable
 private fun AdminRoot() {
     var active by remember { mutableStateOf(AegisSurface.AUDIT) }
-    AegisShell(
-        activeSurface = active,
-        onSurfaceChange = { active = it },
-        user = operatorUser.copy(role = "Admin")
-    ) {
-        when (active) {
-            AegisSurface.AUDIT             -> AuditEventsSurface()
-            AegisSurface.HOME              -> HomeSurface()
-            AegisSurface.QUOTES            -> QuoteExplorerSurface()
-            AegisSurface.PRODUCT_CATALOG   -> ProductCatalogSurface()
-            AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
-            AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
-            AegisSurface.DISCOUNTS         -> DiscountsSurface()
-            AegisSurface.RULES             -> ProspectusSurface()
-            AegisSurface.REPORTS           -> ReportsSurface()
-            AegisSurface.UW_QUEUE          -> UwQueueSurface()
-            AegisSurface.CALCULATOR        -> CalculatorSurface()
-            AegisSurface.SETTINGS          -> SettingsSurface()
-            else -> SurfaceTodo(active)
+    OperatorShell(operatorUser.copy(role = "Admin"), active, onSurfaceChange = { active = it })
+}
+
+/**
+ * Shared operator shell — wraps AegisShell with the command-palette overlay
+ * and a ⌘K / Ctrl+K key listener. BUSINESS and ADMIN share the same
+ * routing table; the difference is just the default landing surface.
+ */
+@Composable
+private fun OperatorShell(
+    user: AegisUser,
+    active: AegisSurface,
+    onSurfaceChange: (AegisSurface) -> Unit,
+) {
+    var paletteOpen by remember { mutableStateOf(false) }
+    val commands = remember(active) {
+        OPERATOR_SURFACES.map { surface ->
+            AegisCommand(
+                id = "surface.${surface.name}",
+                title = "Open ${surface.displayName}",
+                subtitle = "Surface · operator",
+                keywords = surface.name,
+                action = {
+                    onSurfaceChange(surface)
+                    paletteOpen = false
+                }
+            )
         }
+    }
+
+    Box(
+        Modifier
+            .fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                val isMod = event.isMetaPressed || event.isCtrlPressed
+                if (isMod && event.key == Key.K) {
+                    paletteOpen = !paletteOpen
+                    true
+                } else false
+            }
+    ) {
+        AegisShell(
+            activeSurface = active,
+            onSurfaceChange = onSurfaceChange,
+            user = user
+        ) {
+            when (active) {
+                AegisSurface.HOME              -> HomeSurface()
+                AegisSurface.CALCULATOR        -> CalculatorSurface()
+                AegisSurface.QUOTES            -> QuoteExplorerSurface()
+                AegisSurface.PRODUCT_CATALOG   -> ProductCatalogSurface()
+                AegisSurface.PLAN_CONFIGURATOR -> PlanConfiguratorSurface()
+                AegisSurface.COVER_CATALOG     -> CoverCatalogSurface()
+                AegisSurface.DISCOUNTS         -> DiscountsSurface()
+                AegisSurface.RULES             -> ProspectusSurface()
+                AegisSurface.REPORTS           -> ReportsSurface()
+                AegisSurface.UW_QUEUE          -> UwQueueSurface()
+                AegisSurface.AUDIT             -> AuditEventsSurface()
+                AegisSurface.SETTINGS          -> SettingsSurface()
+                else -> SurfaceTodo(active)
+            }
+        }
+        AegisCommandPalette(
+            open = paletteOpen,
+            commands = commands,
+            onDismiss = { paletteOpen = false }
+        )
     }
 }
 
@@ -124,9 +176,7 @@ private fun SurfaceTodo(surface: AegisSurface) {
         AegisCallout(
             kind = CalloutKind.INFO,
             title = "Surface coming next",
-            body = "Home + Quote Explorer ship in this iteration; the remaining " +
-                    "surfaces (Plan Configurator, Cover Catalog, Audit, Settings) are " +
-                    "the next ships per DASHBOARD_REDESIGN_PLAN.md §6.1."
+            body = "This surface is queued for a future iteration."
         )
     }
 }
