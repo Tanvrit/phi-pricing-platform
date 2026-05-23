@@ -26,6 +26,32 @@ data class ApiOperator(
 )
 
 /**
+ * Wire-only mirror of the server's `RedactedSession` DTO. Server irreversibly
+ * truncates PII fields (mobile → last 4, pincode → first 3 + "XXX", member
+ * lists → counts) before sending; this client sees only the redacted shape.
+ * Keep field names byte-identical to the server DTO — deserialisation is by
+ * name and any drift will silently null fields with defaults.
+ */
+@Serializable
+data class RedactedSession(
+    val sessionId: String,
+    val currentScreen: String,
+    val mobileMasked: String = "",
+    val pincodePrefix: String = "",
+    val eldestAge: String = "",
+    val kidsCount: Int = 0,
+    val hasPED: Boolean = false,
+    val hasCriticalIllness: Boolean = false,
+    val pedMemberCount: Int = 0,
+    val criticalIllnessMemberCount: Int = 0,
+    val selectedTier: String = "",
+    val selectedSumInsured: Long = 0L,
+    val selectedTenure: Int = 0,
+    val selectedAddOnIds: List<String> = emptyList(),
+    val updatedAtIso: String = ""
+)
+
+/**
  * Operator-side HTTP client for the BUSINESS calculator. Multiplatform-friendly —
  * no explicit engine declared so Ktor auto-discovers (CIO on JVM, JS on WASM).
  *
@@ -175,11 +201,20 @@ class ApiClient(val baseUrl: String = "http://localhost:9090") {
 
     /**
      * Recent buy-online session snapshots for the Reports "Customer journey"
-     * funnel. Server caps at 2000; default 500. NOTE: response includes PII
-     * (mobile, pincode, age) today — see the server-side comment for the
-     * Phase-2 redaction plan.
+     * funnel. Server caps at 2000; default 500.
+     *
+     * Phase-2 redaction: the wire payload is [RedactedSession], NOT the raw
+     * [BuyOnlineSessionState] persisted server-side. PII masking is performed
+     * server-side (irreversible) before serialisation — mobile collapses to a
+     * last-4 mask, pincode keeps only its first 3 chars, and PED/CI member
+     * lists are reduced to counts. The funnel only ever needed `currentScreen`,
+     * so this is purely additive defence-in-depth.
+     *
+     * Gated by the `sessions.read` scope on the server. Callers must be a
+     * registered operator with that scope OR the operators store must be
+     * empty (Phase-1 bootstrap window).
      */
-    suspend fun listBuyOnlineSessions(limit: Int = 500): List<BuyOnlineSessionState> =
+    suspend fun listBuyOnlineSessions(limit: Int = 500): List<RedactedSession> =
         http.get("$baseUrl/api/buy-online/sessions?limit=$limit").body()
 
     // ── Operators (Phase-1 RBAC allowlist) ────────────────────────────────

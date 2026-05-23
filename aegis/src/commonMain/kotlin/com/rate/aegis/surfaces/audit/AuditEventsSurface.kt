@@ -38,6 +38,7 @@ fun AuditEventsSurface() {
     var loadError by remember { mutableStateOf<String?>(null) }
     var loaded by remember { mutableStateOf(false) }
     var resourceFilter by remember { mutableStateOf("All") }
+    var search by remember { mutableStateOf("") }
     var selected by remember { mutableStateOf<AuditRow?>(null) }
 
     LaunchedEffect(client) {
@@ -59,8 +60,11 @@ fun AuditEventsSurface() {
     val resourceTypes = remember(rows) {
         listOf("All") + rows.map { it.resourceType }.distinct().sorted()
     }
-    val filtered = remember(rows, resourceFilter) {
-        if (resourceFilter == "All") rows else rows.filter { it.resourceType == resourceFilter }
+    val filtered = remember(rows, resourceFilter, search) {
+        rows.asSequence()
+            .filter { rt -> resourceFilter == "All" || rt.resourceType == resourceFilter }
+            .filter { rt -> search.isBlank() || rt.matchesSearch(search) }
+            .toList()
     }
 
     Column(
@@ -91,12 +95,18 @@ fun AuditEventsSurface() {
             else -> AegisCallout(
                 kind = CalloutKind.SUCCESS,
                 title = "Live data",
-                body = "${rows.size} events loaded. Auto-refreshes every 30s."
+                body = "${filtered.size} of ${rows.size} events. Auto-refreshes every 30s."
             )
         }
 
         AegisCard {
             Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+                AegisInput(
+                    value = search,
+                    onValueChange = { search = it },
+                    label = "Search audit log",
+                    helper = "Matches action, resource, actor, request id, hash, or payload contents.",
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
                     Text("Resource:", fontSize = 13.sp, color = AegisColors.textSecondary,
                         modifier = Modifier.align(Alignment.CenterVertically))
@@ -107,63 +117,71 @@ fun AuditEventsSurface() {
             }
         }
 
-        AegisCard {
-            AegisTable(
-                items = filtered,
-                onRowClick = { selected = it },
-                columns = listOf(
-                    AegisColumn<AuditRow>(
-                        header = "Time", weight = 1.1f,
-                        cell = { Text(formatShortInstant(it.eventAt), fontSize = 13.sp) }
-                    ),
-                    AegisColumn(
-                        header = "Action", weight = 1.2f,
-                        cell = { Text(it.action, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
-                    ),
-                    AegisColumn(
-                        header = "Resource", weight = 1.6f,
-                        cell = {
-                            val txt = it.resourceType + (it.resourceId?.let { id -> " $id" } ?: "")
-                            Text(txt, fontSize = 13.sp, color = AegisColors.textBody)
-                        }
-                    ),
-                    AegisColumn(
-                        header = "Actor", weight = 0.9f,
-                        cell = {
-                            Text(it.actorSubject ?: "—", fontSize = 13.sp,
-                                color = AegisColors.textSecondary)
-                        }
-                    ),
-                    AegisColumn(
-                        header = "Request ID", weight = 0.9f, mono = true,
-                        cell = {
-                            Text(
-                                it.requestId?.take(8)?.plus("…") ?: "—",
-                                fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = AegisColors.textSecondary
-                            )
-                        }
-                    ),
-                    AegisColumn(
-                        header = "Hash", weight = 0.8f, mono = true,
-                        cell = {
-                            Text(
-                                it.thisHash.take(8),
-                                fontSize = 13.sp,
-                                fontFamily = FontFamily.Monospace,
-                                color = AegisColors.textBody
-                            )
-                        }
-                    ),
-                ),
-                emptyState = {
-                    AegisEmptyState(
-                        title = "No audit events to display",
-                        helper = "Either nothing has been recorded yet, or the filter excludes every row."
-                    )
-                }
+        if (search.isNotBlank() && filtered.isEmpty()) {
+            AegisCallout(
+                kind = CalloutKind.INFO,
+                title = "No matches",
+                body = "Adjust the search or clear it to see all events."
             )
+        } else {
+            AegisCard {
+                AegisTable(
+                    items = filtered,
+                    onRowClick = { selected = it },
+                    columns = listOf(
+                        AegisColumn<AuditRow>(
+                            header = "Time", weight = 1.1f,
+                            cell = { Text(formatShortInstant(it.eventAt), fontSize = 13.sp) }
+                        ),
+                        AegisColumn(
+                            header = "Action", weight = 1.2f,
+                            cell = { Text(it.action, fontSize = 13.sp, fontWeight = FontWeight.Medium) }
+                        ),
+                        AegisColumn(
+                            header = "Resource", weight = 1.6f,
+                            cell = {
+                                val txt = it.resourceType + (it.resourceId?.let { id -> " $id" } ?: "")
+                                Text(txt, fontSize = 13.sp, color = AegisColors.textBody)
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Actor", weight = 0.9f,
+                            cell = {
+                                Text(it.actorSubject ?: "—", fontSize = 13.sp,
+                                    color = AegisColors.textSecondary)
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Request ID", weight = 0.9f, mono = true,
+                            cell = {
+                                Text(
+                                    it.requestId?.take(8)?.plus("…") ?: "—",
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AegisColors.textSecondary
+                                )
+                            }
+                        ),
+                        AegisColumn(
+                            header = "Hash", weight = 0.8f, mono = true,
+                            cell = {
+                                Text(
+                                    it.thisHash.take(8),
+                                    fontSize = 13.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    color = AegisColors.textBody
+                                )
+                            }
+                        ),
+                    ),
+                    emptyState = {
+                        AegisEmptyState(
+                            title = "No audit events to display",
+                            helper = "Either nothing has been recorded yet, or the filter excludes every row."
+                        )
+                    }
+                )
+            }
         }
     }
 
@@ -246,6 +264,28 @@ private fun Map<String, JsonElement>.toAuditRow(): AuditRow? {
         prevHash = get("prevHash")?.jsonPrimitive?.contentOrNull,
         thisHash = thisHash
     )
+}
+
+/**
+ * Case-insensitive substring match across the human-relevant fields of an
+ * audit row. Operates on the already-loaded snapshot — purely client-side.
+ */
+private fun AuditRow.matchesSearch(q: String): Boolean {
+    val needle = q.trim().lowercase()
+    if (needle.isEmpty()) return true
+    val haystack = listOfNotNull(
+        id.toString(),
+        action,
+        resourceType,
+        resourceId,
+        actorSubject,
+        actorRole,
+        requestId,
+        prevHash,
+        thisHash,
+        payloadJson,
+    ).joinToString(" ").lowercase()
+    return needle in haystack
 }
 
 /**

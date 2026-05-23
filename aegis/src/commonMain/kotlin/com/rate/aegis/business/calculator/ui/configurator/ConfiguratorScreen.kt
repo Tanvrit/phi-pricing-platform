@@ -29,6 +29,9 @@ import com.rate.aegis.LocalAegisDeepLink
 import com.rate.aegis.business.calculator.api.ApiClient
 import com.rate.aegis.business.calculator.navigation.Screen
 import com.rate.aegis.business.calculator.ui.components.*
+import com.rate.aegis.util.buildCsv
+import com.rate.aegis.util.saveCsv
+import com.rate.aegis.util.todayIsoDate
 import com.rate.domain.data.CoverCatalog
 import com.rate.domain.model.*
 import kotlinx.coroutines.launch
@@ -173,6 +176,33 @@ fun ConfiguratorBody(client: ApiClient) {
                     verticalAlignment     = Alignment.CenterVertically
                 ) {
                     if (loading) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    // Export the *currently filtered* plan list. Sibling of
+                    // Refresh — same OutlinedButton chrome so the header stays
+                    // visually unified (the configurator body is still
+                    // Material3, not Aegis Foundations, hence no AegisButton).
+                    OutlinedButton(
+                        onClick = {
+                            val csv = buildCsv(
+                                headers = listOf(
+                                    "ID", "Name", "Type", "Lifecycle", "Active",
+                                    "Min age", "Max age", "GST rate", "Max discount cap",
+                                    "SI grid", "Zones"
+                                ),
+                                rows = displayed.map { p ->
+                                    listOf(
+                                        p.id, p.name, p.planType.name, p.lifecycle.name, p.isActive,
+                                        p.minAge, p.maxAge, p.gstRate, p.maxDiscountCap,
+                                        p.availableSumInsureds.joinToString("|"),
+                                        p.availableZones.joinToString("|")
+                                    )
+                                }
+                            )
+                            saveCsv("aegis-plans-${todayIsoDate()}.csv", csv)
+                        },
+                        enabled = displayed.isNotEmpty()
+                    ) {
+                        Text("Export CSV")
+                    }
                     OutlinedButton(
                         onClick = { scope.launch { refresh() } },
                         enabled = !loading

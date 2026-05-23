@@ -36,9 +36,9 @@ import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.data.rememberDashboardData
+import com.rate.aegis.business.calculator.api.RedactedSession
 import com.rate.aegis.theme.AegisColors
 import com.rate.aegis.theme.AegisSpacing
-import com.rate.domain.model.BuyOnlineSessionState
 import com.rate.domain.money.formatRupees
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
@@ -264,14 +264,15 @@ fun ReportsSurface() {
  * popular stage anchors the visual scale. Drop-off between consecutive
  * screens is computed in declaration order (Landing → … → Satisfaction).
  *
- * Privacy: the fetched sessions include PII (mobile, pincode, age) — see the
- * server-side route comment for the Phase-2 redaction plan. This surface
- * never RENDERS those fields, only counts, but they're in memory.
+ * Privacy: the wire payload is server-redacted ([RedactedSession]) — mobile is
+ * masked to its last 4 digits, pincode to its first 3, and PED/CI membership
+ * collapses to a count. This surface only ever needed `currentScreen` for the
+ * funnel groupBy, so the redaction is fully transparent to the visualisation.
  */
 @Composable
 private fun CustomerJourneyFunnelSection() {
     val client = rememberApiClient()
-    var sessions by remember { mutableStateOf<List<BuyOnlineSessionState>>(emptyList()) }
+    var sessions by remember { mutableStateOf<List<RedactedSession>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 

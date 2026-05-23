@@ -17,6 +17,9 @@ import com.rate.aegis.data.DashboardSource
 import com.rate.aegis.data.FakeAegisRepo
 import com.rate.aegis.data.rememberDashboardData
 import com.rate.aegis.theme.*
+import com.rate.aegis.util.buildCsv
+import com.rate.aegis.util.saveCsv
+import com.rate.aegis.util.todayIsoDate
 import com.rate.domain.money.formatRupees
 
 /**
@@ -107,6 +110,35 @@ fun QuoteExplorerSurface() {
                     ValidityFilter.entries.forEach { v ->
                         AegisChip(label = v.label, selected = validityFilter == v, onClick = { validityFilter = v })
                     }
+                }
+                // ── Export — dumps the *currently filtered* view to CSV. ─────────
+                // Placed as the last filter-card child so it lives where the user
+                // is already focused on filter state. Secondary variant so it
+                // sits below the primary "click a row" affordance in priority.
+                Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3)) {
+                    AegisButton(
+                        label = "Export CSV (${filtered.size})",
+                        variant = AegisButtonVariant.Secondary,
+                        size = AegisButtonSize.Sm,
+                        enabled = filtered.isNotEmpty(),
+                        onClick = {
+                            val csv = buildCsv(
+                                headers = listOf(
+                                    "Quote ID", "Created", "Plan", "Age", "Family",
+                                    "Zone", "Tenure", "SI", "Status", "Total (incl. GST)"
+                                ),
+                                rows = filtered.map { q ->
+                                    listOf(
+                                        q.id, q.createdAt, q.planName, q.primaryAge, q.familyType,
+                                        q.zone, q.tenureLabel, q.sumInsured,
+                                        if (q.isValid) "Valid" else "Invalid",
+                                        if (q.isValid) q.totalIncludingGst else 0.0
+                                    )
+                                }
+                            )
+                            saveCsv("aegis-quotes-${todayIsoDate()}.csv", csv)
+                        }
+                    )
                 }
             }
         }

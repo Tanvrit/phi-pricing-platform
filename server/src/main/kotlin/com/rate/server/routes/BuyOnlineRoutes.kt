@@ -9,6 +9,7 @@ import com.rate.domain.validation.ValidationResult
 import com.rate.domain.validation.Validators
 import com.rate.server.audit.AuditActor
 import com.rate.server.audit.AuditEventService
+import com.rate.server.auth.requireScope
 import com.rate.server.database.repositories.BuyOnlineSessionRepository
 import com.rate.server.metrics.Metrics
 import com.rate.server.plugins.ACTOR_SUBJECT_KEY
@@ -97,6 +98,48 @@ data class ProposalResponse(
 
 @Serializable
 data class ProposalTrackResponse(val proposalNumber: String, val status: String, val message: String)
+
+// ── Redacted session DTO (Phase-2 PII mitigation) ────────────────────────────
+// Wire-only projection of BuyOnlineSessionState. PII fields (mobile, pincode,
+// pedMembers, criticalIllnessMembers) are irreversibly truncated/collapsed so
+// the operator funnel still works without leaking customer-identifying data.
+@Serializable
+data class RedactedSession(
+    val sessionId: String,           // truncated to first 8 chars + "…"
+    val currentScreen: String,
+    val mobileMasked: String,        // "XXXXXX1234" — last 4 only
+    val pincodePrefix: String,       // first 3 digits + "XXX"
+    val eldestAge: String,
+    val kidsCount: Int,
+    val hasPED: Boolean,
+    val hasCriticalIllness: Boolean,
+    // health-member lists redacted to counts only
+    val pedMemberCount: Int,
+    val criticalIllnessMemberCount: Int,
+    val selectedTier: String,
+    val selectedSumInsured: Long,
+    val selectedTenure: Int,
+    val selectedAddOnIds: List<String>,
+    val updatedAtIso: String
+)
+
+private fun BuyOnlineSessionState.redact(): RedactedSession = RedactedSession(
+    sessionId = sessionId.take(8) + (if (sessionId.length > 8) "…" else ""),
+    currentScreen = currentScreen,
+    mobileMasked = if (mobile.length >= 4) "X".repeat(mobile.length - 4) + mobile.takeLast(4) else "XXXX",
+    pincodePrefix = if (pincode.length >= 3) pincode.take(3) + "XXX" else "XXX",
+    eldestAge = eldestAge,
+    kidsCount = kidsCount,
+    hasPED = hasPED,
+    hasCriticalIllness = hasCriticalIllness,
+    pedMemberCount = pedMembers.size,
+    criticalIllnessMemberCount = criticalIllnessMembers.size,
+    selectedTier = selectedTier,
+    selectedSumInsured = selectedSumInsured,
+    selectedTenure = selectedTenure,
+    selectedAddOnIds = selectedAddOnIds,
+    updatedAtIso = updatedAtIso
+)
 
 // ── Route definitions ─────────────────────────────────────────────────────────
 
@@ -413,21 +456,20 @@ fun Route.buyOnlineRoutes(
         }
 
         // ── Aggregated sessions list (operator analytics) ────────────────────
-        // Feeds the Aegis Reports "Customer journey" funnel. No scope gate yet —
-        // operator surfaces will read this aggregator; Phase 2 can layer
-        // `requireScope("sessions.read")` on top once the RBAC story tightens.
+        // Feeds the Aegis Reports "Customer journey" funnel. Gated by the
+        // `sessions.read` scope (operator-only data) and redacted server-side
+        // via [RedactedSession] — see DTO above.
         //
-        // PII NOTICE — Phase-2 redaction target:
-        //   BuyOnlineSessionState today carries raw `mobile`, `pincode`, and `eldestAge`.
-        //   Exposing these to operators is acceptable for Phase 1 (small operator set,
-        //   internal-only Aegis surface) but BEFORE this endpoint is reachable from a
-        //   broader audience we MUST either (a) hash `mobile` server-side here
-        //   (e.g. SHA-256 with a per-deployment salt before returning), (b) return a
-        //   projected DTO with PII fields stripped, or (c) require an explicit
-        //   `pii.read` scope. Pick one when the funnel ships externally.
+        // Phase-2 redaction is in place. Historical context: the original TODO
+        // proposed (a) hashing mobile with a per-deployment salt, (b) returning
+        // a projected DTO with PII stripped, or (c) requiring an explicit
+        // `pii.read` scope; we picked (b) + scope-gate, since irreversible
+        // truncation is the right contract for the funnel use case.
         get("/sessions") {
+            if (!requireScope("sessions.read")) return@get
             val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 500).coerceIn(1, 2000)
-            call.respond(sessionRepo.listSessions(limit))
+            val sessions = sessionRepo.listSessions(limit).map { it.redact() }
+            call.respond(sessions)
         }
 
         // ── Track proposal ───────────────────────────────────────────────────
