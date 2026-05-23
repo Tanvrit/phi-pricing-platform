@@ -29,6 +29,15 @@ object Metrics {
     private val otpSentTotal          = ConcurrentHashMap<List<String>, LongAdder>()
     private val otpVerifiedTotal      = ConcurrentHashMap<List<String>, LongAdder>()
 
+    // ── Aegis-surface no-label OTP counters ───────────────────────────────────
+    // These mirror the labelled counters above as flat totals so the Aegis
+    // Server Health surface can pin them prominently without parsing label sets.
+    // OtpService increments these directly; routes keep using the labelled ones.
+    private val otpSentCounter           = AtomicLong(0)
+    private val otpVerifySuccessCounter  = AtomicLong(0)
+    private val otpVerifyFailureCounter  = AtomicLong(0)
+    private val otpRateLimitedCounter    = AtomicLong(0)
+
     // ── Histogram (rate_http_request_duration_seconds) ────────────────────────
     private val httpDurationBuckets = ConcurrentHashMap<List<String>, HistogramState>()
     /** Buckets (in seconds) chosen for typical HTTP latency distributions. */
@@ -68,6 +77,11 @@ object Metrics {
             .increment()
     }
 
+    fun recordOtpSent() { otpSentCounter.incrementAndGet() }
+    fun recordOtpVerifySuccess() { otpVerifySuccessCounter.incrementAndGet() }
+    fun recordOtpVerifyFailure() { otpVerifyFailureCounter.incrementAndGet() }
+    fun recordOtpRateLimited() { otpRateLimitedCounter.incrementAndGet() }
+
     /**
      * Clears all accumulators. Intended for unit tests only — production code never
      * resets metrics (Prometheus expects monotonic counters).
@@ -78,6 +92,10 @@ object Metrics {
         otpSentTotal.clear()
         otpVerifiedTotal.clear()
         httpDurationBuckets.clear()
+        otpSentCounter.set(0)
+        otpVerifySuccessCounter.set(0)
+        otpVerifyFailureCounter.set(0)
+        otpRateLimitedCounter.set(0)
     }
 
     /**
@@ -128,6 +146,23 @@ object Metrics {
         renderCounter(sb, "rate_otp_verified_total",
             "Total OTP verification attempts by outcome.",
             otpVerifiedTotal, listOf("purpose", "outcome"))
+
+        // Aegis-surface no-label OTP counters
+        sb.append("# HELP otp_sent_total Total OTP sends issued\n")
+        sb.append("# TYPE otp_sent_total counter\n")
+        sb.append("otp_sent_total ").append(otpSentCounter.get()).append('\n')
+
+        sb.append("# HELP otp_verify_success_total Successful OTP verifications\n")
+        sb.append("# TYPE otp_verify_success_total counter\n")
+        sb.append("otp_verify_success_total ").append(otpVerifySuccessCounter.get()).append('\n')
+
+        sb.append("# HELP otp_verify_failure_total Failed OTP verifications (wrong code or expired)\n")
+        sb.append("# TYPE otp_verify_failure_total counter\n")
+        sb.append("otp_verify_failure_total ").append(otpVerifyFailureCounter.get()).append('\n')
+
+        sb.append("# HELP otp_rate_limited_total OTP requests rejected by per-mobile rate limit\n")
+        sb.append("# TYPE otp_rate_limited_total counter\n")
+        sb.append("otp_rate_limited_total ").append(otpRateLimitedCounter.get()).append('\n')
 
         // HikariCP gauges
         hikari?.hikariPoolMXBean?.let { pool ->

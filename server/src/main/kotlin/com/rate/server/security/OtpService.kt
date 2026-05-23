@@ -1,5 +1,6 @@
 package com.rate.server.security
 
+import com.rate.server.metrics.Metrics
 import io.ktor.util.encodeBase64
 import org.slf4j.LoggerFactory
 import java.security.MessageDigest
@@ -40,6 +41,7 @@ class OtpService(private val tokenSecret: String) {
         lock.withLock {
             bucket.prune()
             if (bucket.count() >= MAX_SENDS_PER_HOUR) {
+                Metrics.recordOtpRateLimited()
                 return SendResult.RateLimited
             }
             bucket.add()
@@ -53,6 +55,7 @@ class OtpService(private val tokenSecret: String) {
             purpose = purpose
         )
         store["$mobile:$purpose"] = record
+        Metrics.recordOtpSent()
 
         // PHASE 2: replace with a real SMS gateway (MSG91 / Gupshup / Karix).
         // We deliberately log at INFO so dev/test flows can verify the OTP. Production
@@ -66,23 +69,33 @@ class OtpService(private val tokenSecret: String) {
 
     fun verifyOtp(mobile: String, code: String, purpose: Purpose = Purpose.LOGIN): VerifyResult {
         val key = "$mobile:$purpose"
-        val record = store[key] ?: return VerifyResult.NoActiveCode
+        val record = store[key] ?: run {
+            Metrics.recordOtpVerifyFailure()
+            return VerifyResult.NoActiveCode
+        }
         if (Instant.now().isAfter(record.expiresAt)) {
             store.remove(key)
+            Metrics.recordOtpVerifyFailure()
             return VerifyResult.Expired
         }
+        // Note: TooManyAttempts is bucketed as a verify-failure (not rate-limited).
+        // The `otp_rate_limited_total` counter is reserved for the send-side
+        // per-mobile-per-hour bucket so the two signals stay distinguishable.
         if (record.attempts >= MAX_VERIFY_ATTEMPTS) {
             store.remove(key)
+            Metrics.recordOtpVerifyFailure()
             return VerifyResult.TooManyAttempts
         }
         val candidate = sha256(code)
         val matches = constantTimeEquals(candidate, record.codeHash)
         if (!matches) {
             store[key] = record.copy(attempts = record.attempts + 1)
+            Metrics.recordOtpVerifyFailure()
             return VerifyResult.Mismatch(remaining = MAX_VERIFY_ATTEMPTS - (record.attempts + 1))
         }
         // Success — remove the record so a code can't be reused.
         store.remove(key)
+        Metrics.recordOtpVerifySuccess()
         return VerifyResult.Ok(issueShortLivedToken(mobile, purpose))
     }
 

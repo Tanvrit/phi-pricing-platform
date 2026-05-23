@@ -204,7 +204,10 @@ private fun OperatorShell(
         surfaceCommands + planCommands + discountCommands + coverCommands + quoteCommands
     }
 
-    CompositionLocalProvider(LocalAegisDeepLink provides deepLink) {
+    CompositionLocalProvider(
+        LocalAegisDeepLink provides deepLink,
+        LocalSurfaceRouter provides onSurfaceChange,
+    ) {
         Box(
             Modifier
                 .fillMaxSize()

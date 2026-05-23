@@ -43,6 +43,30 @@ fun HomeSurface() {
         Text("Home", fontSize = 28.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
         DashboardSourceBanner(dashboard.source, dashboard.fallbackReason, dashboard.refreshedAt)
 
+        // Sparklines (last 7 daily buckets). `createdAt` is a YYYY-MM-DD prefix
+        // so daily grouping is the only granularity available without parsing
+        // intra-day timestamps. Skipped in LOADING / empty-data states to avoid
+        // flashing a meaningless flat line on first paint.
+        val showSparks = dashboard.source != DashboardSource.LOADING && dashboard.quotes.isNotEmpty()
+        val sparkDays = if (showSparks) {
+            dashboard.quotes.asSequence()
+                .map { it.createdAt }
+                .filter { it.isNotEmpty() }
+                .distinct().toList().sorted().takeLast(7)
+        } else emptyList()
+        val quotesSpark: List<Double>? = if (showSparks) {
+            val byDay = dashboard.quotes.groupBy { it.createdAt }
+                .mapValues { it.value.size.toDouble() }
+            sparkDays.map { byDay[it] ?: 0.0 }
+        } else null
+        val gwpSpark: List<Double>? = if (showSparks) {
+            val byDay = dashboard.quotes
+                .filter { it.isValid }
+                .groupBy { it.createdAt }
+                .mapValues { entry -> entry.value.sumOf { it.totalIncludingGst } }
+            sparkDays.map { byDay[it] ?: 0.0 }
+        } else null
+
         // KPI tiles ─────────────────────────────────────────────────────────
         Row(horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s4)) {
             KpiTile(
@@ -50,6 +74,7 @@ fun HomeSurface() {
                 value = kpis.quotesToday.toString(),
                 delta = "${signed(kpis.quotesToday - kpis.quotesYesterday)} vs yesterday",
                 deltaPositive = kpis.quotesToday >= kpis.quotesYesterday,
+                sparkline = quotesSpark,
                 modifier = Modifier.weight(1f)
             )
             KpiTile(
@@ -57,6 +82,7 @@ fun HomeSurface() {
                 value = formatRupees(kpis.gwpThisMonth),
                 delta = "${pctSigned(kpis.gwpThisMonth, kpis.gwpLastMonth)} vs last month",
                 deltaPositive = kpis.gwpThisMonth >= kpis.gwpLastMonth,
+                sparkline = gwpSpark,
                 modifier = Modifier.weight(1f)
             )
             KpiTile(
@@ -201,13 +227,22 @@ private fun KpiTile(
     value: String,
     delta: String,
     deltaPositive: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sparkline: List<Double>? = null,
 ) {
     val deltaColor = if (deltaPositive) AegisColors.success700 else AegisColors.danger700
+    val sparkColor = if (deltaPositive) AegisColors.success500 else AegisColors.danger500
     AegisCard(modifier = modifier, padding = PaddingValues(AegisSpacing.s4)) {
         Column(verticalArrangement = Arrangement.spacedBy(AegisSpacing.s2)) {
             Text(label, fontSize = 12.sp, color = AegisColors.textSecondary, fontWeight = FontWeight.Medium)
             Text(value, fontSize = 24.sp, fontWeight = FontWeight.SemiBold, color = AegisColors.textBody)
+            if (sparkline != null) {
+                AegisSparkline(
+                    values = sparkline,
+                    accent = sparkColor,
+                    modifier = Modifier.fillMaxWidth().height(28.dp),
+                )
+            }
             Text(delta, fontSize = 11.sp, color = deltaColor)
         }
     }

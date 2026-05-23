@@ -1,6 +1,7 @@
 package com.rate.aegis.surfaces.audit
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -10,7 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.sp
+import com.rate.aegis.DeepLink
+import com.rate.aegis.LocalAegisDeepLink
+import com.rate.aegis.LocalSurfaceRouter
 import com.rate.aegis.components.*
 import com.rate.aegis.data.rememberApiClient
 import com.rate.aegis.theme.*
@@ -139,9 +144,11 @@ fun AuditEventsSurface() {
                         ),
                         AegisColumn(
                             header = "Resource", weight = 1.6f,
-                            cell = {
-                                val txt = it.resourceType + (it.resourceId?.let { id -> " $id" } ?: "")
-                                Text(txt, fontSize = 13.sp, color = AegisColors.textBody)
+                            cell = { row ->
+                                ResourceCell(
+                                    resourceType = row.resourceType,
+                                    resourceId = row.resourceId,
+                                )
                             }
                         ),
                         AegisColumn(
@@ -202,7 +209,11 @@ fun AuditEventsSurface() {
                 LedgerRow("Timestamp", row.eventAt)
                 LedgerRow("Action", row.action)
                 LedgerRow("Resource type", row.resourceType)
-                LedgerRow("Resource ID", row.resourceId ?: "—")
+                ResourceIdLedgerRow(
+                    resourceType = row.resourceType,
+                    resourceId = row.resourceId,
+                    onBeforeNavigate = { selected = null },
+                )
                 LedgerRow("Actor subject", row.actorSubject ?: "—")
                 LedgerRow("Actor role", row.actorRole ?: "—")
                 LedgerRow("Request ID", row.requestId ?: "—", mono = true)
@@ -319,5 +330,108 @@ private fun LedgerRow(label: String, value: String, mono: Boolean = false) {
             fontWeight = FontWeight.Medium,
             color = AegisColors.textBody
         )
+    }
+}
+
+/**
+ * Resource types whose ids are deep-linkable to an operator surface.
+ * Anything else renders as plain text — silently degrading rather than
+ * routing into the wrong place.
+ */
+private data class ResourceLink(val deepLink: DeepLink, val surface: AegisSurface)
+
+private fun resolveResourceLink(resourceType: String, resourceId: String): ResourceLink? =
+    when (resourceType.lowercase()) {
+        "plan" -> ResourceLink(DeepLink(planId = resourceId), AegisSurface.PLAN_CONFIGURATOR)
+        "quote" -> ResourceLink(DeepLink(quoteId = resourceId), AegisSurface.QUOTES)
+        else -> null
+    }
+
+/**
+ * Resource column cell: the type is always plain; the id is rendered as
+ * a clickable underlined brand-colored link when [resolveResourceLink]
+ * recognises the type, and as plain secondary text otherwise.
+ */
+@Composable
+private fun ResourceCell(resourceType: String, resourceId: String?) {
+    val deepLink = LocalAegisDeepLink.current
+    val router = LocalSurfaceRouter.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(resourceType, fontSize = 13.sp, color = AegisColors.textBody)
+        if (resourceId != null) {
+            Spacer(Modifier.width(AegisSpacing.s2))
+            val link = resolveResourceLink(resourceType, resourceId)
+            if (link != null) {
+                Text(
+                    resourceId,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = AegisColors.brand,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable {
+                        deepLink.value = link.deepLink
+                        router(link.surface)
+                    }
+                )
+            } else {
+                Text(
+                    resourceId,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    color = AegisColors.textSecondary
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Drawer variant of the resource-id row. Closes the drawer (via
+ * [onBeforeNavigate]) before routing, so the operator doesn't return to
+ * a stale drawer overlaying the destination surface.
+ */
+@Composable
+private fun ResourceIdLedgerRow(
+    resourceType: String,
+    resourceId: String?,
+    onBeforeNavigate: () -> Unit,
+) {
+    val deepLink = LocalAegisDeepLink.current
+    val router = LocalSurfaceRouter.current
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text("Resource ID", fontSize = 13.sp, color = AegisColors.textSecondary)
+        if (resourceId == null) {
+            Text(
+                "—",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium,
+                color = AegisColors.textBody
+            )
+        } else {
+            val link = resolveResourceLink(resourceType, resourceId)
+            if (link != null) {
+                Text(
+                    resourceId,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = AegisColors.brand,
+                    textDecoration = TextDecoration.Underline,
+                    modifier = Modifier.clickable {
+                        onBeforeNavigate()
+                        deepLink.value = link.deepLink
+                        router(link.surface)
+                    }
+                )
+            } else {
+                Text(
+                    resourceId,
+                    fontSize = 13.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Medium,
+                    color = AegisColors.textBody
+                )
+            }
+        }
     }
 }

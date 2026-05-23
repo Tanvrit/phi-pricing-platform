@@ -156,6 +156,26 @@ fun ServerHealthSurface() {
             }
         }
 
+        // ── 3b. OTP activity card ───────────────────────────────────────
+        // Pinned above the noisy top-20 metrics list so an abuse spike (lots
+        // of `otp_rate_limited_total`) is immediately visible. Each tile shows
+        // "—" until the server has been hit at least once or if the build
+        // predates these counters (graceful degradation).
+        AegisCard(
+            title = "OTP activity",
+            subtitle = "Send/verify counters and the per-mobile rate-limit signal",
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AegisSpacing.s3),
+            ) {
+                OtpTile("Sent", "otp_sent_total", metricsMap, Modifier.weight(1f))
+                OtpTile("Verified", "otp_verify_success_total", metricsMap, Modifier.weight(1f))
+                OtpTile("Failed", "otp_verify_failure_total", metricsMap, Modifier.weight(1f))
+                OtpTile("Rate-limited", "otp_rate_limited_total", metricsMap, Modifier.weight(1f))
+            }
+        }
+
         // ── 4. Metrics card ─────────────────────────────────────────────
         AegisCard(
             title = "Prometheus metrics",
@@ -281,6 +301,47 @@ private fun KeyValueRow(label: String, value: String) {
         Text(label, fontSize = 13.sp, color = AegisColors.textSecondary)
         Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium,
             color = AegisColors.textBody, fontFamily = FontFamily.Monospace)
+    }
+}
+
+/**
+ * One small tile inside the "OTP activity" card. Shows the integer counter
+ * value (or "—" when the metric is missing from the parsed map) plus the
+ * metric name in small mono text so operators can correlate with `/metrics`.
+ */
+@Composable
+private fun OtpTile(
+    label: String,
+    metricName: String,
+    metricsMap: Map<String, Double>,
+    modifier: Modifier = Modifier,
+) {
+    val raw = metricsMap[metricName]
+    val display = if (raw == null) "—" else {
+        val l = raw.toLong()
+        if (l.toDouble() == raw) l.toString() else raw.toString()
+    }
+    Column(
+        modifier
+            .background(AegisColors.surfaceMuted, RoundedCornerShape(AegisRadii.rMd))
+            .padding(AegisSpacing.s3),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        Text(label, fontSize = 11.sp, color = AegisColors.textSecondary,
+            fontWeight = FontWeight.Medium)
+        Text(
+            display,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AegisColors.textPrimary,
+            fontFamily = FontFamily.Monospace,
+        )
+        Text(
+            metricName,
+            fontSize = 10.sp,
+            fontFamily = FontFamily.Monospace,
+            color = AegisColors.textTertiary,
+        )
     }
 }
 
