@@ -1,0 +1,204 @@
+Group Product - Employer Employee,,,,,,,
+Features,Type,Details,,,,,
+Policy Type,Boundary Conditions,Floater / Non-Floater,,,,,
+Relations Covered,Boundary Conditions,"Self, Spouse, Son, Daughter-in-law, Daughter, Son-in-law, Father, mother, father-in-law, mother-in-law, grandfather, grandmother, grandson, granddaughter, brother, sister, sister-in-law, brother-in-law, nephew, niece, Partner (live-in partner/same & opposite sex partner)",LGBTQ (Under General/Special condition),,,,
+Family Floater Size,Boundary Conditions,ESCP and all TCS Combinations,"Employee,Spouse,Children,Parents",,,,
+Entry and Maximum Age,Boundary Conditions,"Entry Age: 0 Years
+Exit Age: Lifelong",Minimum 1 day; No maximum age limit (specific limits for certain covers).,,,,
+Tenure,Boundary Conditions,Tenure :1/2/3/4/5 years,Tenure :1/2/3/4/5 years,,,,
+Premium Payment Terms,Boundary Conditions,"1/2/3/4/5 Years (In Multi -tenure Policies , premium collection tenure will be less than or equal to policy tenure","1/2/3/4/5 Years (In Multi -tenure Policies , premium collection tenure will be less than or equal to policy tenure",,,,
+Premium Payment Mode,Boundary Conditions,Monthly/Quarterly/Half Yearly/Yearly/Single/Modular,Monthly/Quarterly/Half Yearly/Yearly/Single/Modular,,,,
+Sum Insured,Boundary Conditions,"Rs 10,000 to Rs 300 Lacs",Sum Insured Options Available under the product,,,,
+Geography,Boundary Conditions,India Only,India Only,,,,
+PART 1- BASE COVERS,,,,,,,
+Sl No,Cover,Cover Description,Minimum Sum Insured(In Rs)/Limits,Maximum Sum Insured (In Rs)/Limits,Additional Details,Logic,
+1,In-Patient Hospitalization Expenses,Hospitalization covered up to Sum Insured,10000,300 Lacs,"Sum Insured Options available under the product- in multiples of 1,000",Base SI,
+2,Room Rent,"Limit cover towards Room Rent by selecting
+a)Percentage of Sum Insured
+b)Room rent amount
+c)Room type
+
+Or, any applicable combination of a,b,c.","a)0.5%
+b) 500 Per Day
+c)Room Type as below:
+1.Ward
+2.Up to shared Room
+3.Up to single private room
+4.Up to deluxe room
+5.Upto any room other than Suite
+
+","a)100%
+b)20,000 Per Day
+c)Any Room/ No Room Type Cap","Limit options available:
+a) Per day room rent as a percentage limit of sum insured : 2%-10%
+In case of ICU the limit will be two times Room rent
+b)Room type limit
+1.Ward
+2.Up to shared Room
+3.Up to single private room
+4.Up to deluxe room
+5.Upto any room other than Suite
+6.No Room type cap
+ICU Limits with respect to room rent :
+1. x times the room rent
+2. No cap
+(Where x can be any number or fraction max up to 10)",Part Of Base SI,
+3,Nursing and RMO Charges,Nursing Charges- Part of room rent,Covered,Covered,,Part Of Base SI,
+4,In-Patient Hospitalization Expenses For AYUSH,Covers in patient hospitalization expenses towards AYUSH treatment,Up to In-Patient SI,Up to In-Patient SI,"Sum Insured Options available under the product- in multiples of 1,000",Part Of Base SI,
+5,Pre-Hospitalization Medical Expenses,Medical expenses covered up to number of days before date of hospitalization,0 Days,180 Days,"Options to be offered:
+0,15,30,45,60,90,120,150,180",Part Of Base SI,
+6,Post-Hospitalization Medical Expenses,Medical expenses covered up to number of days after date of hospitalization,0 Days,180 Days,"Options to be offered:
+0,15,30,45,60,90,120,150,180",Part Of Base SI,
+7,Day Care Procedures Cover,All 546 Day care covered up to Sum Insured. Options to select,Up to In-Patient SI,Up to In-Patient SI,"Sum Insured Options available under the product- in multiples of 1,000",Part Of Base SI,
+8,Modern Treatment Cover,Treatment for Advanced Technology methods ,Up to In-Patient SI,Up to In-Patient SI,,Part Of Base SI,
+PART 1.1 - OPTIONAL COVERS,,,,,,,
+Sl No,Cover,Cover Description,Minimum Sum Insured/Limits,Maximum Sum Insured/Limits,Sublimit/ Options,,
+1,Home Care Treatment Cover,"Hospital at Home for select conditions, cashless facility through Prudential Network only-
+for Specific illnesses like chemotherapy, dengue, gastroenteritis, hepatitis, peritoneal dialysis etc","Rs 10,000",300 Lacs,,Part Of Base SI,
+2,Road Ambulance Cover,Ambulance charges covered per hospitalization,Rs 500,5Lacs,"In multiples of 500
+Cannot be claimed along with Medi Cab cover",Over & Above,
+3,Medi Cab Cover,Transportation of the Insured Person to the nearest Hospital and/or from Hospital to home,Rs 500,5Lacs,"On Reimbursement basis only, cannot be claimed along with Road Ambulance cover
+Digital bill mandatory",Over & Above,
+4,Air Ambulance Cover,Covers expenses towards transportation of the insured person to the nearest hospital by an air ambulance during an emergency,50000,10 Lacs,,Over & Above,
+5,Emergency Evacuation Cover,Covers expenses towards the arrangement of an emergency evacuation to the nearest facility capable of providing adequate care,50000,10 Lacs,,Over & Above,
+6,Domiciliary Hospitalization Cover,Medical expenses towards Domiciliary hospitalization covered up to Sum Insured,"1% of SI
+Rs 10,000
+1% max up to 10,000","100% of SI
+2 300 Lacs
+100% max up to 2 300 Lacs",,Part Of Base SI,
+7,Organ Donor Expense Cover,Covers Hospitalization expenses for Donor only till harvesting and covers the charges when insured person is the donor.,"1% of SI
+Rs 10,000
+1% max up to 10,000","100% of SI
+300 Lacs
+100% max up to 300 Lacs",,Part Of Base SI,
+8,Maternity Expenses Cover,"Maternity Expenses related to : Normal Delivery, Routine or elective C-section delivery and related complications","For Normal Delivery-10,000
+For C- Sec-10,000","For Normal Delivery - Upto SI (300 Lacs)
+For C- Sec-Upto SI (300 Lacs)","In multiples of 5,000
+Part of Base SI
+Over and above base SI
+Dual Maternity
+Limit no of deliveries - up to 4 deliveries including twins and triplets/quadruplets- managed in policy wordings - Keep it open",Over & Above,
+10,New Born Medical Expenses Cover,Expenses towards treatment of a new born baby,10000,Upto  sum insured opted,"In multiples of 10,000
+Option to choose:
+a) Within maternity SI
+b)Over and above maternity SI","a)Part of Maternity SI
+b)Part of In-patient Base SI",
+11,Birth Control Procedure Cover,Covers Medical expenses towards implanted/injected contraceptives surgical therapies post appropriate counselling,5000,5Lacs,,Over & Above,
+12,Infertility Treatment Cover,"Covers Medical Expenses towards diagnostic infertility services undertaken to determine the cause of infertility, treatment and procedures including artificial insemination and advanced reproductive technologies such as IVF, ZIFT, GIFT, ICSI",5000,Upto maternity sum insured opted,"Sublimit Options available: From Rs 5,000 to Base SI",Part of Base maternity SI,
+13,"In-patient Hospitalisation for Surrogate Mother
+Mandate by IRDAI","Incurred in respect of In Patient
+Hospitalization of the Surrogate mother appointed by the
+“Intending Couple”/ ”Intending woman” for complications
+arising out of pregnancy and post-partum delivery
+complications during the Policy Period, up to a maximum
+limit of Rs. 5 Lakhs",5000,5Lacs,NA,Over & Above,
+14,"In-patient Hospitalisation for Oocyte (Egg) Donor
+Mandate by IRDAI","Covers medical expenses incurred in respect of Hospitalization
+of Oocyte Donor appointed by the “Intending Couple” /
+”Intending woman” for complications arising out of oocyte
+retrieval during the Policy Period, up to a maximum limit of
+Rs. 5 Lakhs",5000,5Lacs,NA,Over & Above,
+15,Stem Cell Preservation Cover- Harvesting & Banking,"Covers processing, and storage of stem cells",5000,5Lacs,NA,Over & Above,
+23,Sublimit on Treatment/Illness/Diseases/Surgery/Medical Conditions,"Option to restrict the payment for specified treatment of an illness/Procedure
+List in Annexure",0.1,1,"Limit as per annexure attached with the Table
+Option to choose-
+i. Lower Limit
+ii. Default Limit
+iii. Higher Limit
+iv. No Cap",NA,
+24,Co- Payment,Insured person will pay the percentage specified on each and every admissible claim,0.05,0.5,Voluntary co pay options available: 5% to 50% of the admissible claim amount,NA,
+25,Annual Aggregate Deductible,Deductible will be applicable on the aggregate of all claims in that policy year,5000,300 Lacs,"In the multiples 5,000",NA,
+26,Per Claim Deductible,Deductible will be applicable on each and every claim registered in the policy year,5000,300 Lacs,"In the multiples 5,000",NA,
+28,Consumables Cover,Coverage list as per IRDAI,"Option 1- List 1,
+Option 2- List 1, List 2,List 3,List 4 of IRDAI
+Annexure I to wordings","Option 1- List 1,
+Option 2- List 1, List 2,List 3,List 4 of IRDAI
+Annexure I to wordings",,NA,
+29,Medical Equipment Cover,Expenses covered towards below listed medical equipment prescribed or recommended by a healthcare professional up to the Sum Insured i. Ventilator ii. Wheelchair iii. Prosthetic device iv. Suction Machine v. Commode Chairs vi. Infusion pump vii. Continuous Passive motion devices in case of Knee Replacement viii. Oxygen concentrator,Covered (Upto In-Patient SI),Covered (Upto In-Patient SI),"Covers cost of prescribed medical equipment that are medically necessary
+Sublimit option: Rs 5000 0 to Rs 50,000",Part Of Base SI,
+30,Long Stay Allowance,Lump-sum amount paid to the insured for recovery after hospitalization,"Lump Sum amount- Upto RS 50,000
+ in case the insured is hospitalized for upto30 Days","Lump Sum amount- Upto RS 50,000
+ in case the insured is hospitalized for upto30 Days",,Over & Above,
+31,Hospital Daily Cash Cover,"Daily Cash Benefit for each continuous and completed period of
+xx hours of hospitalization
+for treatment of an illness or Accident","500 Per Day
+Min No of days - 1 Days in a policy year
+Continuous and completed period of
+1/2/3/4/5 Days of hospitalization
+Deductible Options: 0 Days per claim event
+Limit per claim event: 1 Day","10,000 Per Day
+Max No of days - 90 Days in a policy year
+Continuous and completed period of
+1/2/3/4/5/6/7/8/9/10 Days of hospitalization of hospitalization
+Deductible Options: 3 Days per claim event
+Limit per claim event: 30 Day",NA,Over & Above,
+32,Expert Opinion,Expert Opinion from our empanelled doctors once in a Policy,Once in a policy year,8 times in a policy year,"Option 1-Domestic 
+Option 2- Domestic & International",NA,
+33,Virtual Consultation,Unlimited Teleconsultation with General Physician,Unlimited Teleconsultation with General Physician,Unlimited Teleconsultation with General Physician,Within Network Facility,NA,
+34,Mind Care Consultation,"Consultation or counselling with a psychologist, within Prudential Preferred Doctor Panel","Teleconsultation
+Upto 1 Session per member
+Cost per session- Rs 500","Teleconsultation
+Upto unlimited times
+Cost per session- Rs 10,000",,NA,
+36,Compassionate Cover,Reimburses one way economy airfare or one way first class railway ticket for travel in India by an immediate family member to the Place of hospitalization of the insured Person (for family member in case of emergency or accident),1000,1 Lac,NA,Over & Above,
+37,Attendant Charges Cover,"Expenses for boarding and lodging of an attendant are reimbursed up to the Sum Insured if the insured’s hospital stay exceeds 5 days, upon submission of original bills as prescribed by the treating doctor",5000,300 Lacs 1 Lacs,Covered on Reimbursement Basis,Part Of Base SI,
+38,Bariatric Surgery,Covers Bariatric surgery procedure and complications,5000,300 Lacs,,Part Of Base SI,
+39,Enhanced Hospitalization Cover,the base sum insured will be increased by opted percentage in case of hospitalization following an Accident Or Critical Illness,10 50% of the base SI,300% of the base SI,"Choose incident to be covered:
+1. Accident
+2.Critical Illness
+3. Both",Over & Above,
+40,Restoration of SI,Provides SI for related and unrelated illnesses in addition to the base SI opted,Ability to choose - a)from first claim onwards b)from second claim onwards,"Choose any one category:
+Category 1:
+Up to base SI for related illness
+Category 2:
+Up to base is for unrelated illness","Choose from any of the options available in a policy year:
+1. once
+2.2 times
+3.4 times
+4.9 times
+5.Unlimited times",Over & Above,
+41,Corporate Buffer,"1. SI at the group/policy level
+2. Choose from list-
+a) Critical Illness
+b) Non- Critical Illness
+c) Any Illness/ Both",5000,1000 Lacs,"the cover can be limited by selecting any one option
+1.Per Person Limit
+2.Per policy floater limit(as a % of SI per policy year)",Over & Above,
+44,Hormone Replacement Therapy,"Expenses covered towards HRT
+Defined OPD benefit for approved clinical indications covering consults + investigations + optional prescribed HRT medicines within strict governance.",1000,5 Lacs,NA,Part Of Base SI,
+45,Gender Reassignment Surgery,"Includes (but not limited to):
+Female to Male: Urethroplasty, vaginectomy (with hysterectomy and oophorosalpingectomy), scrotoplasty, metoidioplasty/phalloplasty, mastectomy, facial hair implant, voice modulation surgery.
+Male to Female: Clitoroplasty, labioplasty, orchiectomy and penectomy/scrotectomy, mammoplasty, facial feminization surgeries, facial hair removal/implant, voice modulation surgery, vaginoplasty.",50000,Upto 300 Lacs,NA,Part Of Base SI,
+46,Smart Select Network,"* 15% discount on Premium with in Network Hospital
+* Non Network - 20% co pay",Covered,NA,NA,NA,
+48,Well mother Cover,"Insured Person who is less than 3 10 years of Age is Hospitalized in an ICU or a Neo-natal ICU or a Cardiac
+Care Unit of a Hospital, then We will cover the Room Rent and other boarding expenses of the Insured
+Person’s mother to stay with the Insured Person in the same Hospital
+(Bystander Room)",500,50000,"Covered on Reimbursement Basis
+Any one of the parent can be covered",Part Of Base SI,
+50,Palliative Care,Coverage for palliative care treatments including emergency Hospital visits,Upto Base SI,300 Lacs,NA,Part Of Base SI,
+51,Waiver of Exclusions Cover,"Covers waiver of below exclusions (Anyone or combination)
+1.Waiver of Hazardous or Adventure sports exclusion
+2.Waiver of exclusion of-attempted Suicide
+3.Waiver of Biodegradable Stent exclusion
+4.Waiver of Cochlear implants exclusion
+5.Waiver of Contact Lens exclusion
+6.Waiver of Investigation & Evaluation charges for Hospitalisation (without any active line of treatment)
+7.Waiver of Continuous ambulatory peritoneal dialysis (C.A.P.D.) exclusion
+8.Waiver for Reasonable and Customary Charges",Covered,Covered,NA,NA,
+53,Proportionate Deduction Waiver,"The Insured Person will not bear the ratable proportion on Associate medical
+expenses (Room Rent actually incurred and the entitled room category/eligible Room Rent to the Room Rent
+actually incurred)",Waived Off,Waived Off,This waiver is available with In-patient Hospitalization Treatment,NA,
+54,Pre-Post Natal Maternity Expenses,Pre-Post Natal Maternity Expenses to be covered,10000,Upto sum insured opted,"In multiples of 10,000
+Option to choose:
+a) Within maternity SI
+b)Over and above maternity SI",Part Of Maternity SI,
+56,External congenital Disease Cover,To be covered,Base SI,Base SI,"We will pay the Reasonable and Customary charges for the Medical Expenses of the Insured person in respect of External Congenital Diseases which are present at birth and which may or may not be inherited provided: (a) The Benefit will not pay for any OPD treatment The payment under this benefit is within the Basic Sum Insured, subject to limits specified, if any Permanent Exclusion 5(x) of the Policy Wordings stands deleted to the extent of this Benefit only.",Part Of Base SI,
+57,Cosmetic Surgery,To be covered,Base SI,Base SI,"Notwithstanding anything to the contrary in the Policy it is hereby declared and agreed
+that, on payment of additional premium, Exclusion Code 08 stands deleted.
+For the purpose of this extension, expenses for cosmetic or plastic surgery or any
+treatment to change appearance other than for reconstruction following an Accident,
+Burn(s) or Cancer or as part of medically necessary treatment to remove a direct and
+immediate health risk to the insured are included under the scope of cover up to the
+limit specified in Policy Schedule.",Part Of Base SI,
+59,Mental Illness Cover,Covered,Upto Inpatient SI,Upto Inpatient SI,,Part Of Base SI,

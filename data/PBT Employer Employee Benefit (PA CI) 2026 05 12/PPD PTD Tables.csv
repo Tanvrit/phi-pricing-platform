@@ -1,0 +1,113 @@
+PTD Table,,,,,,PTD Table,,
+Sr. No.,Insured Events,Amount payable = % of the Sum Insured applicable against Benefit 2,,,,Sr. No.,Type of Permanent Total Disability (PTD),% of Sum Insured
+I,"Total and irrecoverable loss of sight of both eyes, or of the actual loss by physical separation of two entire hands or two entire feet, or one entire hand and one entire foot, or the total and irrecoverable loss of sight of one eye and loss by physical separation of one entire hand or one entire foot",1,To be reviewd by Zeeshan,,,1,Total and irrecoverable loss of sight of both eyes.,1
+II,"Total and irrecoverable loss of (a) use of two hands or two feet, or (b) one hand and one foot, or (c) sight of one eye and use of one hand or one foot",1,,,,2,Loss by physical separation or total and permanent loss of use of both hands or both feet,1
+III,"Total and irrecoverable loss of sight of one eye, or of the actual loss by physical separation of one entire hand or one entire foot",0.5,,,,3,Loss by physical separation or total and permanent loss of use of one hand and one foot.,1
+IV,Total and irrecoverable loss of use of a hand or a foot without physical separation,0.5,,,,4,Total and irrecoverable loss of sight of one eye and loss of a Limb.,1
+V,Paraplegia or Quadriplegia or Hemiplegia,1,,,,5,Total and irrecoverable loss of hearing of both ears and loss of one Limb / loss of sight of one eye.,1
+,,,,,,6,Total and irrecoverable loss of hearing of both ears and loss of speech.,1
+PPD Table,,,,,,7,Total and irrecoverable loss of speech and loss of one Limb/ loss of sight of one eye.,1
+Sr. No.,Insured Events,Amount payable = % of the Sum Insured applicable against Benefit 3,,,,8,"Permanent total and absolute disablement (not falling under the above) disabling the Insured Person from engaging in any employment or occupation or business for remuneration or profit, of any description whatsoever which results in Loss of Independent Living",1
+I,Total and irrecoverable loss of hearing in:-,,,,,PPD Table,,
+,a) Both ears,0.75,,,,Sl no,Loss Covered,Percentage of Sum Insured
+,b) One ear,0.2,,,,1,Loss of Use / Physical Separation:,
+II,Loss of toes,,,,,,One entire hand,0.5
+,a) All,0.2,,,,,One entire foot,0.5
+,b) Both phalanges of great toes bilateral,0.05,,,,,Loss of Sight of one eye,0.5
+,c) Both phalanges of one great toe,0.02,,,,,Loss of toes – all,0.2
+,d) Both phalanges of other than great toes for each toe,0.01,,,,,Great both phalanges,0.05
+III,Loss of four fingers and thumb of one hand,0.4,,,,,Great – one phalanx,0.02
+IV,Loss of four fingers of one hand,0.35,,,,,Other than great if more than one toe lost,0.01
+V,Loss of thumb,,,,,2,Loss of Use of both ears,0.5
+,a) both phalanges,0.25,,,,3,Loss of Use of one ear,0.2
+,b) one phalanx,0.1,,,,4,Loss of four fingers and thumb of one hand,0.4
+VI,Loss of index finger,,,,,5,Loss of four fingers,0.35
+,a) three phalanges,0.1,,,,6,Loss of thumb,
+,b) two phalanges,0.08,,,,,Both phalanges,0.25
+,c) One phalanx,0.04,,,,,One phalanx,0.1
+VII,Loss of middle finger,,,,,7,Loss of Index finger,
+,a) three phalanges,0.06,,,,,Three phalanges,0.1
+,b) two phalanges,0.04,,,,,Two phalanges,0.08
+,c) One phalanx,0.02,,,,,One phalanx,0.04
+VIII,Loss of ring finger,,,,,8,Loss of middle finger,
+,a) three phalanges,0.05,,,,,Three phalanges,0.06
+,b) two phalanges,0.03,,,,,Two phalanges,0.04
+,c) One phalanx,0.02,,,,,One phalanx,0.02
+IX,Loss of little finger,,,,,9,Loss of ring finger,
+,a) three phalanges,0.04,,,,,Three phalanges,0.05
+,b) two phalanges,0.03,,,,,Two phalanges,0.04
+,c) One phalanx,0.02,,,,,One phalanx,0.02
+X,Loss of metacarpus,,,,,10,Loss of little finger,
+,a) First or second,0.03,,,,,Three phalanges,0.04
+,"b) Third, fourth or fifth",0.02,,,,,Two phalanges,0.03
+XI,Permanent partial disablement not otherwise provided for under Sr. No. I to X inclu- sive.,Percentage of the Sum Insured will be deter- mined in accordance with the medical assess- ment carried out by the Medical Practitioner provided that the per- centage under Insured Event Sr. No. XI shall not exceed 50% of the Sum Insured,,,,,One phalanx,0.02
+,,,,,,11,Loss of metacarpus,
+FRACTURES,,,,,,,First or Second (additional),0.03
+Sr. No.,Description of Fracture,Amount payable = % of the Sum Insured applicable under this Benefit,,,,,"Third, Fourth or Fifth (additional)",0.02
+I,Hip or Pelvis (excluding thigh or coccyx): Multiple fractures – at least one,1,,,,12,Any other permanent partial disablement,Percentage as assessed by the independent Medical Practitioner
+,Compound Fracture and one Complete Fracture,,,,,BURNS,,
+II,Hip or Pelvis (excluding thigh or coccyx) - All other Compound Fractures,0.5,,,,Sr. No.,Description of Extent of Burn Injury,Amount payable = % of the Sum Insured applicable under this Benefit
+III,Thigh or Heel: Multiple fractures – at least one Compound Fracture and one,1,,,,1,Third degree burns of 30% or more of the total body surface area,1
+,Complete Fracture,,,,,2,Second degree burns of 30% or more of the total body surface area,0.5
+IV,Thigh or Heel: Multiple fractures – at least one Complete Fracture,0.5,,,,3,"Third degree burns of 20% or more, but less than 30% of the total body surface area",0.8
+V,"Lower leg, skull, clavicle, ankle, elbows, upper or lower arm (including wrist but excluding Colles-type fractures): Multiple Fractures – at least one Compound Fracture and one Complete Fracture",1,,,,4,"Second degree burns of 20% or more, but less than 30% of the total body surface area",0.4
+VI,"Lower leg, skull, clavicle, ankle, elbows, upper or lower arm (including wrist but excluding Colles-type fractures) : All other Compound Fractures",0.3,,,,5,"Third degree burns of 10% or more, but less than 20% of the total body surface area",0.4
+VII,Colles type fracture of the lower arm – If Compound Fracture,1,,,,6,"Second degree burns of 10% or more, but less than 20% of the total body surface area",0.2
+VIII,Colles type fracture of the lower arm – If Complete Fracture,0.5,,,,7,"Third degree burns of 5% or more, but less than 10% of the total body surface area",0.2
+,,,,,,8,"Second degree burns of 5% or more, but less than 10% of the total body surface area",0.1
+BURNS,,,,,,"Note: In case an Injury results in more than one of the ‘Descriptions of Extent of Burn Injury’ above, then Our maximum liability shall not exceed the Sum Insured.",,
+Sr. No.,Description of Extent of Burn Injury,Amount payable = % of the Sum Insured applicable under this Benefit,,,,FRACTURES,,
+I,Third degree burns of 30% or more of the total body surface area,1,,,,Sr. No.,Description,Percentage of Sum Assured
+II,Second degree burns of 30% or more of the total body surface area,0.5,,,,A,Hip or Pelvis (excluding thigh or coccyx),
+III,"Third degree burns of 20% or more, but less than 30% of the total body surface area",0.8,,,,1,Open Fracture of more than one bone   ,1
+IV,"Second degree burns of 20% or more, but less than 30% of the total body surface area",0.4,,,,2,Open Fracture of one bone ,0.5
+V,"Third degree burns of 10% or more, but less than 20% of the total body surface area",0.4,,,,3,Closed Fracture of more than one bone,0.25
+VI,"Second degree burns of 10% or more, but less than 20% of the total body surface area",0.2,,,,4,Closed Fracture one bone,0.15
+VII,"Third degree burns of 5% or more, but less than 10% of the total body surface area",0.2,,,,B,Thigh or Lower Leg,
+VIII,"Second degree burns of 5% or more, but less than 10% of the total body surface area",0.1,,,,5,Open Fracture of more than one bone,0.6
+"Note: In case an Injury results in more than one of the ‘Descriptions of Extent of Burn Injury’ above, then Our maximum liability shall not exceed the Sum Insured.",,,,,,6,Open Fracture of one bone,0.45
+,,,,,,7,Closed Fracture of more than one bone,0.25
+,,,,,,8,Closed Fracture one bone,0.15
+,,,,,,C,"Elbows, Arm (including wrist but excluding Colles type fractures)",
+,,,,,,9,Open Fracture of more than one bone,0.45
+,,,,,,10,Open Fracture of one bone,0.35
+,,,,,,11,Closed Fracture of more than one bone,0.2
+,,,,,,12,Closed Fracture one bone,0.15
+,,,,,,D,Colles type fracture of the lower arm,
+,,,,,,13,Open Fracture,0.25
+,,,,,,14,Closed Fracture,0.1
+,,,,,,E,Skull,
+,,,,,,15,Fracture of the skull needing surgical Intervention,0.6
+,,,,,,16,Fracture of the skull not needing surgical Intervention,0.2
+,,,,,,F,"Shoulder Blade, Rib(s), Knee cap, Sternum, Hand (excluding fingers andwrist), Foot (excluding toes or heel)",
+,,,,,,17,Open Fracture ,0.3
+,,,,,,18,Closed Fracture ,0.1
+,,,,,,G,Spinal Column (Vertebrae but excluding coccyx),
+,,,,,,19,All compression fractures,0.4
+,,,,,,20,"All spinous, transverse process of pedicle fractures",0.4
+,,,,,,21,Permanent Spinal Cord damage,0.4
+,,,,,,22,All vertebral fractures,0.15
+,,,,,,H,Lower Jaw,
+,,,,,,23,Open Fracture,0.25
+,,,,,,24,Closed Fracture,0.1
+,,,,,,I,"Cheekbone, Clavicle, Coccyx, Upper Jaw, Nose, Toe(s), Finger(s), Ankle, Heel",
+,,,,,,25,Open Fracture of more than one bone,0.15
+,,,,,,26,Open Fracture of one bone,0.12
+,,,,,,27,Closed Fracture of more than one bone,0.04
+,,,,,,28,Closed Fracture one bone,0.02
+,,,,,,J,Dislocations requiring surgery under anesthesia,
+,,,,,,29,Spine,0.35
+,,,,,,30,Back (Excluding slipped disc),0.35
+,,,,,,31,Hip,0.25
+,,,,,,32,Knee (Left or right),0.2
+,,,,,,33,Wrist (Left or right),0.15
+,,,,,,34,Elbow (Left or right),0.15
+,,,,,,35,Ankle (Left or right),0.1
+,,,,,,36,Shoulder blade (Left or right),0.1
+,,,,,,37,Collarbone,0.1
+,,,,,,38,Fingers (Left or right hand),0.05
+,,,,,,39,Toes (Left or right foot),0.05
+,,,,,,40,Jaw,0.05
+,,,,,,K,Internal Injuries,
+,,,,,,41,Internal injuries resulting in open abdominal or Thoracic Surgery,0.25
+,,,,,,42,Intracranial hemorrhage and/ or physical brain injury,0.25

@@ -1,0 +1,87 @@
+package com.rate.sdk.ui.buyonline.screens.payment
+
+import com.rate.core.money.formatRupees
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.rate.sdk.ui.buyonline.screens.components.*
+import com.rate.sdk.ui.kit.brand.*
+import com.rate.sdk.ui.buyonline.viewmodel.BuyOnlineViewModel
+import com.rate.sdk.ui.kit.i18n.t
+
+@Composable
+fun PaymentSuccessScreen(vm: BuyOnlineViewModel) {
+    Column(Modifier.fillMaxSize().background(Color.White)) {
+        PRUTopBar(onSaveExit = {}, progress = 2, currentStep = "Payment")
+
+        Column(Modifier.weight(1f).padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally) {
+
+            Spacer(Modifier.height(24.dp))
+            Text("👍", fontSize = 56.sp)
+            Text(t("paymentsuccess.title"), style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+            Text(t("paymentsuccess.subtitle"),
+                fontSize = 14.sp, color = PruSubtext, textAlign = TextAlign.Center)
+
+            Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF8F8F8)),
+                shape = RoundedCornerShape(12.dp)) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("✓", color = PruRed, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("PRUHealth ${vm.selectedTier.displayName}", fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.weight(1f))
+                        Text("View plan details →", color = PruRed, fontSize = 12.sp)
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        vm.allMembers.forEach { member ->
+                            Box(Modifier.background(PruRed.copy(alpha = 0.1f), RoundedCornerShape(20.dp))
+                                .padding(horizontal = 10.dp, vertical = 4.dp)) {
+                                Text(member, fontSize = 12.sp, color = PruRed)
+                            }
+                        }
+                    }
+                    HorizontalDivider()
+                    TxnRow("Transaction ID", vm.transactionId)
+                    TxnRow("Payment type",   vm.paymentMethod)
+                    TxnRow("Amount paid",    formatRupees(vm.paymentAmount))
+                }
+            }
+
+            Spacer(Modifier.weight(1f))
+
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedButton(onClick = { vm.proceedToKyc() },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.5.dp, PruRed)) {
+                    Text(t("paymentsuccess.cta.kyc"), color = PruRed)
+                }
+                Button(onClick = { vm.navigate(com.rate.sdk.ui.buyonline.navigation.BuyOnlineScreen.LifestyleQuestions) },
+                    modifier = Modifier.weight(1f).height(48.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PruRed)) {
+                    Text(t("paymentsuccess.cta.health"), fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TxnRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, fontSize = 13.sp, color = PruSubtext)
+        Text(value, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+    }
+}

@@ -1,0 +1,19 @@
+Package Name,Test Details,Package Type
+Package 1,"HbA1c, ECG, Lipid profile",Home Visit
+Package 2,"HbA1c, ECG, Lipid profile, Liver profile, Kidney profile, Complete Urine Analysis",Home Visit
+Package 3,"HbA1c, ECG, Lipid profile, Liver profile, Kidney profile, Complete Urine Analysis, PSA Total ",Home Visit
+Package 4,"HbA1c, ECG, Lipid profile, Kidney profile, Complete Urine Analysis",Home Visit
+Package 5,"HbA1c, ECG, Lipid profile, Liver profile, Kidney profile, Complete Urine Analysis, Urine for Microalbumin",Home Visit
+Package 6,"CBC with ESR, HbA1c, ECG, Lipid profile, Liver profile, Kidney profile, Complete Urine Analysis, USG Abdomen and pelvis",Center Visit
+Package 7,"CBC with ESR, HbA1c, ECG, Lipid profile, Liver profile, Kidney profile, Complete Urine Analysis, USG Abdomen and pelvis, 2D ECHO",Center Visit
+Package 8,"CBS with ESR, HbA1c, ECG, Lipid profile, Liver profile, Kidney profile, Complete Urine Analysis, PSA total",Home Visit
+Package 9,"CBS with ESR, HbA1c, ECG, Lipid profile, Liver profile, Kidney profile, Complete Urine Analysis, PSA total, 2D ECHO, USG Abdomen and pelvis",Center Visit
+Package 10,"HbA1c, ECG, Total Cholesterol, Liver Profile, Complete urine analysis, Serum Creatinine, CBC with ESR ",Home Visit
+Package 11,"HbA1c, ECG, Total Cholesterol, Liver Profile, Complete urine analysis, Serum Creatinine, CBC with ESR, PSA Total ",Home Visit
+Package 12,"MER, Complete urine analysis, Lipid profile, HBA1C, ECG,Liver function test, Serum Creatinine",Home Visit
+Package 13,"MER, Complete urine analysis, CBC with ESR, Lipid profile, Liver function test, Kidney function test, HBA1C, HBSAg, Anti HCV antibody, TMT, 2D Echo, Pulmonary Function test, USG whole abdomen and pelvis , CEA, PSA total, Serum Homocysteine, HIV 1&2",Center Visit
+Package 14,"MER, Complete urine analysis, CBC with ESR, HBA1C, Lipid profile, Liver function test, Kidney function test, HBSAg, Anti HCV antibody, TMT, 2D Echo, Pulmonary Function test, USG abdomen and pelvis, CEA, PAP Smear (Females), Serum Homocysteine, HIV 1&2, Mammogram",Center Visit
+Package 15,"Height, Weight, Blood Pressure, Smoking Status, Alcohol Status, Medical History, Surgical History, FBS, Total Cholesterol, SGPT, Sr. Creatinine, ECG, General Physician Consult ",Center Visit / Home Visit
+Package 16,"Height, Weight, Blood Pressure, Smoking Status, Alcohol Status, Medical History, Surgical History, HbA1c, Total Cholesterol , SGPT, Sr. Creatinine, General Physician Consult / Tele -consult with GP",Home Visit
+Package 17,"Height, Weight, Blood Pressure, Smoking Status, Alcohol Status, Medical History, Surgical History, HbA1c, Lipid Profile, CBC, Liver Function test, Kidney Function test, Thyroid Profile, ECG, General Physician Consult",Center Visit / Home Visit
+Package 18,"Height, Weight, Blood Pressure, Smoking Status, Alcohol Status, Medical History, Surgical History, HbA1c, Lipid Profile, CBC, Liver Function test, Kidney Function test, Thyroid Profile, Vitamin B 12, Vitamin D (25-Hydroxy), ECG, TMT or 2D Echo, Xray - Chest, USG whole abdomen, General Physician Consult Or Tele-consult through GP",Center Visit

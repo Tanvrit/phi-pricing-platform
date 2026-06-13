@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Aegis — Buy Online</title>
+    <!-- Shield favicon. The build's injectAegisFavicon task copies aegis-icon.svg
+         next to this file and no-ops when this exact link is already present. -->
+    <link rel="icon" type="image/svg+xml" href="aegis-icon.svg">
+    <style>
+        html, body { height: 100%; margin: 0; padding: 0; background: #ffffff; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        /* Compose renders into a full-window canvas; remove the default 8px gutter. */
+        #aegis-loading {
+            position: fixed; inset: 0; display: flex; align-items: center;
+            justify-content: center; color: #64748b; font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div id="aegis-loading">Loading Aegis…</div>
+    <!-- Compose Multiplatform / Kotlin-Wasm entry. The webpack bundle is named
+         after the module ("aegis"); it fetches the .wasm, instantiates it, and
+         runs main(), which calls ComposeViewport(document.body!!). Removing the
+         loading splash once the body has the Compose canvas keeps first paint clean. -->
+    <script src="aegis.js"></script>
+    <script>
+        // Drop the splash as soon as Compose has mounted its canvas into <body>.
+        (function () {
+            var splash = document.getElementById('aegis-loading');
+            if (!splash) return;
+            var obs = new MutationObserver(function () {
+                if (document.querySelector('canvas')) { splash.remove(); obs.disconnect(); }
+            });
+            obs.observe(document.body, { childList: true, subtree: true });
+        })();
+    </script>
+</body>
+</html>

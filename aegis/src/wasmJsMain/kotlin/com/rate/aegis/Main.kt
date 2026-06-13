@@ -2,78 +2,42 @@ package com.rate.aegis
 
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.window.ComposeViewport
-import com.rate.aegis.i18n.detectHostLocale
-import com.rate.aegis.settings.AegisSettingsStore
 import kotlinx.browser.document
 import kotlinx.browser.window
 
 /**
- * Aegis WASM entry. Reads the `role` query parameter from the URL — defaults to
- * CUSTOMER (the buyonline journey, the audience for the public Cloudflare Pages
- * deployment). Operators previewing the BUSINESS shell can append `?role=business`
- * to the same URL.
+ * Aegis WASM entry — the public browser build.
  *
- *   https://phi-buyonline.pages.dev/                    → CUSTOMER
- *   https://phi-buyonline.pages.dev/?role=customer      → CUSTOMER
- *   https://phi-buyonline.pages.dev/?role=business      → BUSINESS (Home, Quotes, Calculator…)
- *   https://phi-buyonline.pages.dev/?role=admin         → ADMIN
+ * Role comes from the `?role=` URL query and defaults to CUSTOMER (the buy-online
+ * journey is the audience for the Cloudflare Pages deploy, `phi-buyonline.pages.dev`).
+ * Operators can preview the operator/admin shells with an explicit `?role=business`
+ * / `?role=admin`.
+ *
+ *   https://phi-buyonline.pages.dev/                → CUSTOMER
+ *   https://phi-buyonline.pages.dev/?role=customer  → CUSTOMER
+ *   https://phi-buyonline.pages.dev/?role=business  → BUSINESS
+ *   https://phi-buyonline.pages.dev/?role=admin     → ADMIN
+ *
+ * The `?session=` / `?quote=` launch context is owned by the buy-online module's
+ * own platform seam (it reads `window.location` directly), so this entry only
+ * needs to resolve the role. We deliberately do NOT seed the implicit role from
+ * the persisted `defaultRole` (that defaults to BUSINESS, which would leak the
+ * operator console onto the bare public URL) — the bare URL is ALWAYS CUSTOMER.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
-    val search = window.location.search
-    val role = roleFromQueryString(search)
-    // Buyonline save+resume: stash the `session=...` hex id before composition so
-    // BuyOnlineApp can pick it up on first render. Null = fresh journey.
-    AegisLaunchContext.sessionId = sessionFromQueryString(search)
-    // Shared quote: `?quote=<id>` is the operator-handed read-only summary link.
-    // Mutually orthogonal to `?session=` — session resumes a half-finished
-    // journey, quote shows a saved calc. If both are present the customer entry
-    // point prefers the quote (the operator just shared it; the half-done
-    // session is presumably older context).
-    AegisLaunchContext.quoteId = quoteFromQueryString(search)
-    // Read `navigator.language` once before Compose boots; AegisRoot uses this
-    // to one-time-auto-seed `AegisSettings.locale = "hi"` on a Hindi-speaking
-    // customer's first visit. Null = no detection, no auto-seed.
-    AegisLaunchContext.hostLocale = detectHostLocale()
+    val role = roleFromQueryString(window.location.search)
     ComposeViewport(document.body!!) {
         AegisRoot(role)
     }
 }
 
-private fun sessionFromQueryString(search: String): String? {
-    if (search.isEmpty() || search == "?") return null
-    val params = search.removePrefix("?").split("&")
-    val pair = params.firstOrNull { it.startsWith("session=", ignoreCase = true) } ?: return null
-    val value = pair.substringAfter('=').trim()
-    return value.ifBlank { null }
-}
-
-private fun quoteFromQueryString(search: String): String? {
-    if (search.isEmpty() || search == "?") return null
-    val params = search.removePrefix("?").split("&")
-    val pair = params.firstOrNull { it.startsWith("quote=", ignoreCase = true) } ?: return null
-    val value = pair.substringAfter('=').trim()
-    return value.ifBlank { null }
-}
-
 private fun roleFromQueryString(search: String): AegisRole {
-    if (search.isEmpty() || search == "?") return defaultRoleFromSettings()
-    val params = search.removePrefix("?").split("&")
-    val rolePair = params.firstOrNull { it.startsWith("role=", ignoreCase = true) }
-        ?: return defaultRoleFromSettings()
+    if (search.isEmpty() || search == "?") return AegisRole.CUSTOMER
+    val rolePair = search.removePrefix("?").split("&")
+        .firstOrNull { it.startsWith("role=", ignoreCase = true) }
+        ?: return AegisRole.CUSTOMER
     val value = rolePair.substringAfter('=').trim()
-    return runCatching { AegisRole.valueOf(value.uppercase()) }
-        .getOrElse { defaultRoleFromSettings() }
-}
-
-/**
- * Resolve the boot role from operator-saved settings. Any unparseable / corrupt
- * value (e.g. an older build wrote "GUEST", or the localStorage entry got
- * hand-edited) falls back to CUSTOMER — the safe default for the public web
- * entry, matching the prior hardcoded behaviour.
- */
-private fun defaultRoleFromSettings(): AegisRole {
-    val saved = AegisSettingsStore.load().defaultRole
-    return runCatching { AegisRole.valueOf(saved.uppercase()) }
-        .getOrElse { AegisRole.CUSTOMER }
+    // Unknown / corrupt `?role=` value falls back to the public default.
+    return AegisRole.parse(value, AegisRole.CUSTOMER)
 }

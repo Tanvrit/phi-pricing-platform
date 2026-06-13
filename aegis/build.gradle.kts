@@ -5,11 +5,27 @@ plugins {
     alias(libs.plugins.kotlin.serialization)
 }
 
+// ── :aegis ───────────────────────────────────────────────────────────────────
+// The THIN role shell. After the re-architecture this module owns NO surfaces,
+// NO design-system widgets, NO buy-online screens and NO i18n catalog — all of
+// that was relocated into the pure-KMP sdk-ui-* feature modules. Aegis is now
+// just the platform entry points (jvm desktop window + wasmJs Compose viewport),
+// a role switch ([AegisRoot]) and the one place that builds the shared
+// [TanvritClient] from device-local [AegisSettings].
+//
+//   CUSTOMER → BuyOnlineApp()        from sdk-ui-buyonline (public WASM journey)
+//   BUSINESS → OperatorConsole(...)  from sdk-ui-operator  (operator console)
+//   ADMIN    → OperatorConsole(...)  from sdk-ui-operator  (admin console)
+//
+// Layering: app shell — depends only on the sdk-ui-* leaves + core-network /
+// core-auth / core. NO MongoDB driver, NO Ktor-server, NO Apache POI here; every
+// rupee and config row comes back over the wire from the server via the SDKs.
 kotlin {
     jvmToolchain(21)
 
     jvm {
-        // jvm() target produces the Aegis desktop binary — replaces what :desktop used to do.
+        // jvm() target produces the Aegis desktop binary — the operator console
+        // that :desktop used to be. Boots BUSINESS by default.
     }
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
@@ -20,24 +36,24 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
-            implementation(project(":shared"))
+            implementation(project(":shared:sdk:sdk-ui-kit"))
+            implementation(project(":shared:sdk:sdk-ui-buyonline"))
+            implementation(project(":shared:sdk:sdk-ui-operator"))
+            implementation(project(":shared:core:core-network"))
+            implementation(project(":shared:core:core-auth"))
+            implementation(project(":shared:core:core"))
+
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
-            implementation(compose.materialIconsExtended)
-            implementation(compose.components.resources)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.content.negotiation)
-            implementation(libs.ktor.serialization.kotlinx.json.mp)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.datetime)
+            implementation(libs.koin.core)
         }
 
         jvmMain.dependencies {
             implementation(compose.desktop.currentOs)
             implementation(libs.ktor.client.cio)
-            implementation(libs.ktor.client.logging)
             implementation(libs.kotlinx.coroutines.swing)
         }
 
@@ -49,8 +65,9 @@ kotlin {
 
 compose.desktop {
     application {
-        // JVM main — boots in BUSINESS mode by default. Customer mode (the buyonline
-        // journey) is on the WASM target, served via Cloudflare Pages.
+        // JVM main — boots in BUSINESS mode by default. Customer mode (the buy-online
+        // journey) is on the WASM target, served via Cloudflare Pages. Override the
+        // desktop role with `-Daegis.role=CUSTOMER|BUSINESS|ADMIN`.
         mainClass = "com.rate.aegis.MainKt"
         nativeDistributions {
             targetFormats(org.jetbrains.compose.desktop.application.dsl.TargetFormat.Dmg)

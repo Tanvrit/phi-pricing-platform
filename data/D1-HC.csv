@@ -1,0 +1,35 @@
+Section 4 : Hospital Cash,,,,,,
+S.No,Name of Benefit,Coverage,Min Sum Insured,Max Sum Insured,Payout,Change from last TCS signed version
+1,Hospital Cash Cover,"Options :
+
+a. Deductible : 0/1/2/3/5 days
+b. Max payable Duration Per Year : 5/10/30/60/90/180 days 
+c. Initial waiting Period : 0/15/30/60/90 days
+d. Specific Disease waiting period : 0/9/12/24 months
+e. Pre- Existing Diseases Waiting Period : 0/9/12/24/36 months
+f. Limit for no. of days per hospitalisation : 5/10/30/60/90/180 days
+g. ICU Limit as a multiple of Daily limit : 1X/ 2X / 3X / 4X / 5X",INR 100 Per day,"INR 50,000 Per Day",Fixed ,No Change
+2,Hospital Cash Cover - Illness Only,"Options :
+
+a. Deductible : 0/1/2/3/5 days
+b. Max payable Duration Per Year : 5/10/30/60/90/180 days 
+c. Initial waiting Period : 0/15/30/60/90 days
+d. Specific Disease waiting period : 0/9/12/24 months
+e. Pre- Existing Diseases Waiting Period : 0/9/12/24/36 months
+f. Limit for no. of days per hospitalisation : 5/10/30/60/90/180 days
+g. ICU Limit as a multiple of Daily limit : 1X/ 2X/ 3X/ 4X/ 5X",INR 100 Per day,"INR 50,000 Per Day",Fixed ,No Change
+3,Hospital Cash Cover - Accident Only,"Options :
+a. Per Calim Deductible : 0/1/2/3/5 days
+b. Max payable Duration Per Year : 5/10/30/60/90/180 days 
+c. Limit for no. of days per hospitalisation : 5/10/30/60/90/180 days
+d. ICU Limit as a multiple of Daily limit : 1X/ 2X/ 3X/ 4X/ 5X",INR 100 Per day,"INR 50,000 Per Day",Fixed ,No Change
+4,Multiplier for Hospital Cash,"Options:
+Multiplier : 2 / 3 / 4 / 5 times daily limit,
+Max payable duration : 15 days
+Can be opted with ""Hospital Cash Benefit "" / ""Hospital Cash Benefit - Illness Only"" / ""Hospital Cash Benefit - Accident Only""",NA,NA,Fixed ,No Change
+5,Hospital Cash Cover - Maternity Only,"Options :
+a. Deductible : 0/1/2/3/5 days
+b. Waiting Period : 0/6/9/12/24/36/48 Months
+c. Limit for no. of days per hospitalisation : Up to 15 days",INR 100 Per day,"INR 50,000 Per Day",Fixed ,No Change
+6,Hospital Cash  Convalescence Cover,"Options :
+a. Minimum Hospitalization duration: 5 up to 10 days","INR 1,000","INR 10,00,000",Fixed ,Name Change (old vs new) it was earlier Hospital cash convalesence benefit

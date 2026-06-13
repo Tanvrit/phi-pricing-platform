@@ -1,0 +1,6 @@
+Sl no,Name of the waiting Period,Waiting Period,"Options
+(cover wise, benefit wise,insured wise waiting period can be selected)"
+1,Initial Waiting Period ,0 Days since the date of inception of the cover,30/60/90 Days since the date of inception of the cover
+2,Specific Illness Waiting Period,0 Days since the date of inception of the cover,1 Month - 24 Months (In multiples of 1 month) since the date of inception of the cover
+3,Diagnosis Waiting Period,0 Days since the date of inception of the cover,(first diagnosis and/or manifestataion first commence/occurs within) 1 day to180 days (in multiple of 1 day) since the date of inception of the cover
+4,Survival Period for Diagnosis Based Benefit Cover,0 Days since the date of inception of the cover,0-30 Days since date of first diagnosis and/or manifestation first commence/occurs of covered illness

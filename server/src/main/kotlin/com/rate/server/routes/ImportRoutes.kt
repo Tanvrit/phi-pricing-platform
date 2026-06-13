@@ -1,129 +1,124 @@
 package com.rate.server.routes
 
-import com.rate.server.audit.AuditActor
-import com.rate.server.audit.AuditEventService
+import com.rate.core.auth.rbac.Scope
+import com.rate.core.base.json.AppJson
+import com.rate.core.rating.ports.model.ProductLine
+import com.rate.persistence.importer.ExcelRateImporter
+import com.rate.persistence.rating.RateTableCache
+import com.rate.server.audit.ServerAuditService
+import com.rate.server.auth.auditActor
 import com.rate.server.auth.requireScope
-import com.rate.server.import.ExcelImporter
-import com.rate.server.plugins.ACTOR_SUBJECT_KEY
-import com.rate.server.plugins.REQUEST_ID_KEY
-import com.rate.server.security.IdempotencyOutcome
-import com.rate.server.security.IdempotencyService
-import io.ktor.http.*
-import io.ktor.http.content.*
-import io.ktor.server.request.*
-import io.ktor.server.response.*
-import io.ktor.server.routing.*
+import com.rate.server.security.HmacIdempotencyHasher
+import com.rate.sdk.ingestion.handler.RateImportHandler
+import com.rate.sdk.ingestion.model.ImportSummary
+import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.PartData
+import io.ktor.http.content.forEachPart
+import io.ktor.server.request.receiveMultipart
+import io.ktor.server.response.header
+import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.post
+import io.ktor.server.routing.route
 import io.ktor.utils.io.readRemaining
 import kotlinx.io.readByteArray
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.io.ByteArrayInputStream
-import java.security.MessageDigest
 
 @Serializable internal data class ImportErrorResponse(val errorCode: String, val message: String)
-@Serializable internal data class ImportMessageResponse(val message: String, val sourceFilename: String? = null)
 
-fun Route.importRoutes(auditService: AuditEventService, idempotencyService: IdempotencyService) {
-    val importer = ExcelImporter()
+/**
+ * Rate-table import. RELOCATED from the monolith's `ImportRoutes` — the POI parsing now lives in
+ * server-persistence's [ExcelRateImporter] (the ONLY place POI lives), and the version/dedup/
+ * activate orchestration lives in sdk-ingestion's pure [RateImportHandler]. The route is thin:
+ * read the multipart file, parse it to a `RateRowBatch`, hand it to the handler, reload the engine
+ * snapshot, audit it.
+ *
+ * Idempotency: the file content's SHA-256 keys an Idempotency-Key replay so re-uploading the same
+ * file with the same key returns the first summary; a different file with the same key → 409.
+ * (The handler ALSO dedupes by file SHA independently, so a missing key is still safe.)
+ *
+ *   POST /api/import/upload  — multipart file (import.run scope)
+ */
+fun Route.importRoutes(
+    importer: ExcelRateImporter,
+    rateImport: RateImportHandler,
+    rateCache: RateTableCache,
+    audit: ServerAuditService,
+    idempotencyHasher: HmacIdempotencyHasher,
+) {
+    val json = AppJson.json
+    val summarySerializer = ImportSummary.serializer()
 
     route("/api/import") {
-
-        // Upload an Excel file to import rates. Honors Idempotency-Key (file bytes
-        // are SHA-256'd so re-uploading the same file with the same key is a replay).
         post("/upload") {
-            if (!requireScope("import.upload")) return@post
+            if (!requireScope(Scope.IMPORT_RUN)) return@post
+
             val parts = call.receiveMultipart()
             var fileBytes: ByteArray? = null
             var filename: String? = null
+            var version: String? = call.request.queryParameters["version"]
             parts.forEachPart { part ->
-                if (part is PartData.FileItem) {
-                    fileBytes = part.provider().readRemaining().readByteArray()
-                    filename = part.originalFileName
+                when (part) {
+                    is PartData.FileItem -> {
+                        fileBytes = part.provider().readRemaining().readByteArray()
+                        filename = part.originalFileName
+                    }
+                    is PartData.FormItem -> if (part.name == "version") version = part.value
+                    else -> Unit
                 }
                 part.dispose()
             }
+
             val bytes = fileBytes
-            if (bytes == null) {
-                call.respond(HttpStatusCode.BadRequest,
-                    ImportErrorResponse("NO_FILE", "No file provided"))
-                return@post
-            }
-
-            // Idempotency: same key + same file bytes => replay; same key + different
-            // bytes => 409; no key => process normally.
-            val idemKey = call.request.headers["Idempotency-Key"]?.takeIf { it.isNotBlank() }
-            val routeKey = "POST /api/import/upload"
-            val requestHash = sha256Bytes(bytes)
-            if (idemKey != null) {
-                when (val outcome = idempotencyService.check(idemKey, routeKey, requestHash)) {
-                    is IdempotencyOutcome.Replay -> {
-                        call.response.header("Idempotency-Replayed", "true")
-                        call.respondText(
-                            outcome.hit.body ?: "",
-                            contentType = ContentType.Application.Json,
-                            status = HttpStatusCode.fromValue(outcome.hit.status)
-                        )
-                        return@post
-                    }
-                    IdempotencyOutcome.Conflict -> {
-                        call.respond(HttpStatusCode.Conflict,
-                            ImportErrorResponse("IDEMPOTENCY_CONFLICT",
-                                "Idempotency-Key was used previously with different file bytes."))
-                        return@post
-                    }
-                    IdempotencyOutcome.Fresh -> { /* fall through */ }
+                ?: run {
+                    call.respond(HttpStatusCode.BadRequest, ImportErrorResponse("NO_FILE", "No file provided"))
+                    return@post
                 }
+
+            // Content SHA keys both the idempotency replay AND the handler's own dedupe.
+            val sha = HmacIdempotencyHasher.sha256Hex(bytes)
+            val effectiveVersion = version?.takeIf { it.isNotBlank() } ?: "import-${sha.take(12)}"
+            val actor = call.auditActor()
+
+            val batch = ByteArrayInputStream(bytes).use { stream ->
+                importer.parse(stream, effectiveVersion)
+            }
+            val summary: ImportSummary = rateImport.importBatch(
+                batch = batch,
+                sha = sha,
+                sourceFileName = filename ?: "(unknown)",
+                productLine = ProductLine.RETAIL,
+                activate = true,
+                actor = actor.subject,
+            )
+
+            // Reload the in-RAM engine snapshot so the freshly-activated version serves traffic.
+            if (summary.ok && !summary.deduped) {
+                runCatching { rateCache.load(ProductLine.RETAIL) }
             }
 
-            // Run the import.
-            ByteArrayInputStream(bytes).use { stream -> importer.importFromExcel(stream) }
+            audit.record(
+                action = if (summary.deduped) "import.deduped" else "rates.imported",
+                entity = "rate_table",
+                entityId = summary.version.ifBlank { sha },
+                payloadJson = buildJsonObject {
+                    put("filename", filename ?: "(unknown)")
+                    put("sizeBytes", bytes.size)
+                    put("sha256", sha)
+                    put("version", summary.version)
+                    put("rowsWritten", summary.totalWritten)
+                    put("deduped", summary.deduped)
+                }.toString(),
+                actor = actor,
+            )
 
-            // Audit + idempotency store.
-            val rid = call.attributes.getOrNull(REQUEST_ID_KEY)
-            val actor = call.attributes.getOrNull(ACTOR_SUBJECT_KEY)
-                ?.let { AuditActor(subject = it) } ?: AuditActor.unknown()
-            auditService.record(
-                action = "rates.imported",
-                resourceType = "rate_table",
-                resourceId = filename,
-                payload = JsonObject(mapOf(
-                    "sourceFilename" to JsonPrimitive(filename ?: "unknown"),
-                    "fileBytes" to JsonPrimitive(bytes.size.toLong()),
-                    "sha256" to JsonPrimitive(requestHash)
-                )),
-                actor = actor,
-                requestId = rid
-            )
-            // Secondary, upload-centric audit row. `rates.imported` above is keyed to the
-            // rate_table resource; this companion event is keyed to the upload itself
-            // (sha256 acts as the import-job id) so dashboards filtering on the
-            // "import" resourceType see every successful POST /api/import/upload.
-            auditService.record(
-                action = "import.uploaded",
-                resourceType = "import",
-                resourceId = requestHash,
-                payload = JsonObject(mapOf(
-                    "filename" to JsonPrimitive(filename ?: "(unknown)"),
-                    "sizeBytes" to JsonPrimitive(bytes.size.toLong()),
-                    "sha256" to JsonPrimitive(requestHash),
-                    "idempotencyKey" to JsonPrimitive(idemKey ?: "")
-                )),
-                actor = actor,
-                requestId = rid
-            )
-            val responseBody = """{"message":"Excel data imported successfully","sourceFilename":${
-                if (filename == null) "null" else "\"" + filename!!.replace("\"", "\\\"") + "\""
-            }}"""
-            if (idemKey != null) {
-                idempotencyService.store(idemKey, routeKey, requestHash, HttpStatusCode.OK.value, responseBody)
-            }
-            call.respondText(responseBody, ContentType.Application.Json, HttpStatusCode.OK)
+            call.response.header("X-Import-Sha256", sha)
+            call.respondText(json.encodeToString(summarySerializer, summary), ContentType.Application.Json, HttpStatusCode.OK)
         }
     }
-}
-
-private fun sha256Bytes(b: ByteArray): String {
-    val md = MessageDigest.getInstance("SHA-256")
-    return md.digest(b).joinToString("") { "%02x".format(it) }
 }

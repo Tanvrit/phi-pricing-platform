@@ -14,6 +14,8 @@ logback = "1.5.12"
 hikari = "5.1.0"
 uuid = "0.8.4"
 flyway = "10.15.0"
+mongodb = "5.2.1"
+testcontainers = "1.20.4"
 junit = "5.11.3"
 kotest = "5.9.1"
 kover = "0.9.0"
@@ -52,6 +54,10 @@ exposed-jdbc = { module = "org.jetbrains.exposed:exposed-jdbc", version.ref = "e
 exposed-kotlin-datetime = { module = "org.jetbrains.exposed:exposed-kotlin-datetime", version.ref = "exposed" }
 postgresql = { module = "org.postgresql:postgresql", version.ref = "postgresql" }
 hikari = { module = "com.zaxxer:HikariCP", version.ref = "hikari" }
+mongodb-driver-kotlin-coroutine = { module = "org.mongodb:mongodb-driver-kotlin-coroutine", version.ref = "mongodb" }
+bson-kotlinx = { module = "org.mongodb:bson-kotlinx", version.ref = "mongodb" }
+testcontainers-mongodb = { module = "org.testcontainers:mongodb", version.ref = "testcontainers" }
+testcontainers-junit = { module = "org.testcontainers:junit-jupiter", version.ref = "testcontainers" }
 koin-core = { module = "io.insert-koin:koin-core", version.ref = "koin" }
 koin-ktor = { module = "io.insert-koin:koin-ktor", version.ref = "koin" }
 poi-ooxml = { module = "org.apache.poi:poi-ooxml", version.ref = "poi" }

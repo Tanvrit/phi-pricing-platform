@@ -1,0 +1,143 @@
+Product cover Table,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1.PERSONAL ACCIDENT,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,A.Base Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Sl no,Covers,Cover Description,Minimum ,Maximum,Percentage of SI,Additional Details,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1,Accidental Death Cover (AD),Capital Sum Insured / Sum insured as applicable paid on cover basis if accidental Injury solely and directly results in the death of the Insured,"10000
+","50 Cr
+",NA,Option to choose-SI Opted Or x Times of the salary Where x can be any number (Not exceeding than the max SI).,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2,Permanent Total Disablement(PTD),% Capital Sum Insured / Sum insured as applicable paid on cover basis if accidental Injury solely and directly results in the Permanent Total Disablement of the Insured,"10000
+","50 Cr
+",NA,As per PTD Table,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3,Permanent Partial Disablement(PPD),% Capital Sum Insured / Sum insured as applicable paid on cover basis if accidental Injury solely and directly results in the Permanent Partial Disablement of the Insured,"10000
+","50 Cr
+",NA,As per PPD Table,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4,Temporary Total Disablement (TTD),"Lesser of 1 & 2
+a)1/2/3/4/5 % of the Capital SI/Highest Sum Insured opted for AD/PTD/PPD, as applicable
+
+OR
+b)The fixed opted SI per week paid on cover basis if accidental Injury solely and directly results in the Temporary Total Disablement of the Insured
+
+To be redrafted","1000
+",5 Cr,x% of SI opted,NA,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,B. Optional Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1a,Accidental Hospitalization cover,"Provides financial protection for medical expenses incurred when an insured person is hospitalized as an in-patient due to an accident.
+Select one or more 
+In patient hospitalisation",500,1 Cr,Option to choose % max upto limit or SI opted,Option to apply condition for cover eligibility after continuous hospitalisation of 1 hr-30 Days,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1b,Accidental Pre Hospitalisation,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1c,Accidental Post Hospitalisation,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2,Accidental OPD,Accidental OPD,1000,1 Cr,,Mode should be cashless as well as reimbursement,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3,Accidental Medical Expenses,"In case of Death, Permanent Total Disablement or Permanent Partial Disablement of the insured, expenses towards the Reasonable and Customary Charges for Medical Expenses incurred is reimbursed","Coverage up to the lowest of following:
+1) Actual Expenses
+2) 5% of Accidental death SI
+3) 5% of admissible claim under PTD
+4) 5% of admissible claim under PPD
+5) 5% of admissible claim under TTD
+6) ` From Rs 1,000
+(in-patient expenses not covered)","Coverage up to the Highest of following:
+1) Actual Expenses
+2) 100% of Accidental death SI
+3) 100% of admissible claim under PTD
+4) 100% of admissible claim under PPD
+5) 100% of admissible claim under TTD
+6) ` Upto 50 Cr
+(in-patient expenses not covered)",,"
+Option to opt with accidental hospitalization, or separate",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4,Child Education cover,"In case of accidental Death or Permanent Total Disablement, we will pay the tuition fees paid towards the Dependent Child (Children) Education for the policy period ",1000,1 Cr,1% to 100%,Option to choose the combination of Min max si or % ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+5,Marriage cover for Dependent Children Marriage Allowance,"In case of Death, Permanent Total Disablement, PPD, we will make the payment in respect of the Insured Person’s Dependent Child (children) under the age of 25  and unmarried as on the date of occurrence
+(Irrespective of number of child)",1000,1 Cr,1% to 100%,Option to choose the combination of Min max si or % ,Name Change of the cover,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+6,Emergency Road Ambulance Cover,The amount up to the limit specified is reimbursed towards Ambulance Expenses,1000,1 Cr,1% to 100%,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+7,Medicab Cover,Lumpsum pay for the transportation of the Insured Person to the nearest Hospital and/or from Hospital to home,1000,1 Cr,1% to 100%,Once in a policy year,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+8,Accident Air Ambulance Cover,"Covers air ambulance transfer of the Insured Person during a medical emergency to the nearest hospital or another hospital for advanced care, when other modes of transport are inadequate.
+Such transfer must be medically necessary, doctor‑certified, and is covered up to the limit stated in the Policy Schedule, subject to policy terms.
+",1000,1 Cr,1% to 100%,New addition,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+9,Funeral Expenses,Onetime lumpsum payment done towards specified Funeral Expenses,"10,000
+",1 Cr,1% to 100%,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+10,Repatriation of Mortal Remains,Covers medical expenses towards the cost associated with the transportation of mortal remains from the place of death  to the home location ,"10,000
+",1 Cr,1% to 100%,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+11,Orphan cover,Lumpsum pay for dependent children if both parents (or the primary insured) pass away during the policy term,"10,000
+",1 Cr,1% to 100%,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+12,Loss of Earning,Payment Done in case of disablement from engaging in his/her primary occupation and looses his source of income generation,1000,1 Cr,"3 Months salary or Si opted, whichever is lesser",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+13,Modification cover (Residence and vehicle),Expenses against modification of the vehicle or house to adjust to the disablement is reimbursed,1000,1 Cr,1% to 100%,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+14,Rehabilitation cover,"Reimbursement of the reasonable and customary charges for counselling fees, specialist consultation and extended physiotherapy on an out patient cover",1000,1 Cr,1% to 100%,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+15,Animal Attack,Covers medical expenses incurred due to an Injury caused solely and directly by an animal attack on reimbursement basis,1000,1 Cr,1% to 100%,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+16,Compassionate visit,Cost of one-way/two-way economy airfare or first-class train ticket for an immediate family member to travel to the insured person’s place of hospitalization in case of an emergency or accident.,1000,1 Cr,1% to 100%,"
+Once in a policy year",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+17,Broken Bones/Fracture cover,% of the SI paid on cover basis if an Insured Person sustains Broken bones and results in conditions specified in the policy,"1000 or,
+(lump sum as per table)"," 50 Lac or
+(lump sum as per table)",,,Name Modification from Broken Bones/ Fractures cover to Broken Bones cover only,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+18,Coma cover,Payment done on cover basis if an insured person suffers a coma due to an injury directly due to an accident,1000,1 Cr,"Options: a)Base SI
+b)Over and above Base SI",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+19,Burn cover,%of the SI paid on cover basis if an Insured Person sustains burns due to an accident and results in conditions specified in the policy,"1000 or,
+(lump sum as per table)"," 50 Lac or
+(lump sum as per table)",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+20,Accidental Death cover (Common Carrier),Payment done on cover basis if an insured person suffers an injury during the policy period solely and directly due to an accident that occurs while the insured person is the authorized passenger on a common carrier which results in the death of the insured,10000,"50 Cr
+",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+21,Permanent Total Disablement(Common Carrier),Payment done on cover basis if an insured person suffers an injury during the policy period solely and directly due to an accident that occurs while the insured person is the authorized passenger on a common carrier which results in the Permanent Total Disablement of the insured,10000,"50 Cr
+",,,Supress,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+22,Convalescence cover Long Stay Allowance,Lumpsum payment done against medically necessary treatment of an Accidental injury and the continuation of such Hospitalization is medically Necessary for at least 10 consecutive days,10000,1 Cr,,,Name Change,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+23,Permanent Partial Disablement (Common Carrier),Payment done on cover basis if an insured person suffers an injury during the policy period solely and directly due to an accident that occurs while the insured person is the authorized passenger on a common carrier which results in the Permanent Partial Disablement of the insured,10000,"50 Cr
+",,,Supress,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+24,Spouse cover,In case of Accidental Death of the insured we will pay the amount in respect of the widowed Spouse of the insured person,5000,50 Lacs,,Over and Above the AD SI,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+25,Dependent Parent cover Elderly Care,In case of accidental Death of the insured we will pay the amount in respect of the surviving dependent Parent Single or both parents) of the insured person,5000,50 Lacs,,Over and Above the AD SI,Name Change,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+26,Dependent Children cover,In case of accidental Death of the insured payment is done in respect of Dependent Child (Children) under the age of 25,5000,50 Lacs,,Over and Above the AD SI,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+27,Family Counselling cover,Payment Done towards psycateric counselling,1000,1 Lacs,,,"Cover suppression, Covered under rehabilitation",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+28,Cost of PPE Damaged in Accident cover,An amount is paid towards the cost of personal protective equipment damaged in the accident,5000,1 Lacs,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+29,Cost of Support Items,"We shall reimburse expenses incurred towards support items if we have accepted a claim under Permanent Total Disablement, Permanent Partial Disablement, or Temporary Total Disablement in  This includes but is not limited to crutches, artificial limbs, wheelchairs, tri-cycles, intra-ocular lenses, spectacles, imported medicines, or any other item deemed necessary by a medical practitioner for the insured person's normal living due to the injury sustained in the accident, up to the limit specified in the Policy Schedule or Certificate of Insurance..
+",5000,50 Lacs,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+30,Purchase of Blood,"Lumpsum pay for expenses incurred in purchasing blood through a hospital or government-approved blood bank for the purpose of the insured person’s medical or surgical treatment, up to the amount specified in the Certificate of Insurance. This amount is payable in addition to the sum insured and is applicable for each person covered under the policy.
+
+Linked to Accidental Hospitalization ",5000,50 Lacs,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+31,Re-skilling Expenses,"In case of PPD or PTD, we will reimburse the reasonable costs actually incurred to re-skilling the insured person for an alternate occupation(Developing a new skill)",1000,1 Lacs,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+32,Adventure Sports Cover,If insured suffers from an accidental injury resulting in Accidental death or permanent total disablement due to an injury sustained while engaging in an adventure sport,1000,"50 Cr
+",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+33,Worldwide Emergency Assistance Services (including Air Ambulance),Covers Worldwide Emergency Assistance Services (including Air Ambulance),Available,,Network,TBD  ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+34,EMI Protect,"Provides coverage for the insured’s monthly loan EMI payments in case of accidental death, disability, or hospitalization, ensuring financial continuity during such unforeseen events",1000,50 Lacs,NA,"Max upto 6 EMI totalling upto the following options (in `):
+50000, 75000, 100000, 200000, 300000, 400000, 500000",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+35,Disappearance Cover,"If the insured person goes missing due to an accident and their death cannot be immediately confirmed but is reasonably presumed, lumpsum will be paid",1000,50 Lacs,"Check Legal Clause- UW to check
+check predictability",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+36,Accidental Dismemberment Cover,"Lumpsum pay for irreversible physical loss or functional loss of limbs or body parts due to an accident,",1000,50 Lacs,1% to 150%,Option to choose the combination of Min max si or % ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+37,Cost of clothing,Covers the loss/damage of clothes especially uniforms etc of employees/members of a group as a result of an accident subject to SI,1000,1 Lacs,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+38,Loss of belongings,"Provides financial protection for personal items that are damaged, lost, or destroyed as a result of an accident",1000,50 Lacs,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+38,Loan Shield,"a) Outstanding  loan amount on fixed basis
+b) Outstanding loan amount only",10000,"5 Cr
+",,Check-Assignment Clause,"EMI cover is already available, loan shield for EE is not required",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+39,Legal Expense Support,"In the event the Insured person is involved in any legal proceedings arising directly out of an Accident sustained during the Policy Period, We shall reimburse reasonable legal expenses incurred, subject to the limits specified",5000,100000,New Addition - Extension of RFB Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+40,Assaults & Injury Cover ,"
+We shall pay the specified benefit if the Insured person sustains bodily injury arising out of an assault or violent physical attack by a third party, resulting in medical treatment or hospitalisation, during the Policy Period, subject to the terms and conditions of the Policy
+",5000,100000,New Addition - Extension of RFB Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+41,Maternity-related Accidental Complications,"
+We shall pay the specified benefit if the Insured Woman suffers an accidental injury during pregnancy which directly results in medical complications requiring in‑patient hospitalisation, subject to the terms and conditions of the Policy",5000,100000,New Addition - Extension of RFB Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+42,Domestic Help Support,"
+(In the event the Insured person sustains an accidental injury resulting in Hospitalisation or Temporary or Permanent Disability, and is medically advised rest or restricted mobility, a fixed benefit shall be payable towards engaging domestic help for household support, childcare support, subject to the terms and conditions of the Policy)",5000,100000,New Addition - Extension of RFB Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2. CRITICAL ILLNESS COVER,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+A. Basic Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Sum Insured,SI Offered,1000,"50 Cr
+",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Critical Illness Cover,"Critical Illness Group
+Plan1. Plan 2, Plan 3,Plan 4 and Plan 5 Plan 6 and Plan 7",Plan 1 to Plan 5 7,Option to choose SI- 1% to 100%,Discussion pending for separate CI Offering,Plan 6 & 7 is the new addition ,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Initial waiting period,Initial waiting period,0 days,90 days,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Survival Period,Survival Period,0 days,90 days,Add PED Waiting Period,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+B. Optional Covers,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1,Second E Opinion (optional),Available,Available,Available,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2,Medical Second Opinion,"A second opinion from network/Non network, for treatment of the listed/opted CI of the insured person",Available,Available,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2,Emergency Road Ambulance cover,Covers expenses incurred in respect of the Medically Necessary transportation of the Insured Person through a registered ambulance service provider to a hospital,1000 to 50 Lacs,"Upto SI opted
+or 1%-100%",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3,Marriage cover for Dependent Children Marriage Allowance,We will make the payment in respect of the Insured Person’s Dependent Child (children) under the age of 25 and unmarried as on the date of occurrence,1000 to 50 Lacs,"Upto SI opted
+or 1%-100%",Name Change,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+4,Marriage cover for Dependent Children,We will make the payment in respect of the Insured Person’s Dependent Child (children) under the age of 25 as on the date of occurrence,1000 to 50 Lacs,"Upto SI opted
+or 1%-100%",Duplicacy,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+5,Loss of Earning cover,Payment done in case of disablement from engaging in his/her primary occupation and loses his/her source of income generation as a consequence of a Critical Illness,1000 to 50 Lacs,"Upto SI opted
+or 1%-100%",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+6,Family Counselling cover,Payment done towards the psychiatric counselling of the Immediate Family Members in case of Critical Illness of the Insured person,1000 to 50 Lacs,"Upto SI opted
+or 1%-100%",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+7,Family Transportation Allowance cover,Reimbursement done for expenses incurred in respect of any one Immediate Family Member of the Insured Person for transportation by one way airfare or one way first class railway fare in case of Critical Illness of the insured person,1000 to 50 Lacs,"Upto SI opted
+or 1%-100%",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+8,Family Assistance Allowance cover,Reimbursement done for expenses incurred in respect of any one Immediate Family Member of the Insured Person for fooding and lodging in case of a critical illness,1000 to 50 Lacs,"Upto SI opted
+or 1%-100%",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3. HOSPITAL CASH,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+1,Daily Cash cover (DCB) (Accident or Illness),"Rs 500 to Rs 50,000 (In multiples of 500) - In case of ICU hospitalization, Daily cash limit will be doubled.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+2,Daily Cash cover (DCB)  Accident Only,"Rs 500 to Rs 50,000 (In multiples of 500) - In case of ICU hospitalization, Daily cash limit will be doubled.",,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+3,Daily Cash cover (DCB)  Illness Only,"Rs 500 to Rs 50,000 (In multiples of 500) - In case of ICU hospitalization, Daily cash limit will be doubled.",,,New Addition,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Days per Policy Year limit,10 Day /15 Day/ 30 days/ 45 days/ 60 days/90 Days,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Deductible per claim,0 Day/1 day/2 Days upto 10 Days,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+,Initial waiting period,30 days,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,

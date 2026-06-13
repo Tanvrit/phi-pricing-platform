@@ -9,65 +9,48 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
-import com.rate.aegis.business.calculator.api.ApiClient
-import com.rate.aegis.i18n.detectHostLocale
+import com.rate.aegis.di.buildClient
 import com.rate.aegis.settings.AegisSettingsStore
 import kotlinx.coroutines.delay
 
 /**
- * Aegis desktop entry. Defaults to BUSINESS role — the role can be overridden
- * with `-Daegis.role=CUSTOMER|BUSINESS|ADMIN` for testing.
+ * Aegis desktop entry — the operator/admin console distributed to PRUHealth staff.
  *
- * Customer-facing buyonline is served from the WASM target via Cloudflare Pages;
- * this JVM binary is the operator/admin app distributed to PRUHealth staff.
+ * Role resolution order:
+ *   1. `-Daegis.role=CUSTOMER|BUSINESS|ADMIN` system property (testing override);
+ *   2. the operator-saved [com.rate.aegis.settings.AegisSettings.defaultRole];
+ *   3. BUSINESS.
+ * A corrupt/unknown value at either step silently degrades to BUSINESS rather
+ * than crashing the binary on launch.
+ *
+ * The customer-facing buy-online journey is served from the WASM target via
+ * Cloudflare Pages — not this JVM binary (though `-Daegis.role=CUSTOMER` will
+ * render it for a desktop preview).
  */
 fun main() {
-    // Resolution order: -Daegis.role override → operator-saved defaultRole → BUSINESS.
-    // A corrupt/unknown saved value (e.g. older build wrote "OPS") silently degrades
-    // to BUSINESS rather than crashing the desktop binary on launch.
-    val role = System.getProperty("aegis.role")?.let {
-        runCatching { AegisRole.valueOf(it.uppercase()) }.getOrNull()
-    } ?: run {
-        val saved = AegisSettingsStore.load().defaultRole
-        runCatching { AegisRole.valueOf(saved.uppercase()) }.getOrElse { AegisRole.BUSINESS }
-    }
-
-    // Buyonline save+resume: mirror the WASM `?session=` query support via a
-    // JVM system property so operators can reproduce a customer's stuck state
-    // by launching with `-Daegis.session=<hex>` for debugging.
-    AegisLaunchContext.sessionId = System.getProperty("aegis.session")?.trim()?.takeIf { it.isNotEmpty() }
-    // Shared-quote preview on desktop: `-Daegis.quote=<id>` mirrors the WASM
-    // `?quote=` query so an operator can sanity-check the read-only summary
-    // view from the JVM build before sending the link out.
-    AegisLaunchContext.quoteId = System.getProperty("aegis.quote")?.trim()?.takeIf { it.isNotEmpty() }
-
-    // Capture the host language tag once before Compose boots; AegisRoot uses
-    // this to one-time-auto-seed `AegisSettings.locale = "hi"` on first launch
-    // for Hindi-speaking customers. Null = no detection, no auto-seed.
-    AegisLaunchContext.hostLocale = detectHostLocale()
+    // Desktop ALWAYS defaults to OWNER (superuser — full operator + config-CRUD console).
+    // Override with the AEGIS_ROLE env var (passes through the gradle run task's forked JVM)
+    // or the -Daegis.role system property; the persisted defaultRole no longer downgrades it.
+    val explicitRole = System.getProperty("aegis.role") ?: System.getenv("AEGIS_ROLE")
+    val role = AegisRole.parse(explicitRole, AegisRole.OWNER)
 
     val baseTitle = when (role) {
         AegisRole.CUSTOMER -> "Aegis — Buy Online (preview)"
         AegisRole.BUSINESS -> "Aegis — Operator Console"
         AegisRole.ADMIN    -> "Aegis — Admin Console"
+        AegisRole.OWNER    -> "Aegis — Owner Console"
     }
 
     application {
-        // Window title connectivity indicator. The indicator is driven by a
-        // tiny dedicated /health poll rather than the in-Compose dashboard
-        // state because the Window() title is read at the application{} scope,
-        // outside the AegisRoot composition where rememberDashboardData lives.
-        // Keeping the poll out here avoids touching AegisRoot's API and adds
-        // exactly one HTTP hit every 15 s — well under any reasonable noise
-        // floor. Emoji indicators render cleanly on macOS/modern Linux title
-        // bars, which is the supported desktop matrix; Windows title rendering
-        // is fine on Win10+ which is the only Windows the operator binaries
-        // target.
+        // Window-title connectivity indicator. Driven by a tiny dedicated /health
+        // poll on the shared client rather than the in-Compose state, because the
+        // Window() title is read at application{} scope, outside the AegisRoot
+        // composition. One HTTP hit every 15 s — well under any noise floor.
         var connectivity by remember { mutableStateOf("🟡 reconnecting…") }
         LaunchedEffect(Unit) {
-            val client = ApiClient(AegisSettingsStore.load().serverBaseUrl)
+            val client = buildClient()
             while (true) {
-                runCatching { client.health() }
+                runCatching { client.getText("/health") }
                     .onSuccess { connectivity = "🟢 connected" }
                     .onFailure { connectivity = "🔴 offline" }
                 delay(15_000)
@@ -76,7 +59,7 @@ fun main() {
         Window(
             onCloseRequest = ::exitApplication,
             title = "$baseTitle · $connectivity",
-            state = rememberWindowState(width = 1440.dp, height = 900.dp)
+            state = rememberWindowState(width = 1440.dp, height = 900.dp),
         ) {
             AegisRoot(role)
         }

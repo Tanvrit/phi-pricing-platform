@@ -5,14 +5,10 @@ import kotlinx.browser.window
 /**
  * WASM actual — single `window.localStorage` key.
  *
- * Storage key: `"aegis.settings"`. We use one key instead of one-per-field so the
- * read/write is atomic from the JS side: an operator hitting Save either replaces
- * the whole record or leaves the previous one intact.
- *
- * Parse-failure handling: if the stored value can't be deserialised (forward-
- * incompatible older shape, or someone hand-edited it badly via devtools) we
- * fall back to defaults rather than throwing. The Settings surface will then
- * show the defaults; saving from the surface overwrites the bad blob.
+ * Storage key: `"aegis.settings"`. One key (not one-per-field) so the read/write
+ * is atomic from the JS side. A value that can't be deserialised (forward-
+ * incompatible older shape, or a hand-edit via devtools) falls back to defaults
+ * rather than throwing; the next save overwrites the bad blob.
  */
 private const val STORAGE_KEY = "aegis.settings"
 

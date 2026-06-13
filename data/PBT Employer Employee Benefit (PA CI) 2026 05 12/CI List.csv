@@ -1,0 +1,124 @@
+List of CI [Flexible],,,,,,,,,,,,,,,,,,,,,,,
+Plan 1,Plan2,Plan 3,Plan 4,Plan 5,,,,,,,,,,,,,,,,,,,
+1 CI(Unique),4 CI(Unique),16 CI(Unique),32 CI(Unique),48 CI(Unique),,,,,,,,,,,,,,,,,,,
+Major Cancer,Kidney Failure requiring regular dialysis,Open Chest Coronary Artery Bypass Graft,Infective Endocarditis,Chronic Rheumatoid Arthritis,,,,,,,,,,,,,,,,,,,
+,Major organ/Bone Marrow Transplant,Myocardial Infraction (First Heart attack of specified severity),Pericardectomy,Pheochromocytoma,,,,,,,,,,,,,,,,,,,
+,Open Heart Replacement/Repair of Heart Valves,Refractory heart failure,Percutaneous Heart Valve Replacement,Eisenmenger's Syndrome,,,,,,,,,,,,,,,,,,,
+,Open Chest Coronary Artery Bypass Graft,Cardiomyopathy,Pneumonectomy,Chronic Adrenal Insufficiency ,,,,,,,,,,,,,,,,,,,
+,, Stroke resulting in permanent symptoms,Bariatric Surgery,Cardiac Pacemaker insertion,,,,,,,,,,,,,,,,,,,
+,,Permanent Paralysis of Limbs,Percutaneous Transluminal Angioplasty of Renal Artery,Surgical removal of an eyeball,,,,,,,,,,,,,,,,,,,
+,,Parkinson’s disease,Severe Progressive Supranuclear Palsy,Wilson's disease,,,,,,,,,,,,,,,,,,,
+,,Primary (Idiopathic) Pulmonary Hypertension,Surgical Removal of One Kidney,Guillain Barre Syndrome (GBS),,,,,,,,,,,,,,,,,,,
+,,End Stage Lung Failure,Total Glossectomy,Age Related Macular Degeneration,,,,,,,,,,,,,,,,,,,
+,,Rabies,Budd–Chiari syndrome,Surgery for removal of Acoustic Neuroma,,,,,,,,,,,,,,,,,,,
+,,End Stage Liver Failure,Carotid Angioplasty,Major Brain Surgery,,,,,,,,,,,,,,,,,,,
+,,Angioplasty,Polycystic Kidney Disease,Complete Splenectomy,,,,,,,,,,,,,,,,,,,
+,,Chronic Aplastic Anemia,Primary Biliary Cirhosis,Whipple procedure,,,,,,,,,,,,,,,,,,,
+,,Cerebral Aneurysm with Specified Surgery,Cardiac Rupture,Loss of sight of one eye and loss of one limb,,,,,,,,,,,,,,,,,,,
+,,Hemiplegia,Total Laryngectomy,Embolization of aquired AV fistula ,,,,,,,,,,,,,,,,,,,
+,,Chronic Relapsing Pancreatitis,Cerebral Artery Bypass Surgery,Myoxomas,,,,,,,,,,,,,,,,,,,
+,,,Pulmonary Thromboembolism,Diabetes Insipidus,,,,,,,,,,,,,,,,,,,
+,,,Carotid endarterectomy Surgery,Full dental reconstruction due to accident,,,,,,,,,,,,,,,,,,,
+,,,Spinal Surgery in case of Trauma,Keyhole Craniotomy,,,,,,,,,,,,,,,,,,,
+,,,Multiple Sclerosis with Persisting Symptoms,Terminal Illness,,,,,,,,,,,,,,,,,,,
+,,,Motor Neuron Disease with Permanent Symptoms,Creutzfeldt-Jakob disease,,,,,,,,,,,,,,,,,,,
+,,,Alzheimer’s disease,Progressive Scleroderma,,,,,,,,,,,,,,,,,,,
+,,,Benign brain tumor,Medullary Cystic Disease,,,,,,,,,,,,,,,,,,,
+,,,Major Head Trauma,Muscular dystrophy,,,,,,,,,,,,,,,,,,,
+,,,Apallic syndrome,Poliomyelitis,,,,,,,,,,,,,,,,,,,
+,,,Deafness,Systemic lupus erythematosus with renal involvement,,,,,,,,,,,,,,,,,,,
+,,,Loss of speech,Myasthenia gravis,,,,,,,,,,,,,,,,,,,
+,,,Loss of limbs,Good pastures syndrome with lung or renal involvement,,,,,,,,,,,,,,,,,,,
+,,,Loss of independent existence,Aorta Graft surgery,,,,,,,,,,,,,,,,,,,
+,,,Blindness,Bacterial Meningitis,,,,,,,,,,,,,,,,,,,
+,,,Third Degree Burns,Encephalitis,,,,,,,,,,,,,,,,,,,
+,,,Coma of Specified Severity,Fulminant Viral Hepatitis,,,,,,,,,,,,,,,,,,,
+,,,,Crohn’s Disease,,,,,,,,,,,,,,,,,,,
+,,,,Ulcerative Colitis,,,,,,,,,,,,,,,,,,,
+,,,,Autoimmune Hepatitis,,,,,,,,,,,,,,,,,,,
+,,,,Total Pancreatectomy,,,,,,,,,,,,,,,,,,,
+,,,,Tuberculosis Meningitis,,,,,,,,,,,,,,,,,,,
+,,,,Dissecting Aortic aneurysm,,,,,,,,,,,,,,,,,,,
+,,,,Elephantiasis,,,,,,,,,,,,,,,,,,,
+,,,,Myelofibrosis,,,,,,,,,,,,,,,,,,,
+,,,,Cystic Fibrosis,,,,,,,,,,,,,,,,,,,
+,,,,Total proctocolectomy,,,,,,,,,,,,,,,,,,,
+,,,,Toxic epidermal necrolysis (TEN),,,,,,,,,,,,,,,,,,,
+,,,,Chronic PAN (Polyarteritis Nodosa),,,,,,,,,,,,,,,,,,,
+,,,,Adult Polymyositis,,,,,,,,,,,,,,,,,,,
+,,,,Giant Cell Arteritis,,,,,,,,,,,,,,,,,,,
+,,,,Multiple System Atrophy,,,,,,,,,,,,,,,,,,,
+,,,,HIV due to blood transfusion and occupationally acquired HIV,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,,,,,,
+Sl no,CI List (Incremental),7 CIs,11 CIs,15 CIs,25 CIs,35 CIs,60 CIs,11 Cis (Women Specific),,,,,,,,,,,Scor ,,,,
+,,Plan 1,Plan 2,Plan 3,Plan 4,Plan 5,Plan 6,Plan 7,,.,9 CI,18 CI,25 CI,41 CI,,,Sr. No. ,Critical Illness,9 CI,18 CI,25 CI,41 CI,
+1,Myocardial Infarction (First Heart Attack - Of Specified Severity),✓,✓,✓,✓,✓,✓,✓,Add all plans inplan 7,,Yes,Yes,Yes,Yes,,,1,Cancer of Specified Severity,Yes,Yes,Yes,Yes,Found
+2,Major Organ / Bone Marrow Transplant,✓,✓,✓,✓,✓,✓,✓,,,Yes,Yes,Yes,Yes,,,2,Kidney Failure Requiring Regular Dialysis,Yes,Yes,Yes,Yes,Found
+3,Cancer of Specified Severity,✓,✓,✓,✓,✓,✓,×,,,Yes,Yes,Yes,Yes,,,3,End Stage Liver Failure,Yes,Yes,Yes,Yes,Found
+4,Kidney Failure Requiring Regular Dialysis,✓,✓,✓,✓,✓,✓,×,Check with pricing,,Yes,Yes,Yes,Yes,,Major Organ / Bone Marrow Transplant,4,Major Organ / Bone Marrow Transplant,Yes,Yes,Yes,Yes,Major Organ / Bone Marrow Transplant
+5,Stroke Resulting in Permanent Symptoms,✓,✓,✓,✓,✓,✓,×,,,Yes,Yes,Yes,Yes,,,5,Open Heart Replacement or Repair of Heart Valves,Yes,Yes,Yes,Yes,Found
+6,Permanent Paralysis of Limbs,✓,✓,✓,✓,✓,✓,×,,,Yes,Yes,Yes,Yes,,,6,Open Chest CABG,Yes,Yes,Yes,Yes,Found
+7,Multiple Sclerosis with Persisting Symptoms,✓,✓,✓,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,7,Stroke resulting in Permanent Symptoms,Yes,Yes,Yes,Yes,Found
+8,Open Chest CABG,×,✓,✓,✓,✓,✓,×,,,Yes,Yes,Yes,Yes,,,8,Permanent Paralysis of Limbs,Yes,Yes,Yes,Yes,Found
+9,Open Heart Replacement or Repair of Heart Valves,×,✓,✓,✓,✓,✓,×,,,Yes,Yes,Yes,Yes,,Myocardial Infarction (First Heart Attack - Of Specified Severity),9,Myocardial Infarction (First Heart Attack - Of Specified Severity),Yes,Yes,Yes,Yes,Myocardial Infarction (First Heart Attack - Of Specified Severity)
+10,Coma of Specified Severity,×,✓,✓,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,10,Multiple Sclerosis with Persisting Symptoms,,Yes,Yes,Yes,Found
+11,Motor Neuron Disease with Permanent Symptoms,×,✓,✓,✓,✓,✓,×,,,0,0,Yes,Yes,,,11,Coma of Specified Severity,,Yes,Yes,Yes,Found
+12,Blindness,×,×,✓,✓,✓,✓,×,,,0,0,Yes,Yes,,,12,Parkinson’s Disease,,Yes,Yes,Yes,Found
+13,Third Degree Burns,×,×,✓,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,13,Benign Brain Tumour,,Yes,Yes,Yes,Found
+14,Parkinson’s Disease,×,×,✓,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,14,Alzheimer’s Disease,,Yes,Yes,Yes,Found
+15,Benign Brain Tumour,×,×,✓,✓,✓,✓,×,,,0,Yes,Yes,Yes,,Major Surgery of Aorta,15,Aorta Graft Surgery,,Yes,Yes,Yes,Major Surgery of Aorta
+16,Alzheimer’s Disease,×,×,×,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,16,Deafness,,Yes,Yes,Yes,Found
+17,Major Surgery of Aorta,×,×,×,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,17,Loss of speech,,Yes,Yes,Yes,Found
+18,Deafness,×,×,×,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,18,Third Degree Burns,,Yes,Yes,Yes,Found
+19,Loss of Limbs,×,×,×,✓,✓,✓,×,,,0,0,Yes,Yes,,,19,Motor Neuron Disease with Permanent Symptoms,,,Yes,Yes,Found
+20,Loss of Speech,×,×,×,✓,✓,✓,×,,,0,Yes,Yes,Yes,,,20,Primary (Idiopathic) Pulmonary Hypertension,,,Yes,Yes,Found
+21,Aplastic Anaemia,×,×,×,✓,✓,✓,×,,,0,0,0,Yes,,Loss of Limbs,21,Loss of Limbs,,,Yes,Yes,Loss of Limbs
+22,End Stage Liver Failure,×,×,×,✓,✓,✓,×,,,Yes,Yes,Yes,Yes,,,22,Muscular Dystrophy,,,Yes,Yes,Found
+23,End Stage Lung Failure,×,×,×,✓,✓,✓,×,,,0,0,Yes,Yes,,,23,Blindness,,,Yes,Yes,Found
+24,Primary (Idiopathic) Pulmonary Hypertension,×,×,×,✓,✓,✓,×,,,0,0,Yes,Yes,,,24,Major Head Trauma,,,Yes,Yes,Found
+25,Bacterial Meningitis,×,×,×,✓,✓,✓,×,,,0,0,0,Yes,,,25,End Stage Lung Failure,,,Yes,Yes,Found
+26,Encephalitis,×,×,×,×,✓,✓,×,,,0,0,0,Yes,,Systemic Lupus Erythematous With Renal Involvement,26,Systemic Lupus Erythematosis with Lupus Nephritis;,,,,Yes,Systemic Lupus Erythematous With Renal Involvement
+27,Fulminant Hepatitis,×,×,×,×,✓,✓,×,,,0,0,0,Yes,,Pneumonectomy (Surgical Removal of One Lung),27,Pneumonectomy,,,,Yes,Pneumonectomy (Surgical Removal of One Lung)
+28,Chronic Relapsing Pancreatitis,×,×,×,×,✓,✓,×,,,,,,,,Medullary Cystic Kidney Disease,28,Medullary Cystic Disease,,,,Yes,Medullary Cystic Kidney Disease
+29,Major Head Trauma,×,×,×,×,✓,✓,×,,,0,0,Yes,Yes,,,29,Cardiomyopathy,,,,Yes,Found
+30,Medullary Cystic Kidney Disease,×,×,×,×,✓,✓,×,,,0,0,0,Yes,,,30,Encephalitis,,,,Yes,Found
+31,Muscular Dystrophy,×,×,×,×,✓,✓,×,,,0,0,Yes,Yes,,Progressive Supranuclear Palsy - Resulting In Permanent Symptoms,31,Progressive Supranuclear Palsy,,,,Yes,Progressive Supranuclear Palsy - Resulting In Permanent Symptoms
+32,Poliomyelitis,×,×,×,×,✓,✓,×,,,,,,,,,32,Multiple System Atrophy,,,,Yes,
+33,Brain Surgery,×,×,×,×,✓,✓,×,,,,,,,,Primary (Idiopathic) Pulmonary Hypertension,33,Pulmonary Artery Graft Surgery,,,,Yes,Primary (Idiopathic) Pulmonary Hypertension
+34,Myasthenia Gravis,×,×,×,×,✓,✓,×,,,,,,,,Other Serious Coronary Artery Diseases,34,Other Serious Coronary Artery Disease,,,,Yes,Other Serious Coronary Artery Diseases
+35,Systemic Lupus Erythematous With Renal Involvement,×,×,×,×,✓,✓,✓,,,0,0,0,Yes,,,35,Apallic Syndrome,,,,Yes,Found
+36,Severe Rheumatoid Arthritis,×,×,×,×,×,✓,✓,,,,,,,,,36,Fulminant Hepatitis,,,,Yes,Found
+37,Loss of Independent Existence (Cover up to Age 74),×,×,×,×,×,✓,×,,,,,,,,Creutzfeldt-Jakob Disease,37,Creutzfeldt - Jakob Disease,,,,Yes,Creutzfeldt-Jakob Disease
+38,Progressive Scleroderma,×,×,×,×,×,✓,×,,,0,0,0,Yes,,,38,Aplastic Anaemia,,,,Yes,Found
+39,Other Serious Coronary Artery Diseases,×,×,×,×,×,✓,×,,,0,0,0,Yes,,,39,Severe Ulcerative Colitis,,,,Yes,Found
+40,Cardiomyopathy,×,×,×,×,×,✓,×,,,0,0,0,Yes,,,40,Progressive Scleroderma,,,,Yes,Found
+41,Infective Endocarditis,×,×,×,×,×,✓,×,,,,,,,,,41,Bacterial Meningitis,,,,Yes,Found
+42,Apallic Syndrome,×,×,×,×,×,✓,×,,,0,0,0,Yes,,,,,,,,,
+43,Creutzfeldt-Jakob Disease,×,×,×,×,×,✓,×,,,0,0,0,Yes,,,,,,,,,
+44,Pneumonectomy (Surgical Removal of One Lung),×,×,×,×,×,✓,×,,,0,0,0,Yes,,,,,,,,,
+45,Severe Ulcerative Colitis,×,×,×,×,×,✓,×,,,0,0,0,Yes,,,,,,,,,
+46,Progressive Supranuclear Palsy - Resulting In Permanent Symptoms,×,×,×,×,×,✓,×,,,0,0,0,Yes,,,,,,,,,
+47,Good Pastures Syndrome With Lung And Renal Involvement,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+48,Severe Crohn's Disease,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+49,Necrotising Fasciitis,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+50,Tuberculous Meningitis,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+51,Primary Myelofibrosis,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+52,Pheochromocytoma,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+53,Eisenmenger's Syndrome,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+54,Loss of use of One Limb and Loss of Sight in One Eye,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+55,Refractory Heart Failure,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+56,Takayasu Arteritis,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+57,Severe Guillain-Barre Syndrome,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+58,Spinal Stroke,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+59,Benign Spinal Cord Tumour with Neurological Deficit,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+60,Severe Progressive Bulbar Palsy,×,×,×,×,×,✓,×,,,,,,,,,,,,,,,
+61,Breast Cancer,×,×,×,×,×,×,✓,,,,,,,,,,,,,,,
+62,Ovarian Cancer,×,×,×,×,×,×,✓,,,,,,,,,,,,,,,
+63,Cervical Cancer,×,×,×,×,×,×,✓,,,,,,,,,,,,,,,
+64,Uterine (Endometrial) Cancer,×,×,×,×,×,×,✓,,,,,,,,,,,,,,,
+65,Fallopian Tube Cancer,×,×,×,×,×,×,✓,,,,,,,,,,,,,,,
+66,Vaginal Cancer,×,×,×,×,×,×,✓,,,,,,,,,,,,,,,
+67,Severe Osteoporosis with Fractures,×,×,×,×,×,×,✓,,,,,,,,,,,,,,,

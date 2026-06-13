@@ -41,8 +41,8 @@
         <appender-ref ref="FILE" />
     </root>
 
-    <!-- Exposed at INFO in production to avoid leaking SQL/table/column names. -->
-    <logger name="Exposed" level="INFO"/>
     <logger name="io.ktor" level="INFO"/>
+    <!-- Mongo driver at WARN to avoid leaking query/collection chatter. -->
+    <logger name="org.mongodb.driver" level="WARN"/>
     <logger name="com.rate" level="INFO"/>
 </configuration>

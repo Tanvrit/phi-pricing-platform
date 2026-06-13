@@ -1,0 +1,168 @@
+Section 1 : Personal Accident,,,,,,,
+1.1 Personal Accident,,,,,,,
+S.No,Name of Benefit NEW,Trigger,"Details of Coverage
+", Min Sum Insured,Max Sum Insured,Payout,Change from last TCS signed version
+1,Accidental Death (AD),Accident,100% of opted Sum Insured,"INR 1,000","
+INR 25,00,00,000 
+",Fixed,No Change
+2,Permanent Total Disablement (PTD),Accident,100% of opted Sum Insured ,INR 1000,"INR 25,00,00,000",Fixed ,No Change
+3,Permanent Partial Disablement (PPD),Accident,Upto 100% of opted Sum Insured,INR 1000,"INR 25,00,00,000",Fixed,No Change
+4,"Capital Sum Insured (AD / PTD / PPD)
+(This benefit can not be opted with benefit no. 1, 2, 3)",Accident,"Option 1: Accidental Death (AD) +  Permanent Total Disablement (PTD) + Permanent Partial Disablement (PPD)
+
+Option 2: Accidental Death (AD) +  Permanent Total Disablement (PTD) 
+
+Option 3: Accidental Death (AD) + Permanent Partial Disablement (PPD)
+
+Option 4: Permanent Total Disability (PTD) + Permanent Partial Disablement (PPD)","INR 1,000","INR 25,00,00,000 ",Fixed,"No Change in SI
+Cover Option Change"
+5,Temporary Total Disablement (TTD) ,Accident,"1.a. Rs 100 to Rs 5,00,000 per week,max up to 104 weeks ,
+b.  0.5% to 5% of PA sum insured , max up to Rs 1000 to 5,00,000 per week  Or 
+Actual Weekly income which ever is lower 
+Max up to 104 weeks
+","Value for Option 1: INR 100 per week
+
+Value for Option 2: 0.5%
+
+","Value for Option 1: 5,00,000 per week
+
+Value for Option 2: 5% max upto INR 5,00,000 per week
+
+",Fixed ,"Value Change from 1% to 0.5%
+Deductible option from the cover is removed"
+6,Burns Cover (Basis the level of Burns),Accident,"Opted Sum Insured 
+","Option 1: INR 5,000
+Option 2: 0.5% of Capital Sum Insured
+Option 3:  0.5% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured","Option 1: INR 50,00,000
+Option 2: 100% of Capital Sum Insured
+Option 3:  100% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured",Fixed,"No Change
+Cover option 2 & 3 added"
+7,Factures Cover(Basis the Type of Fractures),Accident,"Opted Sum Insured 
+","Option 1: INR 5,000
+Option 2: 0.5% of Capital Sum Insured
+Option 3:  0.5% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured","Option 1: INR 50,00,000
+Option 2: 100% of Capital Sum Insured
+Option 3:  100% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured",Fixed,"No Change
+Cover option 2 & 3 added"
+8,Funeral Expenses Cover,Accidental Death,Opted Sum Insured ,"INR 5,000","INR 1,00,000",Fixed,No Change
+9,Animal Attack Cover,Accident,Fixed Benefit (as per selected limit in case of Death / PTD/ PPD),INR 500,"INR 1,00,00,000",Fixed,New Addition
+10,Child Education Cover,AD / PTD,"Opted Sum Insured 
+","Option 1: INR 5,000
+Option 2: 0.5% of Capital Sum Insured
+Option 3:  0.5% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured","Option 1: INR 50,00,000
+Option 2: 100% of Capital Sum Insured
+Option 3:  100% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured",Fixed,No Change
+11,Marriage allowance,AD / PTD,"Opted Sum Insured 
+","Option 1: INR 5,000
+Option 2: 0.5% of Capital Sum Insured
+Option 3:  0.5% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured","Option 1: INR 50,00,000
+Option 2: 100% of Capital Sum Insured
+Option 3:  100% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured",Fixed,No Change
+12,Home Modification Cover,Accident,Opted Sum Insured ,"Option 1: INR 5,000
+Option 2: 0.5% of PTD /PPD S.I.","Option 1: INR 50,00,000
+Option 2: 100% of PTD /PPD S.I.",Fixed,No Change
+13,Vehicle Modification Cover,Accident,Opted Sum Insured ,"Option 1: INR 5,000
+Option 2: 0.5% of PTD /PPD S.I.","Option 1: INR 50,00,000
+Option 2: 100% of PTD /PPD S.I.",Fixed,No Change
+14,Mobility extension Cover,Accident,Opted Sum Insured ,"Option 1: INR 5,000
+Option 2: 0.5% of PTD /PPD S.I.","Option 1: INR 25,00,000
+Option 2: 100% of PTD /PPD S.I.",Fixed,No Change
+15,Disappearance Cover,AD,Opted Sum Insured ,up to AD S.I.,up to AD S.I.,Fixed,No Change
+16,Coma Cover,Accident,Opted Sum Insured ,"Option 1: INR 5,000
+Option 2: 0.5% of Capital Sum Insured
+Option 3:  0.5% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured","Option 1: INR 100,00,000
+Option 2: 100% of Capital Sum Insured
+Option 3:  100% of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability Cover Sum Insured",Fixed,"No Change
+Option 2 & 3 added"
+17,Loan Shield Cover,AD / PTD,"Options :
+a. S.I. Limit Selected
+b. Principal amount outstanding max. upto limit selected","INR 1,000","INR 25,00,00,000",Fixed,No Change
+18,Repatriation of Mortal Remains Cover,Accidental Death,Opted Sum Insured ,"INR 2,000","INR 10,00,000",Fixed ,No Change
+19,Family Transport Cover,AD/PTD,"Opted Sum Insured 
+Geographic cover options:
+a. Within India
+b. Worldwide","a. Within India - INR 1,000
+b. Worldwide - INR 10,000","a. Within India - INR 100,000
+b. Worldwide - INR 10,00,000",Indemnity,Geographical limits modified (Domestic and international)
+20,Adventure Sports Cover(lump sum),"AD, PTD,PPD",Equal to opted Sum Insured of respective cover under AD or PTD or PPD ,up to of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability / Capital Sum Insured,up to of maximum of Accidental Death Cover / Permanent Total Disability Cover / Permanent Partial Disability / Capital Sum Insured,Fixed ,No Change
+21,Head & Spinal Injury protect,Accident,Prescribed diagnostics for Head and Spinal Injury,"INR 1,000","INR 10,00,000",Indemnity,No Change
+22,Multiple Member Disability Cover,PTD,Additional limit for  PTD/Capital Sum Insured : 1% to 20%,N.A.,N.A.,Fixed ,No Change
+23,Common Carrier Cover,AD/PTD/PPD,Additional limit for  AD/PTD/PPD/Capital Sum Insured : 1% to 50%,N.A.,N.A.,Fixed ,No Change
+24,PPE Damaged in Accident cover,Accident ,Opted Sum Insured ,"INR 1,000","INR 5,00,000",Fixed ,No Change
+25,Re-skilling Expenses Cover,PTD/PPD,Opted Sum Insured ,"INR 1,000","INR 5,00,000",Fixed ,No Change
+26,Elderly Cover in case of Accident,AD/PTD,Opted Sum Insured ,"INR 10,000","INR 10,00,000",Fixed ,No Change
+27,Trip Cancellation in case of Accident,AD/PTD/Hospitalisation,Opted Sum Insured ,"INR 10,000","INR 10,00,000",Indemnity,No Change
+28,EMI Cover,AD/PTD/PPD,"Opted Sum Insured , No. of EMI options 3/ 6/ 9/ 12","INR 50,000","INR 5,00,000",Fixed ,No Change
+29, LongStay Allowance,AD/PTD/PPD/Inpatient,Counselling and Placement Services for Insured Person,500,100000,Service,Name Change (old name to new name
+30,Blood Transfusion expenses,PTD/PPD,Opted Sum Insured ,INR 500,"INR 25,00,000",Fixed ,No Change
+31,Air Accidental Cover,AD/PTD,Coverage for AD/PTD in case of Air Accident,INR 1000,"INR 25,00,00,000",Fixed,New Addition
+32,Child Support Cover,AD/PTD,Counselling and Placement Services for Insured Person's Child,N.A.,N.A.,Service,No Change
+33,Chauffeur Cover,"PTD, PPD",Opted Sum Insured ,INR 100 per day,INR 5000 (max upto 90 days from date of accident),Fixed ,New Addition
+1.2 : Accidental Hospitalisation,,,,,,,
+1,"Accidental In-patient Care
+",Accident,,"INR 1,000","INR 3,00,00,000",Indemnity,No Change
+2,Ambulance Services ,Accident,"Part of Accidental In-Patient Care
+Option :
+i. Within Network only - Up to S.I.
+ii. Within and outside Network - Outside Limit 5000/10000, within Upto S.I.",Upto Accidental In-patient Care S.I.,Upto Accidental In-patient Care S.I.,Indemnity,No Change
+3,Medicab Protect,Accident,"Part of Accidental In-Patient Care
+Options( Per Event, INR) : 500",INR 500,"INR 5,000",Indemnity,No Change
+4,Restoration,Accident,"Options
+a.Upto Rs 1,00,000
+b.0 to 100% of Accidental Hospitalization S.I","Options
+a.Upto Rs 1,00,000
+b.0 to 100% of Accidental Hospitalization S.I","Options
+a.Upto Rs 1,00,000
+b.0 to 100% of Accidental Hospitalization S.I",Indemnity,No Change
+5,Day Care Procedures/Treatment,Accident,Part of Accidental In-Patient Care,Upto Accidental In-patient Care S.I.,Upto Accidental In-patient Care S.I.,Indemnity,No Change
+6,Post Hospitalization Medical Expenses,Accident,"Part of Accidental In-Patient Care
+Option : Limit / Upto S.I.","INR 1,000","INR 50,00,000",Indemnity,No Change
+7,Air Ambulance,Accident,"Part of Accidental In-Patient Care
+Limit per incidence
+S.I. options : 10000, 50000, Then in multiple of 50000 thereon","INR 10,000","INR 10,00,000",Indemnity,No Change
+8,Transportation of Imported Medicine,Accident,"Part of Accidental In-Patient Care
+Actual Expenses Upto 5% of SI or 10,00,000 whichever is lower",Actual Expense,"5% Of Sum Insured OR
+10,00,000
+whichever is lower",Indemnity,No Change
+9,Home Maker Care Allowance,Accident,Over and above,"INR 10,000","INR 10,00,000", Fixed,No Change
+10,Emergency Hotel Stay in case of Accident,Accident,"Part of Accidental In-Patient Care
+Option : Limit / Upto S.I.","INR 10,000","INR 10,00,000",Indemnity,No Change
+11,Accidental Home Care ,Accident,"• ICU at Home: 10% of Base Sum Insured. Maximum INR 2Lac
+• Nursing Care at Home: 5% of Base Sum Insured. Maximum INR 1Lac
+• Blood Transfusion: 5% of Base Sum Insured. Maximum INR 1Lac
+• Physiotherapy: 5% of Base Sum Insured. Maximum INR 1Lac
+• Single Nurse Procedural Visit: 1% of Base Sum Insured. Maximum INR 10,000
+• Financial Guidance: One Session","• ICU at Home: 10% of Base Sum Insured. Maximum INR 2Lac
+• Nursing Care at Home: 5% of Base Sum Insured. Maximum INR 1Lac
+• Blood Transfusion: 5% of Base Sum Insured. Maximum INR 1Lac
+• Physiotherapy: 5% of Base Sum Insured. Maximum INR 1Lac
+• Single Nurse Procedural Visit: 1% of Base Sum Insured. Maximum INR 10,000
+• Financial Guidance: One Session","• ICU at Home: 10% of Base Sum Insured. Maximum INR 2Lac
+• Nursing Care at Home: 5% of Base Sum Insured. Maximum INR 1Lac
+• Blood Transfusion: 5% of Base Sum Insured. Maximum INR 1Lac
+• Physiotherapy: 5% of Base Sum Insured. Maximum INR 1Lac
+• Single Nurse Procedural Visit: 1% of Base Sum Insured. Maximum INR 10,000
+• Financial Guidance: One Session",Indemnity,"Change in coverage, options modified"
+12,Prudential Health Specialist,Accident,Part of Accidental In-Patient Care,N.A.,N.A.,Service,No Change
+13,Reconstructive surgery Cover,Accident,New Addition,"Option 1: INR 5,000
+Option 2: 0% of PA SI
+Option 3: Both","Option 1: INR 50,00,000
+Option 2: Option 2: 100% of PA SI
+Option 3: Both",Fixed,New Addition
+14,Accidental Miscarriage Benefit,Accident,New Addition,"Option 1: INR 5,000
+Option 2: 0% of PA SI
+Option 3: Both","Option 1: INR 1,00,000
+Option 2: Option 2: 100% of PA SI
+Option 3: Both",Fixed,New Addition
+15,Loss of Activities of Daily Living Benefit,Accident,New Addition,"Option 1: INR 5,000
+Option 2: 0% of PA SI
+Option 3: Both","Option 1: INR 50,00,000
+Option 2: Option 2: 100% of PA SI
+Option 3: Both",Fixed,New Addition
+16,Orphan Benefit ,Accident,New Addition,"Option 1: INR 5,000
+Option 2: 0% of PA SI
+Option 3: Both","Option 1: INR 50,00,000
+Option 2: Option 2: 100% of PA SI
+Option 3: Both",Fixed,New Addition
+17,Family Counselling Benefit,Accident,New Addition,"INR 5,000","INR 1,00,000",Fixed,New Addition
+18,Terrorism Cover ,Accident,New Addition,Covered (Waives off exclusion),Covered (Waives off exclusion),Service,New Addition
