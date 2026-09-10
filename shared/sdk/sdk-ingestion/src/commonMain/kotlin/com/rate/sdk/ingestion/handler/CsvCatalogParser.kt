@@ -147,7 +147,7 @@ class CsvCatalogParser {
             val comment = Csv.cell(r, 7).ifBlank { Csv.cell(r, 8) }
             when {
                 key.equals("Policy Type", true) ->
-                    policyType = if (value.contains("Non", true)) GroupPolicyType.NON_FLOATER else GroupPolicyType.FLOATER
+                    policyType = parseGroupPolicyType(value, policyType)
                 key.equals("Relations Covered", true) -> {
                     relations = splitList(value)
                     // Relations row's secondary cell holds the special-condition note ("LGBTQ …").
@@ -214,6 +214,34 @@ class CsvCatalogParser {
         val lo = nonZero.minOrNull() ?: Money.ZERO
         val hi = nonZero.maxOrNull() ?: Money.ZERO
         return lo to hi
+    }
+
+    /**
+     * "Policy Type" boundary cell → [GroupPolicyType].
+     *
+     * This was `if (value.contains("Non", true)) NON_FLOATER else FLOATER`, which
+     * cannot tell "Non-Floater" (non-floater only) from "Floater / Non-Floater"
+     * (both offered) — the substring "Non" is present either way. Both group PBT
+     * files in data/ carry exactly the latter:
+     *
+     *   Policy Type,Boundary Conditions,Floater / Non-Floater,,,,,
+     *
+     * so every real ingestion of an Employer-Employee product was labelled
+     * NON_FLOATER. There is no BOTH member on the enum, and FLOATER is the
+     * declared default for the field, so a cell that offers floater at all
+     * resolves to FLOATER.
+     *
+     * Method: delete any "Non-Floater" / "Non Floater" / "NonFloater" spellings,
+     * then ask whether a standalone "Floater" survives.
+     */
+    private fun parseGroupPolicyType(value: String, current: GroupPolicyType): GroupPolicyType {
+        if (value.isBlank()) return current
+        val withoutNonFloater = Regex("""(?i)non[\s\-_/]*floater""").replace(value, "")
+        return when {
+            withoutNonFloater.contains("floater", true) -> GroupPolicyType.FLOATER
+            value.contains("floater", true) -> GroupPolicyType.NON_FLOATER
+            else -> current
+        }
     }
 
     /** "Tenure :1/2/3/4/5 years" → [1,2,3,4,5]. */

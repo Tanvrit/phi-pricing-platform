@@ -18,20 +18,30 @@ import com.rate.sdk.ingestion.model.rate.RateRowBatch
 import com.rate.core.rating.ports.model.Plan
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.MongoDBContainer
 import org.testcontainers.utility.DockerImageName
 
 /**
  * Integration round-trips against an ephemeral MongoDB (Testcontainers). Verifies the codec
  * registry, the generic admin-CRUD (create/update/optimistic-concurrency/list/softDelete), and
- * the rate-import → cache → provider path. Requires Docker; skipped automatically by the build
- * matrix where Docker is unavailable.
+ * the rate-import → cache → provider path.
+ *
+ * Requires Docker, and skips itself where Docker is unavailable. That skip used to be claimed
+ * here in prose and implemented nowhere: [setUp] called `container.start()` unconditionally, so
+ * on a machine without a usable Docker daemon the whole class failed as `initializationError`
+ * rather than skipping, and took `./gradlew build` down with it. The assumption below is what
+ * this comment always said was happening.
+ *
+ * Note this means the round-trips do NOT run on a CI runner without Docker — they are skipped,
+ * not passed. Provisioning Docker on the runner is what turns this coverage back on.
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PersistenceRoundTripTest {
@@ -41,6 +51,10 @@ class PersistenceRoundTripTest {
 
     @BeforeAll
     fun setUp() = runTest {
+        assumeTrue(
+            DockerClientFactory.instance().isDockerAvailable,
+            "No usable Docker daemon — skipping the Testcontainers MongoDB round-trips.",
+        )
         container.start()
         provider = MongoClientProvider(MongoConfig(uri = container.replicaSetUrl, database = "rate_test"))
         IndexBootstrap.ensureIndexes(provider.database)
@@ -48,8 +62,10 @@ class PersistenceRoundTripTest {
 
     @AfterAll
     fun tearDown() {
-        provider.close()
-        container.stop()
+        // setUp may have bailed at the assumption above, in which case `provider` was never
+        // assigned and the container was never started; neither is safe to touch unguarded.
+        if (::provider.isInitialized) provider.close()
+        if (container.isRunning) container.stop()
     }
 
     @Test
