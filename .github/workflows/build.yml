@@ -11,7 +11,14 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # Self-hosted only — org policy 2026-09-11: no workflow in any Tanvrit repo
+    # may name a GitHub-hosted image. This was `ubuntu-latest`. It is a Gradle
+    # build and test, which the Linux X64 fleet already runs for every other
+    # Kotlin repo. OS and architecture are named explicitly because
+    # `group: tanvrit` alone is heterogeneous.
+    runs-on:
+      group: tanvrit
+      labels: [self-hosted, Linux, X64]
     timeout-minutes: 30
 
     steps:
