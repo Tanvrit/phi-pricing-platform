@@ -28,7 +28,7 @@ Prefixes: `feat` · `fix` · `chore` · `docs` · `test` · `refactor` · `perf`
 ## Pull-request checklist
 
 - [ ] Branch up-to-date with `dev`
-- [ ] `./gradlew build` is green (CI mirror)
+- [ ] `./gradlew build` is green (CI mirror) — needs a headless Chrome on `CHROME_BIN` for `wasmJsBrowserTest`; see [docs/08-development.md](docs/08-development.md#build-all-modules)
 - [ ] `./gradlew :shared:jvmTest` passes
 - [ ] New behaviour has a test pinning it
 - [ ] No `println` in production code (use SLF4J)
@@ -42,7 +42,7 @@ Prefixes: `feat` · `fix` · `chore` · `docs` · `test` · `refactor` · `perf`
 
 ```bash
 make test    # ./gradlew test koverXmlReport
-make build   # ./gradlew build
+make build   # ./gradlew build  (needs CHROME_BIN — see docs/08-development.md)
 ```
 
 ## Architecture rules (please follow)

@@ -130,6 +130,29 @@ All commands are run from the project root `/Users/viveksingh/Developer/yogesh/r
 ./gradlew build
 ```
 
+> **`build` needs a headless Chrome.** 19 modules declare `wasmJs { browser() }`,
+> so `build` runs `wasmJsBrowserTest`, and with no browser it stops at
+> *"No binary for ChromeHeadless browser on your platform. Please, set
+> CHROME_BIN"*. Install Chrome or Chromium, or point `CHROME_BIN` at one you
+> already have — `npx puppeteer@23 browsers install chrome-headless-shell`
+> fetches one into `~/.cache/puppeteer` if you would rather not install a
+> system package.
+>
+> If you run as **root** (a container, a CI-shaped box), Chrome additionally
+> refuses to start at all — *"Running as root without --no-sandbox is not
+> supported"* — and Karma's launcher does not pass that flag, so `CHROME_BIN`
+> must point at a wrapper that adds it:
+>
+> ```bash
+> printf '#!/usr/bin/env bash\nexec /path/to/chrome --no-sandbox "$@"\n' > /tmp/chrome-ns
+> chmod +x /tmp/chrome-ns && export CHROME_BIN=/tmp/chrome-ns
+> ```
+>
+> Added 2026-09-11: this section said only `./gradlew build` and every
+> contributor without Chrome hit the wall with no idea why. `.github/workflows/build.yml`
+> does exactly the above, and the comment there records how the fleet was
+> measured.
+
 ### Clean Build (if you hit stale cache issues)
 
 ```bash
