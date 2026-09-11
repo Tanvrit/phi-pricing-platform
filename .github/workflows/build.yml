@@ -34,6 +34,94 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
+      # ── ChromeHeadless for wasmJsBrowserTest ──────────────────────────
+      #
+      # `./gradlew build` below reaches `wasmJsBrowserTest` in all 19 modules
+      # that declare `wasmJs { browser() }`, and on this fleet that used to die
+      # with "No binary for ChromeHeadless browser on your platform. Please, set
+      # CHROME_BIN". On `ubuntu-latest`, which this job ran on until 2026-09-11,
+      # Chrome was preinstalled and this never came up.
+      #
+      # 2026-09-11. Measured on the fleet rather than assumed — three throwaway
+      # workflow_dispatch probes from a private repo, because this one is public
+      # and the `tanvrit` runner group does not serve public repositories, so no
+      # job here can be scheduled to ask the question directly:
+      #
+      #   1. No system Chrome. `google-chrome` / `chromium` / `chromium-browser`
+      #      are absent from PATH and there is no `chrom*` dpkg package, on all
+      #      nine registrations reached (runner1,2,4,5,6,7,8,9,10 — every one of
+      #      them host `Parmar`, x86_64). CHROME_BIN unset.
+      #   2. Chrome IS on disk, and works. `/root/.cache/puppeteer/` and
+      #      `/root/.cache/ms-playwright/` hold six Chrome-for-Testing builds
+      #      (131, 147, 149); `ldd` reports no missing libraries and
+      #      `--dump-dom about:blank` returns real DOM. Every registration runs
+      #      as root on the one host, so they all share that cache.
+      #   3. **Every one of them refuses to start as root without
+      #      `--no-sandbox`** — "Running as root without --no-sandbox is not
+      #      supported. See https://crbug.com/638180." With the flag, both the
+      #      full Chrome and `chrome-headless-shell` reach "DevTools listening
+      #      on ws://..." , which is precisely what karma-chrome-launcher waits
+      #      for.
+      #
+      # (3) is why setting CHROME_BIN alone is not the fix: Karma's stock
+      # `ChromeHeadless` launcher does not pass `--no-sandbox`, so CHROME_BIN on
+      # its own only trades one red for another. A wrapper script that injects
+      # the flag fixes every module at once, with no per-module
+      # `karma.config.d/` and no change to any build.gradle.kts.
+      #
+      # Deliberately NOT done: narrowing this gate to `jvmTest` the way
+      # sdk/ci.yml does. That was the standing suggestion while Chrome's
+      # availability was unknown, and the measurement says it is unnecessary.
+      # It would also cost real coverage, not just duplicate runs: there are no
+      # `wasmJsTest` source sets in this repo, so the wasm legs execute the
+      # *same* commonTest bodies against the *wasm* actuals — `Sha256.wasmJs.kt`
+      # in sdk-audit and sdk-proposal (pure-Kotlin SHA-256, a different
+      # implementation from the JVM MessageDigest path, whose whole purpose is
+      # byte-identical hashes across platforms), `HttpClientFactory.wasmJs.kt`
+      # in core-network, `HostLocale.wasmJs.kt` in sdk-ui-kit,
+      # `Platform.wasmJs.kt` in sdk-ui-buyonline. Dropping the wasm legs would
+      # leave every one of those untested.
+      #
+      # The resolution order is: use a browser already on the box, else let
+      # puppeteer fetch one (npx 11.16.0 is present and the cache is writable).
+      # The step never fails the job — if it finds nothing it says so and the
+      # build fails exactly where it does today, no worse and no quieter.
+      - name: Provide ChromeHeadless for wasmJsBrowserTest
+        shell: bash
+        run: |
+          set -u
+          find_chrome() {
+            for c in "$(command -v google-chrome || true)" \
+                     "$(command -v chromium || true)" \
+                     "$(command -v chromium-browser || true)"; do
+              [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
+            done
+            find "${HOME}/.cache/puppeteer" "${HOME}/.cache/ms-playwright" \
+                 -maxdepth 5 -type f \
+                 \( -name chrome-headless-shell -o -name chrome -o -name headless_shell \) \
+                 -perm -u+x 2>/dev/null | sort | head -1
+          }
+          CHROME="$(find_chrome)"
+          if [ -z "$CHROME" ]; then
+            echo "No Chrome on the box — asking puppeteer for one."
+            npx --yes puppeteer@23 browsers install chrome-headless-shell >/dev/null 2>&1 || true
+            CHROME="$(find_chrome)"
+          fi
+          if [ -z "$CHROME" ]; then
+            echo "::warning::No ChromeHeadless could be found or installed. wasmJsBrowserTest will fail with 'set CHROME_BIN'. See the comment above this step."
+            exit 0
+          fi
+          echo "Resolved Chrome: $CHROME  ($("$CHROME" --version 2>&1 | head -1))"
+          # The wrapper exists solely to add --no-sandbox, which Chrome requires
+          # of a root process and karma-chrome-launcher does not supply.
+          # --disable-dev-shm-usage rides along because a container /dev/shm is
+          # routinely too small for Chrome and the crash it causes is opaque.
+          WRAP="${RUNNER_TEMP:-/tmp}/chrome-headless-no-sandbox"
+          printf '#!/usr/bin/env bash\nexec "%s" --no-sandbox --disable-dev-shm-usage "$@"\n' "$CHROME" > "$WRAP"
+          chmod +x "$WRAP"
+          echo "CHROME_BIN=$WRAP" >> "$GITHUB_ENV"
+          echo "CHROME_BIN set to $WRAP"
+
       - name: Build & test
         run: ./gradlew build --no-daemon --stacktrace
 
