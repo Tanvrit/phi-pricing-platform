@@ -191,7 +191,7 @@ jobs:
             # `wasmJsBrowserTest` in one of 19 modules, with "No binary for
             # ChromeHeadless browser on your platform", which says nothing
             # about what was tried.
-            echo "::error title=No ChromeHeadless::wasmJsBrowserTest cannot run. Looked on PATH for google-chrome/chromium/chromium-browser; looked for chrome-headless-shell, headless_shell or chrome under ${SEARCHED:-<none of \$HOME/.cache/{puppeteer,ms-playwright} or /root/.cache/{puppeteer,ms-playwright} exists>}; then ran 'npx --yes puppeteer@23 browsers install chrome-headless-shell', which produced nothing usable. Install a Chrome on the runner, or point HOME at a cache that has one."
+            echo "::error title=No ChromeHeadless::wasmJsBrowserTest cannot run. Looked on PATH for google-chrome/chromium/chromium-browser; looked for chrome-headless-shell, headless_shell or chrome under ${SEARCHED:-<no puppeteer or ms-playwright cache directory exists under \$HOME or /root>}; then ran 'npx --yes puppeteer@23 browsers install chrome-headless-shell', which produced nothing usable. Install a Chrome on the runner, or point HOME at a cache that has one."
             exit 1
           fi
           echo "Resolved Chrome: $CHROME  ($("$CHROME" --version 2>&1 | head -1 || echo 'version unknown'))"

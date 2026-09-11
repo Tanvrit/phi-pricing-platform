@@ -82,6 +82,19 @@ PY
 BODY="$SANDBOX/step.sh"
 extract_step > "$BODY"
 
+# The harness rewrites the literal `/root/.cache` to a sandbox. If the step
+# ever stops containing that literal the rewrite becomes a no-op, the cases
+# below would silently run against the REAL /root/.cache, and on the fleet
+# (where that cache is populated) every one of them would pass for the wrong
+# reason. Refuse to run rather than report a false green.
+[ -s "$BODY" ] || { echo "FAIL: extracted an empty body for '$STEP_NAME'"; exit 1; }
+grep -q '/root/\.cache' "$BODY" || {
+  echo "FAIL: the step no longer contains the literal '/root/.cache', so this"
+  echo "      harness cannot sandbox it. Update the rewrite in this script"
+  echo "      before trusting any result from it."
+  exit 1
+}
+
 # ---------------------------------------------------------------------------
 # Fixtures. Exactly the inventory the fleet probes reported (compute run
 # 34544934216 and 34544761627): six Chrome-for-Testing builds across a
