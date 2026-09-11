@@ -96,7 +96,13 @@ jobs:
                      "$(command -v chromium-browser || true)"; do
               [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
             done
+            # Both $HOME and /root: the probe found the caches under /root
+            # because the runner executes as root, but $HOME is what a
+            # puppeteer install in this job would write to, and the two are not
+            # guaranteed to agree. Searching one and not the other is how this
+            # step would quietly find nothing.
             find "${HOME}/.cache/puppeteer" "${HOME}/.cache/ms-playwright" \
+                 /root/.cache/puppeteer /root/.cache/ms-playwright \
                  -maxdepth 5 -type f \
                  \( -name chrome-headless-shell -o -name chrome -o -name headless_shell \) \
                  -perm -u+x 2>/dev/null | sort | head -1
