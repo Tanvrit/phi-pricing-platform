@@ -41,8 +41,12 @@ Prefixes: `feat` · `fix` · `chore` · `docs` · `test` · `refactor` · `perf`
 ## Local pre-push
 
 ```bash
-make test    # ./gradlew test koverXmlReport
-make build   # ./gradlew build  (needs CHROME_BIN — see docs/08-development.md)
+make test    # ./gradlew test
+make build   # ./gradlew build -x test
+             #   -x test skips only tasks literally NAMED `test`, so the
+             #   19 modules with `wasmJs { browser() }` still run
+             #   wasmJsBrowserTest and still need a headless Chrome on
+             #   CHROME_BIN — see docs/08-development.md
 ```
 
 ## Architecture rules (please follow)

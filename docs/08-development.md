@@ -27,6 +27,7 @@ This guide covers prerequisites, build commands, running each module, project st
 | JDK | 17 or 21 | Required by all modules |
 | Gradle | 8.11.1 (wrapper included) | Build system |
 | PostgreSQL | 15+ | Required by `:server` for quote persistence and import |
+| Chrome / Chromium | any recent | Required by `./gradlew build` and `make build`: 19 modules declare `wasmJs { browser() }`, so the build runs `wasmJsBrowserTest` under Karma. See [Build All Modules](#build-all-modules) for how to point `CHROME_BIN` at one without installing a system package. |
 
 ### Recommended
 
@@ -742,6 +743,33 @@ call.respond(StatusResponse("ok", 5))
 **Symptom:** `Plugin 'com.android.library' not found`
 
 **Fix:** The Android target has been removed from `:buyonline`. Ensure `buyonline/build.gradle.kts` does not include `id("com.android.library")` and no `android { }` block.
+
+### Issue: `build` fails with "No binary for ChromeHeadless browser on your platform"
+
+**Symptom:** `./gradlew build`, `./gradlew clean build` or `make build` fails in
+one of the 19 `wasmJs { browser() }` modules with
+
+```
+No binary for ChromeHeadless browser on your platform. Please, set CHROME_BIN
+```
+
+`make build` is not exempt: it runs `./gradlew build -x test`, and `-x test`
+excludes only tasks literally named `test` — the wasm task is
+`wasmJsBrowserTest`.
+
+**Fix:** install Chrome or Chromium, or fetch one without a system package:
+
+```bash
+npx --yes puppeteer@23 browsers install chrome-headless-shell
+export CHROME_BIN="$(find ~/.cache/puppeteer -name chrome-headless-shell -perm -u+x | sort -Vr | head -1)"
+```
+
+**If you are root** (a container, a CI-shaped box) that is not enough: Chrome
+refuses to start without `--no-sandbox`, and Karma's launcher does not pass it,
+so `CHROME_BIN` must point at a wrapper. The full recipe, and the measurement
+behind it, are in [Build All Modules](#build-all-modules) and in the comment
+above the `Provide ChromeHeadless for wasmJsBrowserTest` step of
+`.github/workflows/build.yml`.
 
 ### Issue: `gradle build` fails on iOS targets
 

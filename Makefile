@@ -15,7 +15,11 @@ SERVER_ENV = PORT=$(PORT) MONGO_URI='$(MONGO_URI)' MONGO_DB=$(MONGO_DB) \
 help:
 	@echo "PRUHealth Rate Platform — common targets (MongoDB + core/sdk modules)"
 	@echo ""
-	@echo "  make build          Build all modules (single end build)"
+	@echo "  make build          Build all modules (gradlew build -x test)"
+	@echo "                      Needs a headless Chrome on CHROME_BIN: -x test"
+	@echo "                      skips only tasks named 'test', so the 19"
+	@echo "                      wasmJs modules still run wasmJsBrowserTest."
+	@echo "                      See docs/08-development.md."
 	@echo "  make test           Run all module tests"
 	@echo "  make core-test      Run :shared:core + :shared:sdk commonTest only"
 	@echo "  make docker-up      Start MongoDB single-node replica set (docker)"

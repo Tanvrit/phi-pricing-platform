@@ -82,42 +82,119 @@ jobs:
       # `Platform.wasmJs.kt` in sdk-ui-buyonline. Dropping the wasm legs would
       # leave every one of those untested.
       #
-      # The resolution order is: use a browser already on the box, else let
-      # puppeteer fetch one (npx 11.16.0 is present and the cache is writable).
-      # The step never fails the job — if it finds nothing it says so and the
-      # build fails exactly where it does today, no worse and no quieter.
+      # Resolution order: a browser already on PATH, then one already in a
+      # puppeteer/playwright cache under $HOME or /root, then one fetched by
+      # `npx puppeteer browsers install` (npx 11.16.0 is present and the cache
+      # is writable). If all three fail the step FAILS, with a message naming
+      # everywhere it looked.
+      #
+      # 2026-09-11, SECOND PASS — three defects, all in the previous version of
+      # this step, all found by running its own body under GitHub's real step
+      # shell (`bash --noprofile --norc -e -o pipefail`) against synthetic
+      # caches. scripts/test-chrome-step.sh is that harness; it now lives in
+      # the repo and drives the step body extracted from THIS file, because
+      # this job cannot be scheduled (see the probe note above: phi is public,
+      # the `tanvrit` runner group does not serve public repositories) and a
+      # step nobody can run is a step nobody can check.
+      #
+      #   1. `find A B C D | sort | head -1` exits 1 when ANY start directory
+      #      is absent, `-o pipefail` carries that through the pipe, and
+      #      `CHROME="$(find_chrome)"` takes the substitution's status, so
+      #      `-e` killed the step. Measured: with $HOME diverging from /root —
+      #      precisely the case commit 417b53c was written to fix — the step
+      #      exited 1 with ZERO output, after find had already printed the
+      #      right binary. The Chrome it found was discarded unused.
+      #   2. The npx fallback and the "no Chrome anywhere" message were both
+      #      unreachable for the same reason: on a box with no cache directory
+      #      at all, the script died at the first `find_chrome` and never
+      #      reached either. The step's old comment promised it "never fails
+      #      the job"; it failed the job, and more quietly than the plain
+      #      `set CHROME_BIN` error it replaced.
+      #   3. `sort | head -1` picked
+      #      /root/.cache/ms-playwright/chromium-1148/chrome-linux/chrome
+      #      (Chromium 131.0.6778.33) — lexicographically first, and the one
+      #      binary of the six that no probe ever launched. The probes drove
+      #      chrome-headless-shell and full Chrome-for-Testing. Selection is
+      #      now by kind (headless shell first, both proven DRIVABLE with
+      #      --no-sandbox) and then by version, newest first, instead of by
+      #      whatever sorts first.
+      # Runs the step below against synthetic caches before the real one
+      # executes. ~1s, no network. It exists because this job cannot currently
+      # be scheduled at all (public repo, `tanvrit` runner group serves private
+      # repos only), so two successive fixes to that step shipped unexecuted
+      # and both were broken. See the header of the script.
+      - name: Self-test the ChromeHeadless step
+        shell: bash
+        run: bash scripts/test-chrome-step.sh
+
       - name: Provide ChromeHeadless for wasmJsBrowserTest
         shell: bash
         run: |
           set -u
+          SEARCHED=""
+
+          # Never let a missing directory, or head(1) closing the pipe, decide
+          # the exit status of this step. Every pipeline below ends in
+          # `|| true` and every start directory is checked with -d first.
           find_chrome() {
-            for c in "$(command -v google-chrome || true)" \
-                     "$(command -v chromium || true)" \
-                     "$(command -v chromium-browser || true)"; do
-              [ -n "$c" ] && [ -x "$c" ] && { echo "$c"; return 0; }
+            local c p d roots found pick n
+            for c in google-chrome chromium chromium-browser; do
+              p="$(command -v "$c" 2>/dev/null || true)"
+              if [ -n "$p" ] && [ -x "$p" ]; then printf '%s\n' "$p"; return 0; fi
             done
+
             # Both $HOME and /root: the probe found the caches under /root
             # because the runner executes as root, but $HOME is what a
             # puppeteer install in this job would write to, and the two are not
-            # guaranteed to agree. Searching one and not the other is how this
-            # step would quietly find nothing.
-            find "${HOME}/.cache/puppeteer" "${HOME}/.cache/ms-playwright" \
-                 /root/.cache/puppeteer /root/.cache/ms-playwright \
-                 -maxdepth 5 -type f \
-                 \( -name chrome-headless-shell -o -name chrome -o -name headless_shell \) \
-                 -perm -u+x 2>/dev/null | sort | head -1
+            # guaranteed to agree. De-duplicated, because on the fleet they are
+            # the same directory and `find` would then report every hit twice.
+            roots=""
+            for d in "${HOME:-}/.cache/puppeteer" "${HOME:-}/.cache/ms-playwright" \
+                     /root/.cache/puppeteer /root/.cache/ms-playwright; do
+              case "$d" in /.cache/*) continue ;; esac   # $HOME unset
+              [ -d "$d" ] || continue
+              case ":$roots:" in *":$d:"*) continue ;; esac
+              roots="${roots:+$roots:}$d"
+            done
+            SEARCHED="$roots"
+            [ -n "$roots" ] || return 0
+
+            found="$(IFS=:; find $roots -maxdepth 5 -type f -perm -u+x \
+                       \( -name chrome-headless-shell \
+                          -o -name headless_shell \
+                          -o -name chrome \) 2>/dev/null || true)"
+            [ -n "$found" ] || return 0
+
+            # Kind before version. chrome-headless-shell and headless_shell are
+            # the two the fleet probes actually drove to "DevTools listening on
+            # ws://..." with --no-sandbox; full `chrome` is the fallback. `sort
+            # -Vr` then takes the newest build of the chosen kind, so adding or
+            # removing an unrelated cache entry cannot silently change the
+            # answer the way lexicographic order did.
+            for n in chrome-headless-shell headless_shell chrome; do
+              pick="$(printf '%s\n' "$found" | grep -E "/${n}\$" | sort -Vr | head -1 || true)"
+              if [ -n "$pick" ]; then printf '%s\n' "$pick"; return 0; fi
+            done
+            return 0
           }
+
           CHROME="$(find_chrome)"
           if [ -z "$CHROME" ]; then
-            echo "No Chrome on the box — asking puppeteer for one."
-            npx --yes puppeteer@23 browsers install chrome-headless-shell >/dev/null 2>&1 || true
+            echo "No Chrome on PATH or in ${SEARCHED:-<no cache directory exists>} — asking puppeteer for one."
+            npx --yes puppeteer@23 browsers install chrome-headless-shell 2>&1 | tail -5 || true
             CHROME="$(find_chrome)"
           fi
           if [ -z "$CHROME" ]; then
-            echo "::warning::No ChromeHeadless could be found or installed. wasmJsBrowserTest will fail with 'set CHROME_BIN'. See the comment above this step."
-            exit 0
+            # Fail HERE, not four minutes later inside Karma. The old step
+            # emitted a warning and exited 0 so the build would "fail exactly
+            # where it does today" — but where it does today is
+            # `wasmJsBrowserTest` in one of 19 modules, with "No binary for
+            # ChromeHeadless browser on your platform", which says nothing
+            # about what was tried.
+            echo "::error title=No ChromeHeadless::wasmJsBrowserTest cannot run. Looked on PATH for google-chrome/chromium/chromium-browser; looked for chrome-headless-shell, headless_shell or chrome under ${SEARCHED:-<none of \$HOME/.cache/{puppeteer,ms-playwright} or /root/.cache/{puppeteer,ms-playwright} exists>}; then ran 'npx --yes puppeteer@23 browsers install chrome-headless-shell', which produced nothing usable. Install a Chrome on the runner, or point HOME at a cache that has one."
+            exit 1
           fi
-          echo "Resolved Chrome: $CHROME  ($("$CHROME" --version 2>&1 | head -1))"
+          echo "Resolved Chrome: $CHROME  ($("$CHROME" --version 2>&1 | head -1 || echo 'version unknown'))"
           # The wrapper exists solely to add --no-sandbox, which Chrome requires
           # of a root process and karma-chrome-launcher does not supply.
           # --disable-dev-shm-usage rides along because a container /dev/shm is
