@@ -2,7 +2,7 @@ package com.rate.persistence.codec
 
 import com.mongodb.MongoClientSettings
 import com.rate.core.money.Money
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind

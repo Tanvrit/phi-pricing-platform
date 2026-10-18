@@ -2,7 +2,7 @@ package com.rate.sdk.policy.model
 
 import com.rate.core.money.Money
 import com.rate.core.rating.ports.model.Member
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

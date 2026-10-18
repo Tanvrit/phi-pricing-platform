@@ -6,7 +6,7 @@ import com.rate.core.base.time.Now
 import com.rate.core.money.Money
 import com.rate.core.rating.ports.model.Member
 import com.rate.core.rating.ports.model.Tenure
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

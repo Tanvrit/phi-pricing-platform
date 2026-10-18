@@ -6,7 +6,7 @@ import com.rate.core.base.model.EntityStatus
 import com.rate.core.base.time.Now
 import com.rate.core.rating.ports.model.CoverParam
 import com.rate.core.rating.ports.model.ProductLine
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

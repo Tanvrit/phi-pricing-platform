@@ -1,7 +1,7 @@
 package com.rate.sdk.proposal.model
 
 import com.rate.core.money.Money
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

@@ -8,7 +8,7 @@ import com.rate.sdk.policy.model.Endorsement
 import com.rate.sdk.policy.model.EndorsementResult
 import com.rate.sdk.policy.model.Nominee
 import com.rate.sdk.policy.model.Policy
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Prices mid-term [Endorsement]s pro-rata over the unexpired tenure. Pure over the injected

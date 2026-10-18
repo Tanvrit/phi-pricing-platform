@@ -7,7 +7,7 @@ import com.rate.core.regulatory.Irdai
 import com.rate.core.regulatory.getAgeBand
 import com.rate.sdk.policy.model.Policy
 import com.rate.sdk.policy.model.RenewalQuote
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Pure renewal calculator.

@@ -14,26 +14,4 @@ plugins {
     alias(libs.plugins.compose.compiler) apply false
 }
 
-// Pin androidx.lifecycle to a version that's reliably in the local Gradle cache.
-// Compose Material 1.7.3 transitively pulls androidx.lifecycle 2.8.5, which lives
-// only on dl.google.com — a host that is intermittently unreachable in some dev
-// environments (CI, restricted networks). Forcing 2.9.4 (cached locally on the
-// reference machine and superset-compatible at the API level) keeps :aegis
-// runnable on both JVM and WASM without a working Google Maven mirror.
-subprojects {
-    configurations.all {
-        resolutionStrategy {
-            force(
-                "androidx.lifecycle:lifecycle-common:2.9.4",
-                "androidx.lifecycle:lifecycle-runtime:2.9.4",
-                "androidx.lifecycle:lifecycle-viewmodel:2.9.4",
-                // collection-jvm 1.4.0 is referenced transitively but its jar isn't
-                // mirrored to mavenCentral and dl.google.com TLS-resets here; 1.5.0
-                // is cached locally + Aliyun-mirrored.
-                "androidx.collection:collection:1.5.0",
-                "androidx.collection:collection-jvm:1.5.0",
-                "androidx.collection:collection-ktx:1.5.0"
-            )
-        }
-    }
-}
+// Compose selects compatible lifecycle and collection artifacts transitively.

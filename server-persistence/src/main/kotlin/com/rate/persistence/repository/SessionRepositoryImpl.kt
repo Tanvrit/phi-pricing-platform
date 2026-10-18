@@ -12,7 +12,7 @@ import com.rate.sdk.proposal.model.BuyOnlineSessionState
 import com.rate.sdk.proposal.repository.SessionRepository
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.toList
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import org.bson.BsonDateTime
 import org.bson.BsonString
 

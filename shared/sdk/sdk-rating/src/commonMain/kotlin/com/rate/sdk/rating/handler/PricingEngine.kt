@@ -15,7 +15,7 @@ import com.rate.core.regulatory.getFamilyTypeInfo
 import com.rate.sdk.rating.model.COVER_ACCUM_BASES
 import com.rate.sdk.rating.model.CoverIds
 import com.rate.sdk.rating.model.QuoteValidators
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min

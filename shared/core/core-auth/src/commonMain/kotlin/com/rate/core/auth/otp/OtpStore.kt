@@ -1,6 +1,6 @@
 package com.rate.core.auth.otp
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * PORT for OTP persistence keyed by `<mobile>:<purpose>`. The actual lives in the

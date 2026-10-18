@@ -20,8 +20,11 @@ plugins {
 kotlin {
     jvmToolchain(21)
     jvm()
+    // Match the supported Apple targets exposed by sdk-ui-operator.
+    val os = org.gradle.internal.os.OperatingSystem.current()
+    if (os.isMacOsX) { iosArm64(); iosSimulatorArm64() }
 
-    @OptIn(org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl::class)
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
     sourceSets {
@@ -41,6 +44,9 @@ kotlin {
         }
         jvmMain.dependencies {
             implementation(libs.ktor.client.cio)
+        }
+        if (os.isMacOsX) {
+            iosMain.dependencies { implementation(libs.ktor.client.darwin) }
         }
         wasmJsMain.dependencies {
             implementation(libs.ktor.client.js)

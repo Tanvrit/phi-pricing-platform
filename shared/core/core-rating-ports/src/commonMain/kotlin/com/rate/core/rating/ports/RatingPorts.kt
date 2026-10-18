@@ -7,7 +7,7 @@ import com.rate.core.rating.ports.model.Plan
 import com.rate.core.rating.ports.model.QuoteRequest
 import com.rate.core.rating.ports.model.QuoteResult
 import com.rate.core.rating.ports.model.Tenure
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 
 /**

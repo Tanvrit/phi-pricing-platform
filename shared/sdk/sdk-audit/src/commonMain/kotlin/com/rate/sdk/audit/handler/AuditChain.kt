@@ -4,7 +4,7 @@ import com.rate.sdk.audit.crypto.sha256Hex
 import com.rate.sdk.audit.model.AuditActor
 import com.rate.sdk.audit.model.AuditEvent
 import com.rate.sdk.audit.model.VerifyResult
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Pure-KMP hash-chain primitives. No IO, no Mongo — these compute and verify hashes

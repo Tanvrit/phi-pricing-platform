@@ -20,11 +20,12 @@ kotlin {
     jvmToolchain(21)
     jvm()
 
-    @OptIn(org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl::class)
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
     val os = org.gradle.internal.os.OperatingSystem.current()
-    if (os.isMacOsX) { iosArm64(); iosX64(); iosSimulatorArm64() }
+    // Compose Multiplatform no longer publishes Intel simulator artifacts.
+    if (os.isMacOsX) { iosArm64(); iosSimulatorArm64() }
 
     sourceSets {
         commonMain.dependencies {

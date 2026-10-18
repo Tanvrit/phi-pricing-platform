@@ -4,7 +4,7 @@ import com.rate.core.base.id.newId
 import com.rate.core.base.model.BaseDataClass
 import com.rate.core.base.time.Now
 import com.rate.core.rating.ports.model.Member
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

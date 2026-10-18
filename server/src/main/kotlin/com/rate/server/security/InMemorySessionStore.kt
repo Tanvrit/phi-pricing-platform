@@ -2,7 +2,7 @@ package com.rate.server.security
 
 import com.rate.core.auth.session.SessionRecord
 import com.rate.core.auth.session.SessionStore
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 /**

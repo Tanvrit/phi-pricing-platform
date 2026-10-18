@@ -1,7 +1,7 @@
 package com.rate.sdk.party.event
 
 import com.rate.core.rating.ports.model.ProductLine
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

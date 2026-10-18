@@ -282,7 +282,7 @@ class GroupPricingEngine(
     }
 
     private fun generateId(): String {
-        val ms = kotlinx.datetime.Clock.System.now().toEpochMilliseconds()
+        val ms = kotlin.time.Clock.System.now().toEpochMilliseconds()
         val rnd = kotlin.random.Random.nextInt(0, 0xFFFF)
         return "GQ-${ms.toString(16).uppercase()}-${rnd.toString(16).uppercase().padStart(4, '0')}"
     }

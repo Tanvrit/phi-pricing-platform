@@ -12,7 +12,7 @@ import com.rate.core.base.time.Now
 import com.rate.sdk.proposal.crypto.sha256Hex
 import com.rate.sdk.proposal.event.ProposalEvent
 import com.rate.sdk.proposal.event.ProposalEventSink
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.random.Random
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.hours

@@ -3,7 +3,7 @@ package com.rate.server.security
 import com.rate.core.auth.otp.OtpPurpose
 import com.rate.core.auth.otp.OtpRecord
 import com.rate.core.auth.otp.OtpStore
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 
 /**

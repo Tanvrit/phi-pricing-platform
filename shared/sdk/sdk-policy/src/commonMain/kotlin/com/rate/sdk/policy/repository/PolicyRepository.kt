@@ -4,7 +4,7 @@ import com.rate.core.base.model.Page
 import com.rate.core.base.model.PageRequest
 import com.rate.sdk.policy.model.Policy
 import com.rate.sdk.policy.model.PolicyStatus
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Persistence PORT for [Policy] documents. Policies are TRANSACTIONAL records

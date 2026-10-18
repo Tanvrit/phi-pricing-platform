@@ -11,7 +11,7 @@ import com.rate.sdk.policy.model.Policy
 import com.rate.sdk.policy.model.PolicyStatus
 import com.rate.sdk.policy.repository.PolicyRepository
 import kotlinx.coroutines.flow.toList
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Mongo actual for [PolicyRepository] — transactional policy documents produced by the

@@ -23,7 +23,7 @@ kotlin {
     jvmToolchain(21)
     jvm()
 
-    @OptIn(org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl::class)
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs { browser() }
 
     sourceSets {

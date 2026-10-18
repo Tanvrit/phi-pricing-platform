@@ -21,7 +21,7 @@ kotlin {
     jvm()
     val os = org.gradle.internal.os.OperatingSystem.current()
     if (os.isMacOsX) { iosArm64(); iosX64(); iosSimulatorArm64() }
-    @OptIn(org.jetbrains.kotlin.gradle.targets.js.dsl.ExperimentalWasmDsl::class)
+    @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
     wasmJs { browser(); nodejs() }
 
     sourceSets {

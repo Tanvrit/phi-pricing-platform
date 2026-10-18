@@ -8,7 +8,7 @@ import com.rate.core.money.Money
 import com.rate.core.rating.ports.model.ProductLine
 import com.rate.core.regulatory.CoverageLogic
 import com.rate.core.regulatory.PayoutType
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

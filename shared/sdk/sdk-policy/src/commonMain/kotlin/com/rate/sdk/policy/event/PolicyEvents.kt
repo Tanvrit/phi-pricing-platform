@@ -1,7 +1,7 @@
 package com.rate.sdk.policy.event
 
 import com.rate.sdk.policy.model.PolicyStatus
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

@@ -1,7 +1,7 @@
 package com.rate.core.base.time
 
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * Single source of "now". Wrapping [Clock.System] here keeps `Clock.System.now()`

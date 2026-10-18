@@ -1,6 +1,6 @@
 package com.rate.server.email
 
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.security.MessageDigest

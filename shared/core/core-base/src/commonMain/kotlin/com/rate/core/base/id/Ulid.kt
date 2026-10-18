@@ -1,6 +1,6 @@
 package com.rate.core.base.id
 
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlin.random.Random
 
 /**

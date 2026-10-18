@@ -16,3 +16,10 @@ buyonline/
 node_modules/
 local.properties
 .env
+
+**/.env*
+**/*.key
+**/*.p8
+**/*.jks
+**/*.keystore
+**/local.properties

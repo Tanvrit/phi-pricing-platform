@@ -1,7 +1,7 @@
 package com.rate.sdk.proposal.repository
 
 import com.rate.sdk.proposal.model.BuyOnlineSessionState
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Persistence PORT for buy-online save+resume sessions ([BuyOnlineSessionState]) with TTL

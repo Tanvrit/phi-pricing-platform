@@ -2,7 +2,7 @@ package com.rate.sdk.proposal.model
 
 import com.rate.core.auth.kyc.KycMethod
 import com.rate.core.auth.kyc.KycStatus
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

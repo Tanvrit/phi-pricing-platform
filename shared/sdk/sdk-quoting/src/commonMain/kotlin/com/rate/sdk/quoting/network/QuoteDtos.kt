@@ -4,7 +4,7 @@ import com.rate.core.rating.ports.QuoteSummary
 import com.rate.core.rating.ports.model.QuoteRequest
 import com.rate.core.rating.ports.model.QuoteResult
 import com.rate.sdk.quoting.handler.doc.CustomerInformationSheet
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import com.rate.sdk.quoting.handler.doc.GroupBenefitSchedule
 import com.rate.sdk.quoting.handler.doc.ProspectusDocument
 import com.rate.sdk.quoting.handler.doc.SalesIllustration

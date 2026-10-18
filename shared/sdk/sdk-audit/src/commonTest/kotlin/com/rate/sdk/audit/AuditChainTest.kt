@@ -3,7 +3,7 @@ package com.rate.sdk.audit
 import com.rate.sdk.audit.handler.AuditChain
 import com.rate.sdk.audit.model.AuditActor
 import com.rate.sdk.audit.model.AuditEvent
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

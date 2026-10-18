@@ -17,7 +17,7 @@ import com.rate.sdk.policy.model.PolicyStatus
 import com.rate.sdk.policy.model.PortabilityRequest
 import com.rate.sdk.policy.model.PortabilityResult
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

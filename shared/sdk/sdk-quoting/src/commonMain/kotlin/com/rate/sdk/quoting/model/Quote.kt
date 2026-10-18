@@ -8,7 +8,7 @@ import com.rate.core.money.toMoney
 import com.rate.core.rating.ports.model.ProductLine
 import com.rate.core.rating.ports.model.QuoteRequest
 import com.rate.core.rating.ports.model.QuoteResult
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 

@@ -10,7 +10,7 @@ import com.rate.sdk.proposal.crypto.sha256Hex
 import com.rate.sdk.proposal.handler.OtpConfig
 import com.rate.sdk.proposal.handler.OtpHandler
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull

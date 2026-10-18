@@ -1,6 +1,6 @@
 package com.rate.core.auth.session
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * PORT for session persistence with TTL semantics. The actual lives in the server app

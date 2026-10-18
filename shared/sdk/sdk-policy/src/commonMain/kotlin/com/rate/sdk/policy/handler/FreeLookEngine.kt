@@ -3,7 +3,7 @@ package com.rate.sdk.policy.handler
 import com.rate.core.money.Money
 import com.rate.core.regulatory.Irdai
 import com.rate.sdk.policy.model.Policy
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlin.math.max
