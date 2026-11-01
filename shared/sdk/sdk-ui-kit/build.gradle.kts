@@ -25,7 +25,12 @@ kotlin {
     if (os.isMacOsX) { iosArm64(); iosSimulatorArm64() }
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs { browser() }
+    wasmJs {
+        browser()
+        // Compose UI tests on wasmJs need an executable binary so webpack bundles
+        // the Skiko runtime (CMP-4906; checkComposeUiTestConfigurationForWasmJs).
+        binaries.executable()
+    }
 
     sourceSets {
         commonMain.dependencies {
