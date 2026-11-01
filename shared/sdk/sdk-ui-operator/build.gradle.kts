@@ -21,7 +21,12 @@ kotlin {
     jvm()
 
     @OptIn(org.jetbrains.kotlin.gradle.ExperimentalWasmDsl::class)
-    wasmJs { browser() }
+    wasmJs {
+        browser()
+        // Compose UI tests on wasmJs need an executable binary so webpack bundles
+        // the Skiko runtime (CMP-4906; checkComposeUiTestConfigurationForWasmJs).
+        binaries.executable()
+    }
 
     val os = org.gradle.internal.os.OperatingSystem.current()
     // Compose Multiplatform no longer publishes Intel simulator artifacts.
