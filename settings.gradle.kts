@@ -2,7 +2,17 @@ rootProject.name = "rate-calculator"
 
 pluginManagement {
     repositories {
-        google()
+        // Google Maven serves only these groups. Unfiltered, every other lookup
+        // also went to dl.google.com first, and one DNS blip there failed
+        // artifacts that live on Maven Central (and disabled the repository for
+        // the rest of the build).
+        google {
+            mavenContent {
+                includeGroupAndSubgroups("androidx")
+                includeGroupAndSubgroups("com.android")
+                includeGroupAndSubgroups("com.google")
+            }
+        }
         gradlePluginPortal()
         mavenCentral()
     }
@@ -15,7 +25,13 @@ dependencyResolutionManagement {
     // failover when dl.google.com connection-resets (Connection reset during TLS).
     repositories {
         mavenCentral()
-        google()
+        google {
+            mavenContent {
+                includeGroupAndSubgroups("androidx")
+                includeGroupAndSubgroups("com.android")
+                includeGroupAndSubgroups("com.google")
+            }
+        }
         maven {
             name = "Google Maven Mirror (Aliyun)"
             url = uri("https://maven.aliyun.com/repository/google")
